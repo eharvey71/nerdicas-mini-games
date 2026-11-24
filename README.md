@@ -22,20 +22,6 @@ The project is set in `.firebaserc` (`nerdicas-mini-games`), so the site is serv
 To look before publishing: `firebase emulators:start --only hosting`,
 or a preview channel: `firebase hosting:channel:deploy preview`.
 
-## Deploy on push (GitHub Actions)
-
-`.github/workflows/deploy.yml` deploys `main` to the live site. It is skipped
-until both of these exist in the repo settings (Settings, Secrets and variables, Actions):
-
-- Variable `FIREBASE_PROJECT_ID`: the Firebase project ID.
-- Secret `FIREBASE_SERVICE_ACCOUNT`: the JSON key of a service account that can
-  deploy to Hosting (Firebase console, Project settings, Service accounts,
-  Generate new private key).
-
-Alternatively run `firebase init hosting:github` in this folder. It creates the
-service account and secret for you and writes its own workflow files; delete
-`deploy.yml` afterwards so the site is not deployed twice.
-
 ## Add a game
 
 1. Put the game in its own folder under `public/`, with its page named `index.html`.
