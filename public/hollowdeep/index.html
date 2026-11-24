@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hollowdeep</title>
+<meta name="description" content="A 1-bit wireframe dungeon crawl. Twenty levels down, a dead king wears a crown.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
+<style>
+/* layout: one phone-width column — 1-bit viewport, status strip, message log, 3-column key pad */
+:root{
+  --fg:#33ff66;          /* phosphor, swapped by the HUE key */
+  --bg:#000000;
+  --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+body{display:flex;justify-content:center;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+#app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:6px;padding:8px 16px 12px}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+h1{font-family:var(--font-display);font-size:15px;letter-spacing:.35em;margin:0;font-weight:700}
+#snd{font-size:11px;padding:4px 8px;min-height:0}
+#home{font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);border:2px solid var(--fg);padding:4px 8px;text-decoration:none;white-space:nowrap}
+#home:active{background:var(--fg);color:var(--bg)}
+#home:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+h1{flex:1;text-align:center}
+#view{position:relative;border:2px solid var(--fg);aspect-ratio:280/192;width:100%;background:var(--bg)}
+canvas{width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+#ovl{position:absolute;inset:0;display:none;padding:10px 12px;font-size:13px;line-height:1.35;overflow:auto;background:var(--bg)}
+#ovl p{margin:0 0 .6em}
+#ovl h2{font-size:13px;margin:1em 0 .3em;border-bottom:2px solid var(--fg);letter-spacing:.1em}
+#ovl ul{margin:0 0 .6em;padding-left:1.2em}
+#ovl li{margin-bottom:.25em}
+#code{width:100%;height:7em;background:var(--bg);color:var(--fg);border:2px solid var(--fg);border-radius:0;font:12px/1.3 var(--font-body);padding:6px;resize:none;word-break:break-all;-webkit-user-select:text;user-select:text}
+#code:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+#ban{max-width:92%;width:max-content;position:absolute;left:0;right:0;margin:0 auto;top:50%;transform:translateY(-50%);display:none;text-align:center;background:var(--bg);border:2px solid var(--fg);box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--fg);padding:10px 20px;font-size:13px;line-height:1.5;cursor:pointer}
+#ban .big{font-family:var(--font-display);font-size:30px;font-weight:700;letter-spacing:.15em;line-height:1.3}
+#stat{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.4;display:flex;flex-wrap:wrap;gap:0 12px;min-height:3.3em;font-variant-numeric:tabular-nums}
+#log{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.3;height:7.6em;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+#log div:last-child::before{content:"> "}
+#pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+button{font:inherit;font-size:14px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:46px;cursor:pointer}
+button:active{background:var(--fg);color:var(--bg)}
+button:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+button:disabled{border-style:dotted;opacity:.35;cursor:default}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><a id="home" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>HOLLOWDEEP</h1><button id="snd" type="button">SOUND LOW</button></header>
+  <div id="view"><canvas id="cv" width="280" height="192"></canvas><div id="ovl"></div><div id="ban"></div></div>
+  <div id="stat"></div>
+  <div id="log"></div>
+  <div id="pad"></div>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
+const d=n=>rnd(1,Math.max(1,n|0));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const bonus=v=>Math.floor((v-10)/2);
+
+/* ---------- 1-bit framebuffer ---------- */
+const W=280,H=192,ctx=$('cv').getContext('2d'),img=ctx.createImageData(W,H),buf=new Uint8Array(W*H);
+const HUES=[[51,255,102],[255,176,0],[255,255,255]];let hueI=0;
+function cls(){buf.fill(0)}
+function pset(x,y){if(x>=0&&x<W&&y>=0&&y<H)buf[y*W+x]=1}
+function line(x0,y0,x1,y1){
+  x0=Math.round(x0);y0=Math.round(y0);x1=Math.round(x1);y1=Math.round(y1);
+  const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let e=dx-dy,n=0;
+  while(n++<3000){pset(x0,y0);if(x0===x1&&y0===y1)break;const e2=2*e;if(e2>-dy){e-=dy;x0+=sx}if(e2<dx){e+=dx;y0+=sy}}
+}
+function flush(inv){const c=HUES[hueI],p=img.data,m=inv?1:0;for(let i=0;i<W*H;i++){const o=i*4,v=buf[i]^m;p[o]=v?c[0]:0;p[o+1]=v?c[1]:0;p[o+2]=v?c[2]:0;p[o+3]=255}ctx.putImageData(img,0,0)}
+function setHue(){const c=HUES[hueI];document.documentElement.style.setProperty('--fg',`rgb(${c[0]},${c[1]},${c[2]})`)}
+function hue(){hueI=(hueI+1)%HUES.length;try{localStorage.setItem('hollowdeep.hue',hueI)}catch(e){}setHue();render()}
+
+/* ---------- perspective: x in [-1,1], y in [0,2] (floor..ceiling), k = depth in cells ---------- */
+const CX=139.5,CY=95.5;
+const sc=k=>0.7/(k+0.7);
+function L3(x0,y0,k0,x1,y1,k1){const a=sc(k0),b=sc(k1);line(CX+x0*CX*a,CY+(1-y0)*CY*a,CX+x1*CX*b,CY+(1-y1)*CY*b)}
+function poly(pts,k,close){for(let i=0;i<pts.length-1;i++)L3(pts[i][0],pts[i][1],k,pts[i+1][0],pts[i+1][1],k);if(close){const a=pts[pts.length-1],b=pts[0];L3(a[0],a[1],k,b[0],b[1],k)}}
+
+/* ---------- vector art on a 20x20 grid (0,0 bottom-left) ---------- */
+const RAW={
+skel:"8,17 8,20 12,20 12,17 11,16 9,16 8,17;9,18 9,19;11,18 11,19;10,16 10,8;7,14 13,14;7,12 13,12;8,10 12,10;6,15 14,15;6,15 4,10 5,7;14,15 16,10 17,13;17,13 19,19;8,8 12,8;8,8 7,4 8,0 6,0;12,8 13,4 12,0 14,0",
+goblin:"7,12 13,12 14,10 10,7 6,10 7,12;7,12 4,14 6,10;13,12 16,14 14,10;8,10 9,10;11,10 12,10;8,8 12,8 13,3 7,3 8,8;8,7 5,5;12,7 15,6;15,6 16,11 17,11 16,6;8,3 7,0 5,0;12,3 13,0 15,0",
+rat:"4,3 6,6 12,7 16,5 17,3 15,1 6,1 4,3;4,3 1,3 3,5 4,5;4,5 5,7 6,6;17,3 19,5 20,2;7,1 7,0 6,0;14,1 14,0 13,0;3,4 3,4",
+slime:"3,0 2,3 4,6 7,7 10,9 13,7 16,6 18,3 17,0 3,0;8,5 8,6;12,5 12,6;8,3 10,2 12,3;19,0 20,1;1,0 0,1",
+orc:"8,15 12,15 12,19 8,19 8,15;9,15 9,16.5;11,15 11,16.5;9,18 9.6,18;10.4,18 11,18;6,15 14,15 13,7 7,7 6,15;6,15 3,10 4,7;14,15 17,11;17,6 17,19;17,19 20,18 20,15 17,14;8,7 7,0 5,0;12,7 13,0 15,0",
+spider:"8,6 12,6 14,9 12,12 8,12 6,9 8,6;9,6 9,4 11,4 11,6;9,4 9,3;11,4 11,3;6,10 3,14 1,8;6,9 2,11 0,4;14,10 17,14 19,8;14,9 18,11 20,4;7,7 4,6 3,0;13,7 16,6 17,0;7,11 5,16 3,12;13,11 15,16 17,12;10,12 10,20",
+wraith:"7,16 10,20 13,16 12,13 8,13 7,16;9,16 9,15;11,16 11,15;8,13 5,11 3,2 6,3 8,1 10,3 12,1 14,3 17,2 15,11 12,13;5,11 2,12 1,10;15,11 18,12 19,10",
+ogre:"9,15 12,15 12,18 9,18 9,15;10,17 10,16.5;11.3,17 11.3,16.5;5,15 15,16 16,8 13,5 7,5 4,8 5,15;5,15 2,8 3,3 5,3;15,16 18,9 17,3 15,3;7,5 6,0 9,0 9,5;13,5 14,0 11,0 11,5",
+mino:"8,15 12,15 12,18 8,18 8,15;8,18 5,20 6,17;12,18 15,20 14,17;9,15 9,14 11,14 11,15;9,17 9.5,17;10.5,17 11,17;6,14 14,14 12,7 8,7 6,14;6,14 3,10 5,8;14,14 17,10 15,8;8,7 7,3 8,0 6,0;12,7 13,3 12,0 14,0",
+mimic:"4,0 16,0 16,6 4,6 4,0;4,7 16,7 17,12 3,12 4,7;4,7 5,6 6,7 7,6 8,7 9,6 10,7 11,6 12,7 13,6 14,7 15,6 16,7;8,10 8,9;12,10 12,9;10,6 10,3 12,2",
+dragon:"6,2 4,5 6,9 10,10 14,9 16,5 14,2 6,2;8,10 7,14 8,17;12,10 11,14 12,16;8,17 5,19 3,17 6,15.5 12,16;5,18 5.5,18;6,9 1,17 2,10 0,11 4,5;14,9 19,17 18,10 20,11 16,5;7,2 6,0 9,0;13,2 14,0 11,0;16,4 19,2 20,4;3,17 1,16;3,16.5 1,15",
+chest:"4,0 16,0 16,5 4,5 4,0;4,5 5,8 15,8 16,5;9,4 11,4 11,6 9,6 9,4",
+inn:"2,0 2,10 10,16 18,10 18,0 2,0;8,0 8,6 12,6 12,0;13,7 16,7 16,10 13,10 13,7;4,7 7,7 7,10 4,10 4,7;14,13 14,17 16,17 16,11.5;0,0 20,0;11,3 11.4,3",
+bat:"9,11 10,13 11,11 10,9 9,11;10,13 9,14.5 9.5,13;10,13 11,14.5 10.5,13;9,12 5,15 2,13 4,12 3,10 6,11 7,9 9,11;11,12 15,15 18,13 16,12 17,10 14,11 13,9 11,11",
+zombie:"8,16 11,16 12,19 9,20 8,16;9,18 9.5,18;10.5,18.5 11,18.5;7,15 13,15 13,8 7,8 7,15;7,14 3,13 2,12;13,14 17,13 18,12;7,13 3,12;13,13 17,12;8,8 7,3 8,0 6,0;12,8 12,4 14,0 12,0;8,12 10,11 12,12",
+troll:"9,16 11,16 12,18 10,20 8,18 9,16;10,18 10,16.5 11,17;9,18.5 9.5,18.5;7,16 13,16 14,9 12,6 8,6 6,9 7,16;7,16 4,12 3,5 2,2 4,2;13,16 16,12 17,5 18,2 16,2;8,6 7,2 5,0 8,0;12,6 13,2 15,0 12,0",
+garg:"8,13 12,13 12,16 11,17 9,17 8,16 8,13;8,17 7,19 9,17;12,17 13,19 11,17;9,15 9.5,15;10.5,15 11,15;7,13 13,13 14,7 12,4 8,4 6,7 7,13;7,12 2,18 1,12 3,13 3,8 6,9;13,12 18,18 19,12 17,13 17,8 14,9;8,4 6,0 9,0 9,3;12,4 14,0 11,0 11,3;7,10 5,6 7,5;13,10 15,6 13,5",
+vamp:"9,16 11,16 11.5,18 10,19.5 8.5,18 9,16;9.3,17.8 9.7,17.8;10.3,17.8 10.7,17.8;9.6,16.4 9.8,15.8;10.4,16.4 10.2,15.8;7,17 9,15 11,15 13,17;7,17 4,14 3,0 17,0 16,14 13,17;9,15 8,0;11,15 12,0;8,9 6,8;12,9 14,8",
+demon:"8,15 12,15 13,18 10,19 7,18 8,15;7,18 5,20 7,16.5;13,18 15,20 13,16.5;9,17 9.6,16.8;10.4,16.8 11,17;9,15.8 11,15.8;6,15 14,15 13,7 7,7 6,15;6,14 1,19 2,13 0,12 3,9 6,10;14,14 19,19 18,13 20,12 17,9 14,10;6,13 3,9 4,6;14,13 17,9 16,6;8,7 7,3 8,0 6,0;12,7 13,3 12,0 14,0;12,7 15,4 17,5 18,3",
+lich:"8,16 8,19 12,19 12,16 11,15 9,15 8,16;9,17 9,18;11,17 11,18;8,19 8,20.5 9,19.5 10,20.5 11,19.5 12,20.5 12,19;9,15 6,13 4,0 16,0 14,13 11,15;10,15 10,0;6,13 3,10;14,13 17.5,10;17.5,0 17.5,16;16.5,16 17.5,18 18.5,16 17.5,14.5 16.5,16",
+king:"8,15 12,15 12,18 8,18 8,15;8,18 8,20 9,19 10,20.5 11,19 12,20 12,18;9,16.5 9.8,16.5;10.2,16.5 11,16.5;5,15 15,15 16,13 13,12 13,6 7,6 7,12 4,13 5,15;4,13 5,8 9,10;16,13 15,8 11,10;10,12 10,1;8.5,10 11.5,10;7,6 6,0 9,0 9,4;13,6 14,0 11,0 11,4;4,13 2,2 6,0;16,13 18,2 14,0",
+tomb:"5,0 5,12 7,15 10,16 13,15 15,12 15,0 5,0;10,13 10,7;8,11 12,11;2,0 18,0;1,0 0,2;19,0 20,2"
+};
+const ART={};for(const k in RAW)ART[k]=RAW[k].split(';').map(p=>p.trim().split(' ').map(c=>c.split(',').map(Number)));
+function drawArt(a,k){for(const p of a){const q=p.map(([x,y])=>[(x-10)/10*.75,y/10*.85]);if(q.length===1)q.push(q[0]);poly(q,k)}}
+
+/* ---------- dungeon ---------- */
+const N=20,MAXL=20,START=10,DIRS=[[0,-1],[1,0],[0,1],[-1,0]];
+let levels={},seen={};
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function edge(lv,x,y,dir){
+  if(dir===0)return y===0?1:lv.wn[y*N+x];
+  if(dir===2)return y===N-1?1:lv.wn[(y+1)*N+x];
+  if(dir===3)return x===0?1:lv.ww[y*N+x];
+  return x===N-1?1:lv.ww[y*N+x+1];
+}
+function setEdge(lv,x,y,dir,v){if(dir===0)lv.wn[y*N+x]=v;else if(dir===2)lv.wn[(y+1)*N+x]=v;else if(dir===3)lv.ww[y*N+x]=v;else lv.ww[y*N+x+1]=v}
+function genLevel(dp){
+  const r=mulberry(g.seed*131+dp*7919),ri=n=>Math.floor(r()*n);
+  const lv={wn:new Uint8Array(N*N).fill(1),ww:new Uint8Array(N*N).fill(1),feat:{}};
+  const vis=new Uint8Array(N*N),st=[[START,START]];vis[START*N+START]=1;
+  while(st.length){
+    const [x,y]=st[st.length-1],o=[];
+    for(let i=0;i<4;i++){const nx=x+DIRS[i][0],ny=y+DIRS[i][1];if(nx>=0&&ny>=0&&nx<N&&ny<N&&!vis[ny*N+nx])o.push(i)}
+    if(!o.length){st.pop();continue}
+    const i=o[ri(o.length)],nx=x+DIRS[i][0],ny=y+DIRS[i][1];setEdge(lv,x,y,i,0);vis[ny*N+nx]=1;st.push([nx,ny]);
+  }
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++)for(const dir of[0,3]){
+    if((dir===0&&y===0)||(dir===3&&x===0))continue;
+    if(edge(lv,x,y,dir)===1&&r()<.22)setEdge(lv,x,y,dir,0);
+    if(edge(lv,x,y,dir)===0&&r()<.12)setEdge(lv,x,y,dir,2);
+  }
+  const put=(t,n)=>{for(let i=0;i<n;i++){let c,tries=0;do{c=ri(N*N)}while((lv.feat[c]||c===START*N+START)&&tries++<50);lv.feat[c]=t}};
+  if(dp===1)lv.feat[START*N+START]='U';
+  if(dp<MAXL){put('D',3);put('P',3)}
+  put('U',2);put('F',2);put('T',1);put('A',1);put('X',2);put('C',1);if(dp===MAXL&&!g.crown)put('K',1);
+  return lv;
+}
+const levelAt=dp=>levels[dp]||(levels[dp]=genLevel(dp));const lvl=()=>levelAt(g.depth);
+const seenArr=()=>seen[g.depth]||(seen[g.depth]=new Uint8Array(N*N));
+const mark=()=>{seenArr()[g.y*N+g.x]=1};
+const feat=()=>lvl().feat[g.y*N+g.x];
+
+function drawSide(lv,sg,i,x,y,sd){
+  const e=edge(lv,x,y,sd);
+  if(e){
+    L3(sg,0,i,sg,0,i+1);L3(sg,2,i,sg,2,i+1);L3(sg,0,i+1,sg,2,i+1);L3(sg,0,i,sg,2,i);
+    if(e===2){const a=i+.3,b=i+.7;L3(sg,0,a,sg,1.5,a);L3(sg,1.5,a,sg,1.5,b);L3(sg,1.5,b,sg,0,b)}
+  }else{
+    const nx=x+DIRS[sd][0],ny=y+DIRS[sd][1];
+    if(edge(lv,nx,ny,g.dir)){const xo=sg*sc(i)/sc(i+1);L3(sg,0,i+1,xo,0,i+1);L3(sg,2,i+1,xo,2,i+1);L3(sg,0,i+1,sg,2,i+1)}
+  }
+}
+function drawFeature(t,i){
+  const k=i+.5,a=i+.25,b=i+.8;
+  const quad=y=>{L3(-.5,y,a,.5,y,a);L3(.5,y,a,.5,y,b);L3(.5,y,b,-.5,y,b);L3(-.5,y,b,-.5,y,a)};
+  if(t==='D'){quad(0);for(const q of[.4,.55,.68])L3(-.5,0,i+q,.5,0,i+q)}
+  else if(t==='U'){quad(2);L3(-.2,0,k,-.2,2,k);L3(.2,0,k,.2,2,k);for(let y=.25;y<2;y+=.25)L3(-.2,y,k,.2,y,k)}
+  else if(t==='P'){quad(0);L3(-.5,0,a,.5,0,b);L3(.5,0,a,-.5,0,b)}
+  else if(t==='F'){poly([[-.3,0],[-.45,.45],[.45,.45],[.3,0]],k,1);poly([[0,.45],[0,.9]],k);poly([[0,.9],[-.2,1.05],[-.3,.75]],k);poly([[0,.9],[.2,1.05],[.3,.75]],k)}
+  else if(t==='T'){poly([[-.3,0],[-.3,1.5],[0,1.7],[.3,1.5],[.3,0]],k);poly([[-.3,.55],[.3,.55]],k);poly([[-.3,.85],[-.42,.85],[-.42,0]],k);poly([[.3,.85],[.42,.85],[.42,0]],k)}
+  else if(t==='A'){poly([[-.5,.6],[.5,.6],[.5,.75],[-.5,.75]],k,1);poly([[-.4,.6],[-.4,0]],k);poly([[.4,.6],[.4,0]],k);poly([[0,.75],[0,1]],k);poly([[0,1],[-.06,1.1],[0,1.25],[.06,1.1]],k,1)}
+  else if(t==='C'){const sq=[[-.4,.3],[.4,.3],[.4,1.5],[-.4,1.5]],k0=i+.35,k1=i+.75;poly(sq,k0,1);poly(sq,k1,1);for(const q of sq)L3(q[0],q[1],k0,q[0],q[1],k1)}
+  else if(t==='K')drawArt(ART.king,i+.5);
+  else if(t==='X'){poly([[0,.3],[.4,1],[0,1.7],[-.4,1]],k,1);poly([[0,.6],[.22,1],[0,1.4],[-.22,1]],k,1)}
+}
+function frontWall(e,k){poly([[-1,0],[1,0],[1,2],[-1,2]],k,1);if(e===2)poly([[-.45,0],[-.45,1.5],[.45,1.5],[.45,0]],k)}
+function drawDungeon(){
+  const lv=lvl(),lf=(g.dir+3)%4,rt=(g.dir+1)%4;let x=g.x,y=g.y;
+  for(let i=0;i<7;i++){
+    drawSide(lv,-1,i,x,y,lf);drawSide(lv,1,i,x,y,rt);
+    const f=lv.feat[y*N+x];if(f)drawFeature(f,i);
+    const e=edge(lv,x,y,g.dir);if(e){frontWall(e,i+1);break}
+    x+=DIRS[g.dir][0];y+=DIRS[g.dir][1];
+  }
+}
+const GLY={U:"1...1|1...1|1...1|1...1|.111.",D:"111..|1..1.|1..1.|1..1.|111..",F:"1111.|1....|111..|1....|1....",T:"11111|..1..|..1..|..1..|..1..",A:".111.|1...1|11111|1...1|1...1",P:"111..|1..1.|111..|1....|1....",X:"1...1|.1.1.|..1..|.1.1.|1...1",C:".111.|1....|1....|1....|.111.",K:"1...1|1..1.|111..|1..1.|1...1"};
+function drawMap(){
+  const lv=levelAt(mapD),s=seen[mapD]||new Uint8Array(N*N),here=mapD===g.depth&&mode==='explore',cs=9,ox=50,oy=6;
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){
+    if(!s[y*N+x])continue;const x0=ox+x*cs,y0=oy+y*cs;
+    const seg=(e,ax,ay,bx,by)=>{if(e===1)line(ax,ay,bx,by);else if(e===2){line(ax,ay,ax+(bx-ax)/3,ay+(by-ay)/3);line(bx,by,bx-(bx-ax)/3,by-(by-ay)/3)}};
+    seg(edge(lv,x,y,0),x0,y0,x0+cs,y0);seg(edge(lv,x,y,2),x0,y0+cs,x0+cs,y0+cs);
+    seg(edge(lv,x,y,3),x0,y0,x0,y0+cs);seg(edge(lv,x,y,1),x0+cs,y0,x0+cs,y0+cs);
+    const f=lv.feat[y*N+x];
+    if(here&&x===g.x&&y===g.y){const c=[x0+4,y0+4],dv=DIRS[g.dir],tip=[c[0]+dv[0]*3,c[1]+dv[1]*3];
+      line(c[0]-dv[0]*3,c[1]-dv[1]*3,tip[0],tip[1]);line(tip[0],tip[1],tip[0]-dv[0]*2+dv[1]*2,tip[1]-dv[1]*2+dv[0]*2);line(tip[0],tip[1],tip[0]-dv[0]*2-dv[1]*2,tip[1]-dv[1]*2-dv[0]*2)}
+    else if(f){GLY[f].split('|').forEach((row,j)=>{for(let i=0;i<5;i++)if(row[i]==='1')pset(x0+2+i,y0+2+j)})}
+  }
+}
+function drawTitle(){
+  for(let i=0;i<6;i++)for(const sg of[-1,1]){
+    if((i+(sg>0?1:0))%3===1){const xo=sg*sc(i)/sc(i+1);L3(sg,0,i+1,xo,0,i+1);L3(sg,2,i+1,xo,2,i+1);L3(sg,0,i+1,sg,2,i+1)}
+    else{L3(sg,0,i,sg,0,i+1);L3(sg,2,i,sg,2,i+1);L3(sg,0,i+1,sg,2,i+1);L3(sg,0,i,sg,2,i)}
+  }
+  frontWall(2,6);drawArt(ART.skel,1.4);
+}
+
+/* ---------- game state ---------- */
+const MON=[
+ {n:'GIANT RAT',a:'rat',min:1,hd:4,dmg:3,atk:0,xp:8},
+ {n:'GIANT BAT',a:'bat',min:1,hd:3,dmg:3,atk:4,xp:9,dodge:1},
+ {n:'GOBLIN',a:'goblin',min:1,hd:5,dmg:4,atk:2,xp:12,steal:1},
+ {n:'SKELETON',a:'skel',min:2,hd:6,dmg:5,atk:3,xp:15,undead:1},
+ {n:'SLIME',a:'slime',min:2,hd:9,dmg:3,atk:-2,xp:14},
+ {n:'ORC',a:'orc',min:2,hd:7,dmg:6,atk:4,xp:20},
+ {n:'ZOMBIE',a:'zombie',min:3,hd:10,dmg:6,atk:0,xp:22,undead:1},
+ {n:'GIANT SPIDER',a:'spider',min:3,hd:6,dmg:5,atk:6,xp:24,poison:1},
+ {n:'OGRE',a:'ogre',min:4,hd:10,dmg:8,atk:4,xp:32},
+ {n:'WRAITH',a:'wraith',min:5,hd:7,dmg:6,atk:8,xp:40,drain:1,undead:1},
+ {n:'TROLL',a:'troll',min:6,hd:10,dmg:9,atk:6,xp:48,regen:1},
+ {n:'MINOTAUR',a:'mino',min:7,hd:11,dmg:10,atk:8,xp:55},
+ {n:'GARGOYLE',a:'garg',min:8,hd:9,dmg:9,atk:8,xp:60,stone:1},
+ {n:'DRAGON',a:'dragon',min:9,hd:14,dmg:12,atk:10,xp:90,breath:1},
+ {n:'VAMPIRE',a:'vamp',min:10,hd:11,dmg:10,atk:12,xp:100,drain:1,undead:1},
+ {n:'DEMON',a:'demon',min:12,hd:13,dmg:13,atk:12,xp:130,breath:1},
+ {n:'LICH',a:'lich',min:14,hd:12,dmg:10,atk:14,xp:170,undead:1,caster:1}
+];
+const KING={n:'HOLLOW KING',a:'king',hd:18,dmg:13,atk:12,xp:500,caster:1,boss:1};
+const MIMIC={n:'MIMIC',a:'mimic',hd:9,dmg:7,atk:5,xp:35};
+const SPELLS=[
+ {n:'DART',c:1,l:1,cb:1,d:'d6 plus your level in damage.'},
+ {n:'MEND',c:2,l:1,d:'heals d8 plus twice your level.'},
+ {n:'SLUMBER',c:3,l:2,cb:1,d:'the foe sleeps 2 to 4 turns. Your next blow cannot miss but wakes it; EVADE cannot fail.'},
+ {n:'TURN',c:2,l:2,cb:1,d:'may destroy an undead foe outright.'},
+ {n:'BLINK',c:4,l:3,d:'throws you elsewhere on the level and out of any fight.'},
+ {n:'BLAZE',c:5,l:4,cb:1,d:'3d6 plus twice your level in damage.'},
+ {n:'WARD',c:4,l:5,d:'you are 12% harder to hit for 25 steps.'},
+ {n:'STORM',c:9,l:7,cb:1,d:'6d6 plus twice your level in damage.'},
+ {n:'RETURN',c:10,l:8,d:'carries you to the Inn, even mid-fight.'},
+ {n:'RESTORE',c:8,l:9,d:'heals you fully.'},
+ {n:'DOOM',c:14,l:11,cb:1,d:'may slay the foe outright; otherwise 2d6 damage.'}
+];
+const STATS=['str','int','dex','con'];
+const CLS={A:{n:'DELVER',hd:8,hit:0,dmg:0,sm:1,ev:0},F:{n:'FIGHTER',hd:9,hit:5,dmg:1,sm:2,ev:0},M:{n:'MAGE',hd:6,hit:-5,dmg:0,sm:1,ev:0,pow:2},T:{n:'THIEF',hd:7,hit:0,dmg:0,sm:1.5,ev:20}};
+const kit=()=>CLS[g.cls]||CLS.A,req=s=>Math.ceil(s.l*kit().sm),gm=()=>g.cls==='T'?1.25:1;
+let g=null,mode='title',mon=null,menu=null,showMap=false,mapD=1,help=false,lvUp=null,busy=false,banT=0,codeUI=null,winB=false,lines=[];
+
+function log(s){lines.push(s);if(lines.length>5)lines.shift()}
+const need=()=>g.lvl<=9?200*Math.pow(2,g.lvl-1):Math.round(51200*Math.pow(1.3,g.lvl-9));
+function hasSave(){try{return !!localStorage.getItem('hollowdeep.save')}catch(e){return false}}
+function save(){try{const s={};for(const k in seen)s[k]=Array.from(seen[k]).join('');localStorage.setItem('hollowdeep.save',JSON.stringify({g,seen:s,inn:mode==='inn'}))}catch(e){}}
+function packSeen(a){let s='';for(let i=0;i<a.length;i+=8){let b=0;for(let j=0;j<8;j++)b|=(a[i+j]?1:0)<<j;s+=String.fromCharCode(b)}return btoa(s)}
+function unpackSeen(t){const s=atob(t),a=new Uint8Array(N*N);for(let i=0;i<a.length;i++)a[i]=(s.charCodeAt(i>>3)>>(i&7))&1;return a}
+function makeCode(){const s={};for(const k in seen)s[k]=packSeen(seen[k]);return 'HD1.'+btoa(JSON.stringify({g,s}))}
+function loadCode(){
+  try{
+    const t=$('code').value.replace(/\s+/g,'');if(!t.startsWith('HD1.'))throw 0;
+    const o=JSON.parse(atob(t.slice(4))),G=o.g;
+    for(const k of['seed','str','int','dex','con','lvl','xp','gold','hp','mhp','sp','msp','sw','ar','sh','rp','pot','scr','steps','kills'])if(!Number.isFinite(G[k]))throw 0;
+    const sn={};for(const k in o.s)sn[k]=unpackSeen(o.s[k]);
+    g=G;g.depth=1;g.x=g.y=START;g.dir=0;seen=sn;levels={};mon=null;menu=null;mode='inn';codeUI=null;lines=[];log('The code holds. You wake at the Inn.');render();
+  }catch(e){$('codemsg').textContent='That code did not read. Check that all of it was pasted.'}
+}
+function loadGame(){
+  try{const o=JSON.parse(localStorage.getItem('hollowdeep.save'));g=o.g;seen={};levels={};
+    for(const k in o.seen)seen[k]=Uint8Array.from(o.seen[k],c=>+c);
+    mode=o.inn?'inn':'explore';lines=[];log(o.inn?'You wake at the Inn.':'You wake in the dark, torch guttering.');
+  }catch(e){log('The save could not be read.')}
+  render();
+}
+function roll(){
+  const r=()=>d(6)+d(6)+d(6);
+  g={seed:rnd(1,2147483646),str:r(),int:r(),dex:r(),con:r(),lvl:1,xp:0,gold:0,depth:1,x:START,y:START,dir:0,sw:0,ar:0,sh:0,rp:0,regen:0,boots:0,pot:1,scr:0,elx:0,wand:0,amu:0,ward:0,steps:0,kills:0};
+  g.mhp=g.hp=12+d(8)+Math.max(0,bonus(g.con));g.msp=g.sp=Math.max(1,2+bonus(g.int));levels={};seen={};
+}
+function newGame(){roll();mode='create';lines=[];log('FIGHTER: tough, slow to learn spells.');log('MAGE: frail, strong magic.');log('THIEF: slippery, beats traps, more gold.');log('Pick a class, or roll again.');render()}
+function accept(c){
+  g.cls=c;
+  if(c==='F'){g.mhp+=2;g.sw=1}
+  else if(c==='M'){g.msp+=3;g.elx=1}
+  else if(c==='T')g.scr=1;
+  g.hp=g.mhp;g.sp=g.msp;mode='inn';lines=[];
+  log(`A ${kit().n} stands at the Inn above the dungeon mouth.`);log('Twenty levels down, a dead king wears a crown. Bring it back.');render();
+}
+function enterDungeon(){g.depth=1;g.x=g.y=START;g.dir=0;mode='explore';mark();log('You descend into the dark.');render()}
+function gainXP(n){
+  g.xp+=n;
+  while(g.xp>=need()){g.lvl++;const h=Math.max(1,d(kit().hd)+bonus(g.con));g.mhp+=h;g.hp+=h;const s=(g.cls==='F'?g.lvl%2===0?1:0:g.cls==='M'?2:1)+(g.int>13?1:0);g.msp+=s;g.sp+=s;log(`*** YOU REACH LEVEL ${g.lvl} ***`);
+    sfx('level');lvUp=lvUp||{h:0,s:0,sp:[]};lvUp.lvl=g.lvl;lvUp.h+=h;lvUp.s+=s;for(const x of SPELLS)if(req(x)===g.lvl)lvUp.sp.push(x.n)}
+}
+function heal(n){const b=g.hp;g.hp=Math.min(g.mhp,g.hp+n);log(`You recover ${g.hp-b} HP.`)}
+function hurt(n,cause){sfx('hurt');g.hp-=n;if(g.hp<=0&&g.amu){g.amu=0;g.hp=Math.ceil(g.mhp/2);sfx('level');log('Your AMULET shatters. Death lets go of you.');return false}if(g.hp<=0){g.hp=0;die(cause);return true}return false}
+function die(cause){
+  sfx('die');mode='dead';mon=null;menu=null;showMap=false;
+  try{localStorage.removeItem('hollowdeep.save');const b=+localStorage.getItem('hollowdeep.best')||0;if(g.xp>b)localStorage.setItem('hollowdeep.best',g.xp)}catch(e){}
+  log(`Slain by ${cause} on dungeon level ${g.depth}.`);log(`Level ${g.lvl} delver, ${g.xp} XP, ${g.kills} kills. Rest well.`);
+}
+function toInn(){
+  sfx('inn');mode='inn';mon=null;menu=null;showMap=false;g.used={};g.ward=0;g.depth=1;g.x=g.y=START;
+  g.hp=g.mhp;g.sp=g.msp;log('You rest at the Inn. Wounds and spells are restored.');
+  if(g.gold)log(`You carry ${g.gold} gold. TRADE it for experience, or SHOP first.`);
+  if(g.crown&&!g.won){g.won=1;winB=true;log('*** YOU HAVE BROUGHT BACK THE CROWN OF HOLLOWDEEP ***')}
+  render();
+}
+function trade(){
+  if(!g.gold){log('You have no gold to trade.');return render()}
+  const gold=g.gold;g.gold=0;sfx('gold');log(`The innkeeper weighs your ${gold} gold. It becomes ${gold} XP.`);gainXP(gold);render();
+}
+const SHOP=[['POTION','pot',80,1],['ELIXIR','elx',100,1],['RECALL','scr',150,1],['WAND +3','wand',200,3]];
+function shop(){
+  menu=SHOP.map(([n,k,c,q],i)=>{const pr=c*g.lvl;return{t:`${n} ${pr}G`,k:[String(i+1)],f:()=>{
+    if(g.gold<pr){sfx('bump');log(`${n} costs ${pr} gold. You have ${g.gold}.`)}
+    else{g.gold-=pr;g[k]=(g[k]||0)+q;sfx('item');log(`Bought ${n}. ${g.gold} gold left.`)}
+    shop()}}});
+  menu.push({t:'DONE',k:['Escape','x'],f:()=>{menu=null;render()}});render();
+}
+function blink(quiet){mon=null;mode='explore';g.x=rnd(0,N-1);g.y=rnd(0,N-1);g.dir=rnd(0,3);mark();if(!quiet)log('The world folds. You stand somewhere else.')}
+
+/* ---------- movement ---------- */
+function turn(n){sfx('turn');g.dir=(g.dir+n+4)%4;render()}
+function step(back){
+  const dir=back?(g.dir+2)%4:g.dir;
+  if(edge(lvl(),g.x,g.y,dir)===1){sfx('bump');log('A wall.');return render()}
+  sfx('step');showMap=false;g.x+=DIRS[dir][0];g.y+=DIRS[dir][1];g.steps++;mark();
+  if(g.ward>0&&--g.ward===0)log('Your ward fades.');
+  if(g.regen&&g.steps%3===0&&g.hp<g.mhp)g.hp++;
+  const f=feat();
+  if(f==='P'){
+    if(g.cls!=='T'&&d(20)>g.dex){g.depth++;mark();const dm=d(6);sfx('fall');log(`The floor gives way! You fall to level ${g.depth} for ${dm} damage.`);hurt(dm,'a fall')}
+    else log('You edge around a yawning pit.');
+    return render();
+  }
+  if(f==='X'){sfx('BLINK');blink(true);log('A shimmering diamond swallows you. You stand somewhere else.');return render()}
+  if(f==='K'){log('A crowned shape rises from a throne of bone.');encounter(0,KING);return render()}
+  if(f)log({U:g.depth===1&&g.x===START&&g.y===START?'A ladder climbs to the Inn.':'A ladder climbs through the ceiling.',D:'Stairs sink into deeper dark.',F:'A fountain bubbles here.',T:'A dusty throne stands here.',A:'An altar, candle still burning.',C:'A misty cube hangs in the air, humming.'}[f]);
+  const r=Math.random();
+  if(r<.14)encounter();else if(r<.24)treasure();
+  render();
+}
+function cube(){
+  menu=[-3,-1,1,3,5].map(o=>g.depth+o).filter(n=>n>=1&&n<=MAXL).map((n,i)=>({t:'LEVEL '+n,k:[String(i+1)],f:()=>{menu=null;sfx('BLINK');g.depth=n;mark();log(`The mist parts. You stand on level ${n}.`);render()}}));
+  menu.push(cancel);log('The cube offers other depths.');render();
+}
+function climb(){if(g.depth===1)return toInn();g.depth--;sfx('up');mark();log(`You climb to level ${g.depth}.`);render()}
+function descend(){sfx('down');g.depth++;mark();log(`You descend to level ${g.depth}.`);render()}
+const spent=()=>{const u=g.used||(g.used={}),k=g.depth+':'+(g.y*N+g.x);if(u[k])return true;u[k]=1;return false};
+function drink(){
+  if(spent()){log('The fountain has run dry.');return render()}
+  const r=Math.random();
+  if(r<.35){sfx('heal');log('Cool, sweet water.');heal(d(8)*g.lvl)}
+  else if(r<.5){g.sp=g.msp;log('Your mind clears. Spell points restored.')}
+  else if(r<.65){const dm=d(6)+g.depth;log(`Foul! Poison burns for ${dm}.`);if(hurt(dm,'a poisoned fountain'))return render()}
+  else if(r<.75){const s=STATS[rnd(0,3)];g[s]++;log(`Strange warmth. ${s.toUpperCase()} rises to ${g[s]}.`)}
+  else if(r<.8){const s=STATS[rnd(0,3)];if(g[s]>3)g[s]--;log(`A sour chill. ${s.toUpperCase()} falls to ${g[s]}.`)}
+  else log('Merely water.');
+  if(Math.random()<.2)encounter();
+  render();
+}
+function sit(){
+  if(spent()){log('The throne is cold and still.');return render()}
+  const r=Math.random();
+  if(r<.3)log('Dust rises. Nothing more.');
+  else if(r<.5){const a=d(100)*g.depth;g.gold+=a;log(`Coins spill from the armrest: ${a} gold.`)}
+  else if(r<.65){log('The throne has a guardian!');encounter(2)}
+  else if(r<.69){log('A crown of light settles on your brow.');gainXP(need()-g.xp)}
+  else if(r<.86)blink();
+  else if(g.depth<MAXL){g.depth++;mark();log(`A voice booms: BEGONE. You are cast down to level ${g.depth}.`)}
+  else log('The throne is cold.');
+  render();
+}
+function pray(){
+  const min=50*g.depth;
+  if(g.gold<min){log('You have too little gold to offer. The gods are displeased.');if(Math.random()<.4){const dm=d(6*g.depth);log(`Lightning! ${dm} damage.`);hurt(dm,'divine wrath')}return render()}
+  if(spent()){log('The candle has burned out. No one listens.');return render()}
+  const cost=Math.max(min,Math.floor(g.gold*.1));g.gold-=cost;log(`You offer ${cost} gold.`);
+  const r=Math.random();
+  if(r<.45){g.hp=g.mhp;g.sp=g.msp;log('You are blessed. Body and mind made whole.')}
+  else if(r<.6){const s=STATS[rnd(0,3)];g[s]++;log(`A gift: ${s.toUpperCase()} rises to ${g[s]}.`)}
+  else log('Silence.');
+  render();
+}
+
+/* ---------- combat ---------- */
+function encounter(boost,type){
+  const el=MON.filter(m=>m.min<=g.depth).slice(-6),t=type||el[rnd(0,el.length-1)];
+  const L=g.depth===1?(g.lvl>1&&Math.random()<.4?2:1)+(boost||0):g.depth+rnd(0,1)+(boost||0)+(Math.random()<.1?rnd(1,2):0);
+  if(!type&&!boost&&Math.random()<.08)return friendly(t,L);
+  let hp=L;for(let i=0;i<L;i++)hp+=d(t.hd);
+  mon={t,lvl:L,hp,mhp:hp,sleep:0};mode='combat';showMap=false;menu=null;
+  sfx('foe');log(`A LEVEL ${L} ${t.n} bars your way!`);
+  if(g.cls==='T'){if(Math.random()<.2){log('You strike from the shadows!');hitMon((d(8)+g.sw+(g.lvl>>1))*2,'Your blade finds')}}
+  else if(Math.random()<.15){log('It strikes first!');monTurn()}
+}
+function friendly(t,L){
+  const r=Math.random(),s=`A level ${L} ${t.n} approaches... in peace. `;sfx('inn');
+  if(r<.4){const a=rnd(10,30)*g.depth;g.gold+=a;log(s+`It drops ${a} gold at your feet and goes.`)}
+  else if(r<.75){log(s+'It tends your wounds and goes.');heal(d(8)*L)}
+  else{log(s+'It leaves you a gift.');item()}
+}
+function hitMon(dm,verb){sfx('hit');mon.hp-=dm;mon.sleep=0;log(`${verb} the ${mon.t.n} for ${dm}.`);if(mon.hp<=0)win()}
+function win(){
+  const m=mon;mon=null;mode='explore';g.kills++;const xp=m.t.xp*m.lvl;
+  if(m.t.boss){g.crown=1;const ft=lvl().feat;for(const k in ft)if(ft[k]==='K')delete ft[k];sfx('level');log(`The HOLLOW KING falls. +${xp} XP.`);log('His CROWN rolls to your feet. Carry it up to the Inn.');gainXP(xp);return}
+  sfx('kill');log(`The ${m.t.n} dies. +${xp} XP.`);gainXP(xp);if(Math.random()<.45)treasure();
+}
+function monTurn(){
+  const m=mon,t=m.t;
+  if(m.sleep>0){m.sleep--;log(`The ${t.n} ${m.sleep?'sleeps on.':'stirs awake.'}`);return}
+  if(t.steal&&g.gold>0&&Math.random()<.25){const a=Math.min(g.gold,d(30*g.depth));g.gold-=a;log(`The ${t.n} snatches ${a} gold and flees!`);sfx('flee');mon=null;mode='explore';return}
+  if(t.regen&&m.hp<m.mhp){m.hp=Math.min(m.mhp,m.hp+m.lvl);log(`The ${t.n}'s wounds knit closed.`)}
+  if(t.caster&&Math.random()<.3){const dm=d(m.lvl*2)+m.lvl;log(`The ${t.n} hurls black fire! ${dm} damage.`);hurt(dm,'a '+t.n);return}
+  if(t.breath&&Math.random()<.25){const dm=d(m.lvl*3);log(`The ${t.n} breathes fire! ${dm} damage.`);hurt(dm,'a '+t.n);return}
+  const ch=clamp(50+3*(m.lvl-g.lvl)+t.atk-(g.ar+g.sh+g.rp)*2-(g.ward>0?12:0)-(g.dex-10),8,92);
+  if(rnd(1,100)>ch){log(`The ${t.n} misses.`);return}
+  let dm=d(t.dmg)+m.lvl-1,s=`The ${t.n} hits for ${dm}.`;
+  if(t.poison&&Math.random()<.3){const p=d(4);dm+=p;s+=` Venom burns for ${p} more.`}
+  log(s);if(hurt(dm,'a '+t.n))return;
+  if(t.drain&&Math.random()<.25){const x=Math.floor(g.xp*.08);g.xp-=x;log(`Its chill touch drains ${x} XP.`)}
+}
+const foeActs=()=>{if(mon&&mode==='combat')monTurn()};
+function fight(){
+  const m=mon,ch=m.sleep?100:clamp(60+3*(g.lvl-m.lvl)+(g.str-10)*2+g.sw*2+kit().hit-(m.t.dodge?15:0),10,95);
+  if(rnd(1,100)<=ch){let dm=d(8)+g.sw+(g.lvl>>1)+kit().dmg+Math.max(0,bonus(g.str));if(m.t.stone)dm=Math.max(1,dm-4);hitMon(dm,m.t.stone?'Your blade chips':'You strike')}else{sfx('miss');log('You miss.')}
+  foeActs();render();
+}
+function evade(){
+  const m=mon,ch=m.sleep?100:clamp(45+(g.dex-10)*3+(g.lvl-m.lvl)*3+(g.boots?20:0)+kit().ev,10,92);
+  if(rnd(1,100)<=ch){sfx('flee');log('You slip away.');mon=null;mode='explore'}else{log('No escape!');monTurn()}
+  render();
+}
+const cancel={t:'CANCEL',k:['Escape','x'],f:()=>{menu=null;render()}};
+function castMenu(){if(!SPELLS.some(s=>req(s)<=g.lvl)){log('You know no spells yet.');return render()}
+  menu=SPELLS.filter(s=>req(s)<=g.lvl).map((s,i)=>({t:`${s.n} ${s.c}SP`,k:i<9?[String(i+1)]:[],f:()=>cast(s)}));menu.push(cancel);render()}
+function cast(s){
+  menu=null;
+  if(g.sp<s.c){log('Not enough spell points.');return render()}
+  if(s.cb&&!mon){log('No foe to target.');return render()}
+  if(s.n==='TURN'&&!mon.t.undead){log('It is no undead thing.');return render()}
+  g.sp-=s.c;sfx(s.n);render();playFx(s.n,()=>spell(s));
+}
+function spell(s){
+  const ib=Math.max(0,bonus(g.int))+(kit().pow||0),n=s.n,d6=k=>{let t=0;for(let i=0;i<k;i++)t+=d(6);return t};
+  if(mon&&mon.t.boss&&(n==='SLUMBER'||n==='DOOM')){log('The King laughs. The spell slides off him.');foeActs();return render()}
+  if(n==='DART')hitMon(d(6)+g.lvl+ib,'Your dart sears');
+  else if(n==='BLAZE')hitMon(d6(3)+g.lvl*2+ib,'Flame engulfs');
+  else if(n==='STORM')hitMon(d6(6)+g.lvl*2+ib,'Lightning tears through');
+  else if(n==='MEND')heal(d(8)+g.lvl*2+ib);
+  else if(n==='RESTORE')heal(g.mhp);
+  else if(n==='BLINK'){blink();return render()}
+  else if(n==='RETURN'){log('Stone blurs past.');return toInn()}
+  else if(n==='WARD'){g.ward=25;log('A pale shield turns about you.')}
+  else if(n==='SLUMBER'){
+    if(rnd(1,100)<=clamp(60+ib*5-(mon.lvl-g.lvl)*6,10,95)){mon.sleep=rnd(2,4);log(`The ${mon.t.n} slumps asleep.`);return render()}
+    log('The spell fizzles.');
+  }
+  else if(n==='TURN'){
+    if(rnd(1,100)<=clamp(50+ib*5+(g.lvl-mon.lvl)*8,10,95)){log(`The ${mon.t.n} crumbles to dust.`);mon.hp=0;win();return render()}
+    log(`The ${mon.t.n} resists.`);
+  }
+  else if(n==='DOOM'){
+    if(rnd(1,100)<=clamp(40+ib*3+(g.lvl-mon.lvl)*5,5,90)){log(`The ${mon.t.n} simply stops.`);mon.hp=0;win();return render()}
+    hitMon(d6(2),'Doom only grazes');
+  }
+  foeActs();render();
+}
+function itemMenu(){
+  const it=[];
+  if(g.pot)it.push({t:`POTION x${g.pot}`,f:()=>{menu=null;g.pot--;sfx('heal');log('You drain the potion.');heal(d(8)+d(8)+g.lvl*2);foeActs();render()}});
+  if(g.elx)it.push({t:`ELIXIR x${g.elx}`,f:()=>{menu=null;g.elx--;sfx('MEND');g.sp=g.msp;log('The elixir clears your mind. Spell points restored.');foeActs();render()}});
+  if(g.wand)it.push({t:`WAND x${g.wand}`,f:()=>{menu=null;if(!mon){log('No foe to target.');return render()}g.wand--;sfx('BLAZE');render();playFx('BLAZE',()=>{hitMon(d(6)+d(6)+d(6)+g.lvl,'The wand scorches');foeActs();render()})}});
+  if(g.scr)it.push({t:`RECALL x${g.scr}`,f:()=>{menu=null;g.scr--;log('The scroll flares. Stone blurs past.');toInn()}});
+  if(!it.length){log('Your pack holds nothing to use.');return render()}
+  it.forEach((b,i)=>b.k=[String(i+1)]);menu=it;menu.push(cancel);render();
+}
+
+/* ---------- treasure ---------- */
+function treasure(){
+  const r=Math.random(),D=g.depth;
+  if(r<.45){const a=Math.round(rnd(4,18)*D*gm());g.gold+=a;sfx('gold');log(`You find ${a} gold pieces.`)}
+  else if(r<.6){const a=Math.round(rnd(30,80)*D*gm());g.gold+=a;sfx('gold');log(`A gem glitters in the dust, worth ${a} gold!`)}
+  else if(r<.8){mode='chest';sfx('chest');log('A chest sits here, banded in iron.')}
+  else item();
+}
+function openChest(){
+  mode='explore';const r=Math.random(),D=g.depth;
+  if(r<.08&&g.cls==='T'){log('Your fingers find teeth under the lid. You back away from the mimic.');return render()}
+  if(r<.08){log('The chest has TEETH!');encounter(0,MIMIC);return render()}
+  if(r<(g.cls==='T'?.17:.28)){
+    const k=rnd(1,3);
+    if(k===1){const dm=d(4*D);sfx('trap');log(`A dart trap! ${dm} damage.`);if(hurt(dm,'a trapped chest'))return render()}
+    else if(k===2){sfx('trap');log('Gas! You wake somewhere else, the chest gone.');blink(true);return render()}
+    else log('A trap clicks... and jams.');
+  }
+  const a=Math.round(rnd(20,60)*D*gm());g.gold+=a;sfx('gold');log(`Inside: ${a} gold.`);if(Math.random()<.4)item();render();
+}
+function item(){
+  sfx('item');
+  const D=g.depth,p=1+Math.floor(Math.random()*(1+D/3)),r=rnd(1,100);
+  const gear=(key,name)=>{if(p>g[key]){g[key]=p;log(`You find ${name} +${p} and take it.`)}else log(`You find ${name} +${p}, no better than yours.`)};
+  const potion=()=>{g.pot++;log('You find a POTION of healing.')};
+  if(r<=18)gear('sw','a SWORD');else if(r<=36)gear('ar','ARMOR');else if(r<=49)gear('sh','a SHIELD');
+  else if(r<=67)potion();
+  else if(r<=75){g.scr++;log('You find a SCROLL of recall.')}
+  else if(r<=82){g.elx=(g.elx||0)+1;log('You find an ELIXIR. It restores spell points.')}
+  else if(r<=87){const c=rnd(3,6);g.wand=(g.wand||0)+c;log(`You find a WAND of fire with ${c} charges.`)}
+  else if(r<=92)gear('rp','a RING of protection');
+  else if(r<=95){if(g.regen)potion();else{g.regen=1;log('You find a RING of regeneration!')}}
+  else if(r<=98){if(g.boots)potion();else{g.boots=1;log('You find ELVEN BOOTS. Evading comes easier.')}}
+  else if(g.amu)potion();else{g.amu=1;log('You find an AMULET of life. It will cheat death once.')}
+}
+
+/* ---------- sound: square waves and 1-bit noise ---------- */
+const SFX={step:[['g',.04],['p',.025],['g',.07]],turn:[['g',.03]],bump:[[120,.09]],foe:[[220,.09],[165,.14]],hit:[['n',.05],[200,.04]],miss:[[320,.05,220]],hurt:[[260,.14,110]],
+ kill:[[330,.05],[440,.05],[660,.09]],gold:[[988,.04],[1319,.08]],item:[[659,.05],[880,.05],[1175,.1]],chest:[[196,.06],[262,.1]],
+ level:[[440,.09],[554,.09],[659,.09],[880,.09],[659,.09],[880,.25]],heal:[[440,.1,880]],up:[[262,.06],[330,.06],[392,.08]],down:[[392,.06],[330,.06],[262,.08]],
+ fall:[[600,.3,80],['n',.1]],flee:[[500,.04],[700,.04],[900,.04]],inn:[[392,.1],[523,.1],[659,.18]],die:[[660,.25,330],[330,.3,165],[165,.5,90]],trap:[['n',.12],[160,.1]],
+ DART:[[1400,.22,300]],BLAZE:[['n',.5]],MEND:[[400,.35,1000]],SLUMBER:[[520,.25,390],[390,.3,260]],BLINK:[[900,.04],[300,.04],[1200,.04],[200,.04],[700,.04],[1500,.06]]};
+SFX.TURN=[[523,.12],[784,.2]];SFX.WARD=[[300,.3,600]];SFX.STORM=[['n',.15],[110,.1],['n',.3]];SFX.DOOM=[[220,.7,60],['n',.15]];SFX.RETURN=SFX.BLINK;SFX.RESTORE=SFX.MEND;
+let actx=null,muted=false,vol=1,sq=0,nbuf=null;const VM=[0,.15,.45],VS=[0,.4,1];
+let unl=null;
+function silentWav(){
+  const n=2000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  let t='';for(const x of b)t+=String.fromCharCode(x);return 'data:audio/wav;base64,'+btoa(t);
+}
+function wake(){
+  if(muted)return;
+  try{
+    if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A){$('snd').textContent='NO SOUND HERE';return}actx=new A();
+      nbuf=actx.createBuffer(1,actx.sampleRate,actx.sampleRate);const c=nbuf.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()<.5?-1:1;
+      setTimeout(()=>{if(!muted&&actx.state!=='running')$('snd').textContent='SOUND BLOCKED'},800)}
+    if(actx.state!=='running'){actx.resume().then(setSnd,()=>{});const u=actx.createBufferSource();u.buffer=actx.createBuffer(1,1,22050);u.connect(actx.destination);u.start(0)}
+  }catch(e){}
+  // a looping silent clip puts phones in media-playback mode, so the ringer switch does not mute the game
+  try{if(!unl){unl=new Audio(silentWav());unl.loop=true;unl.setAttribute('playsinline','')}if(unl.paused){const q=unl.play();if(q&&q.catch)q.catch(()=>{})}}catch(e){}
+}
+function hush(){try{if(unl)unl.pause()}catch(e){}}
+function sfx(n){
+  if(muted||!actx||!SFX[n])return;
+  try{
+    let t=Math.max(actx.currentTime,sq);if(t-actx.currentTime>1)return;
+    for(const [f,dur,f2] of SFX[n]){
+      if(f==='p'){t+=dur;continue}
+      if(f==='g'){ // gravel: a soft, band-passed grain of noise, different every time
+        const gn=actx.createGain(),bp=actx.createBiquadFilter(),src=actx.createBufferSource();
+        bp.type='bandpass';bp.frequency.value=rnd(700,1900);bp.Q.value=.7;
+        gn.gain.setValueAtTime(.05*VS[vol],t);gn.gain.linearRampToValueAtTime(0,t+dur);
+        src.buffer=nbuf;src.connect(bp);bp.connect(gn);gn.connect(actx.destination);src.start(t,Math.random()*.9);src.stop(t+dur+.01);t+=dur;continue;
+      }
+      const gn=actx.createGain();gn.gain.setValueAtTime((f==='n'?.05:.07)*VM[vol],t);gn.gain.setValueAtTime(0,t+dur);gn.connect(actx.destination);
+      let src;
+      if(f==='n'){src=actx.createBufferSource();src.buffer=nbuf}
+      else{src=actx.createOscillator();src.type='square';src.frequency.setValueAtTime(f,t);if(f2)src.frequency.linearRampToValueAtTime(f2,t+dur)}
+      src.connect(gn);src.start(t);src.stop(t+dur+.01);t+=dur;
+    }
+    sq=t+.02;
+  }catch(e){}
+}
+function setSnd(){$('snd').textContent=['SOUND OFF','SOUND LOW','SOUND HIGH'][vol]}
+$('snd').onclick=()=>{vol=(vol+1)%3;muted=vol===0;try{localStorage.setItem('hollowdeep.vol',vol)}catch(e){}setSnd();if(muted)hush();else{wake();sfx('item')}};
+if(document.addEventListener)document.addEventListener('visibilitychange',()=>{if(document.hidden)hush()});
+
+/* ---------- effects ---------- */
+const still=typeof matchMedia!=='function'||matchMedia('(prefers-reduced-motion: reduce)').matches;
+const TX=140,TY=108;
+const FX={
+ DART:[380,p=>{const q=Math.min(1,p/.75),hy=191+(TY-191)*q;let x=TX,y=191;for(let i=1;i<=4;i++){const nx=TX+(i<4?rnd(-14,14):0),ny=191+(hy-191)*i/4;line(x,y,nx,ny);line(x+1,y,nx+1,ny);x=nx;y=ny}
+   if(p>.75){const r=(p-.75)*160;for(let a=0;a<10;a++){const t=a*Math.PI/5;line(TX+Math.cos(t)*r*.4,TY+Math.sin(t)*r*.4,TX+Math.cos(t)*r,TY+Math.sin(t)*r)}}}],
+ BLAZE:[800,p=>{const r=20+p*110;for(let i=0;i<46;i++){const t=Math.random()*Math.PI*2,a=r*(.2+Math.random()*.5),b=a+rnd(6,26);line(TX+Math.cos(t)*a*1.3,TY+Math.sin(t)*a,TX+Math.cos(t)*b*1.3,TY+Math.sin(t)*b-rnd(0,12))}return p>.08&&p<.2}],
+ MEND:[650,p=>{for(let i=0;i<14;i++){const x=20+(i*53)%240,y=185-p*170+((i*37)%60),s=2+i%3;line(x-s,y,x+s,y);line(x,y-s,x,y+s)}}],
+ SLUMBER:[800,p=>{for(let i=0;i<3;i++){const q=p-i*.2;if(q<=0)continue;const s=5+q*14,x=TX+18+q*50+i*4,y=TY-20-q*70;line(x,y,x+s,y);line(x+s,y,x,y+s);line(x,y+s,x+s,y+s)}}],
+ BLINK:[550,p=>{const n=p*9000;for(let i=0;i<n;i++)buf[rnd(0,W*H-1)]^=1;const r=(1-p)*130;line(TX,96-r,TX+r,96);line(TX+r,96,TX,96+r);line(TX,96+r,TX-r,96);line(TX-r,96,TX,96-r)}]
+};
+FX.TURN=[600,p=>{const r=p*150;for(let a=0;a<16;a++){const t=a*Math.PI/8;line(TX+Math.cos(t)*r*.3,60+Math.sin(t)*r*.3,TX+Math.cos(t)*r,60+Math.sin(t)*r)}line(TX,40,TX,84);line(TX-12,54,TX+12,54)}];
+FX.WARD=[600,p=>{for(const q of[1,.8]){const rx=(40+p*95)*q,ry=(30+p*62)*q;for(let a=0;a<6;a++){const t0=a*Math.PI/3,t1=(a+1)*Math.PI/3;line(CX+Math.cos(t0)*rx,CY+Math.sin(t0)*ry,CX+Math.cos(t1)*rx,CY+Math.sin(t1)*ry)}}}];
+FX.STORM=[700,p=>{for(let b=0;b<3;b++){let x=rnd(40,240),y=0;for(let i=1;i<=6;i++){const nx=i<6?x+(TX-x)/(7-i)+rnd(-16,16):TX,ny=TY*i/6;line(x,y,nx,ny);line(x+1,y,nx+1,ny);x=nx;y=ny}}return p>.1&&p<.2}];
+FX.DOOM=[900,p=>{const r=(1-p)*150+4;for(let a=0;a<24;a++){const t0=a*Math.PI/12,t1=(a+1)*Math.PI/12;line(TX+Math.cos(t0)*r*1.3,TY+Math.sin(t0)*r,TX+Math.cos(t1)*r*1.3,TY+Math.sin(t1)*r)}return p>.9}];
+FX.RETURN=FX.BLINK;FX.RESTORE=FX.MEND;
+function playFx(n,then){
+  const fx=FX[n];if(still||!fx)return then();
+  busy=true;const t0=performance.now();
+  (function tick(){const p=Math.min(1,(performance.now()-t0)/fx[0]);cls();drawScene();flush(fx[1](p));if(p<1)requestAnimationFrame(tick);else{busy=false;then()}})();
+}
+function banner(l){
+  const b=$('ban');b.textContent='';
+  const ln=(t,c)=>{const e=document.createElement('div');e.textContent=t;if(c)e.className=c;b.appendChild(e)};
+  if(l.lines)l.lines.forEach(x=>ln(x[0],x[1]));
+  else{ln('LEVEL UP');ln('LEVEL '+l.lvl,'big');ln(`+${l.h} HP   +${l.s} SP`);if(l.sp.length)ln('NEW SPELL: '+l.sp.join(', '))}
+  b.style.display='block';b.onclick=()=>{b.style.display='none'};clearTimeout(banT);if(!l.stay)banT=setTimeout(()=>{b.style.display='none'},3200);
+  if(still)return;
+  const t0=performance.now();
+  (function tick(){
+    const p=(performance.now()-t0)/1400;if(busy)return;cls();drawScene();
+    if(p<1){for(let i=0;i<4;i++){const r=(p*1.5+i/4)%1,w=r*CX,h=r*CY;line(CX-w,CY-h,CX+w,CY-h);line(CX+w,CY-h,CX+w,CY+h);line(CX+w,CY+h,CX-w,CY+h);line(CX-w,CY+h,CX-w,CY-h)}}
+    flush();if(p<1)requestAnimationFrame(tick);
+  })();
+}
+
+/* ---------- UI ---------- */
+function buttons(){
+  if(help)return[{t:'CLOSE',k:['Escape','h','x'],f:()=>{help=false;render()}}];
+  if(codeUI){
+    const close={t:codeUI==='show'?'CLOSE':'CANCEL',k:['Escape'],f:()=>{codeUI=null;render()}},msg=t=>{$('codemsg').textContent=t};
+    if(codeUI==='enter')return[{t:'LOAD',k:[],f:loadCode},close];
+    return[{t:'COPY',k:[],f:()=>{const t=$('code');t.focus();t.select();try{navigator.clipboard.writeText(t.value).then(()=>msg('Copied.'),()=>msg('Copy was blocked. Select the code and copy it by hand.'))}catch(e){msg('Copy was blocked. Select the code and copy it by hand.')}}},close];
+  }
+  if(menu)return menu;
+  if(showMap){
+    let ks=Object.keys(seen).map(Number).sort((a,b)=>a-b);if(!ks.includes(mapD))ks=[mapD];
+    const i=ks.indexOf(mapD),go=n=>()=>{mapD=ks[(i+n+ks.length)%ks.length];render()},many=ks.length>1;
+    return[many?{t:'\u25C0 LEVEL',k:['ArrowLeft','ArrowUp','a','w'],f:go(-1)}:null,{t:'CLOSE MAP',k:['m','Escape','x',' ','Enter'],f:()=>{showMap=false;render()}},many?{t:'LEVEL \u25B6',k:['ArrowRight','ArrowDown','d','s'],f:go(1)}:null];
+  }
+  const helpB={t:'HELP',k:['h'],f:()=>{help=true;render()}},hueB={t:'HUE',k:['u'],f:hue},mapB={t:'MAP',k:['m'],f:()=>{showMap=true;mapD=g.depth;render()}};
+  if(mode==='title')return[{t:'NEW DELVE',k:['n'],f:newGame},hasSave()?{t:'CONTINUE',k:['c','Enter'],f:loadGame}:null,hueB,{t:'ENTER CODE',k:['k'],f:()=>{codeUI='enter';render()}},null,helpB];
+  if(mode==='create')return[{t:'FIGHTER',k:['f'],f:()=>accept('F')},{t:'MAGE',k:['m'],f:()=>accept('M')},{t:'THIEF',k:['t'],f:()=>accept('T')},{t:'REROLL',k:['r'],f:newGame},null,helpB];
+  if(mode==='inn')return[{t:'DESCEND',k:['Enter',' ','ArrowDown'],f:enterDungeon},{t:'TRADE GOLD',k:['t'],f:trade},{t:'SHOP',k:['b'],f:shop},mapB,{t:'SAVE & QUIT',k:['q'],f:()=>{save();g=null;mon=null;showMap=false;mode='title';lines=[];render()}},{t:'SAVE CODE',k:['k'],f:()=>{save();codeUI='show';render()}},hueB,helpB];
+  if(mode==='dead')return[{t:'NEW DELVE',k:['n','Enter'],f:newGame},hueB,helpB];
+  if(mode==='combat')return[{t:'FIGHT',k:['f',' '],f:fight},{t:'CAST',k:['c'],f:castMenu},{t:'EVADE',k:['e'],f:evade},{t:'ITEMS',k:['i'],f:itemMenu},null,helpB];
+  if(mode==='chest')return[{t:'OPEN',k:['o',' ','Enter'],f:openChest},{t:'LEAVE',k:['l','Escape'],f:()=>{mode='explore';log('You leave it be.');render()}},helpB];
+  const m={U:['CLIMB',climb],D:['DESCEND',descend],F:['DRINK',drink],T:['SIT',sit],A:['PRAY',pray],C:['ENTER',cube]}[feat()];
+  return[
+    {t:'↰ TURN',k:['a','q','ArrowLeft'],f:()=>turn(-1)},{t:'▲ AHEAD',k:['w','ArrowUp'],f:()=>step(false)},{t:'TURN ↱',k:['d','e','ArrowRight'],f:()=>turn(1)},
+    m?{t:m[0],k:[' ','Enter'],f:m[1]}:null,{t:'▼ BACK',k:['s','ArrowDown'],f:()=>step(true)},mapB,
+    {t:'CAST',k:['c'],f:castMenu},{t:'ITEMS',k:['i'],f:itemMenu},helpB
+  ];
+}
+let cur=[];
+function drawScene(){
+  if(mode==='title')drawTitle();
+  else if(showMap&&(mode==='explore'||mode==='inn'))drawMap();
+  else if(mode==='create')drawArt(ART.chest,1.2);
+  else if(mode==='inn')drawArt(ART.inn,.35);
+  else if(mode==='dead')drawArt(ART.tomb,.5);
+  else{drawDungeon();if(mon)drawArt(ART[mon.t.a],.55);if(mode==='chest')drawArt(ART.chest,1)}
+}
+function render(){
+  cls();drawScene();flush();
+  // overlay
+  const o=$('ovl');o.style.display=help||codeUI?'block':'none';if(help||codeUI)$('ban').style.display='none';
+  if(codeUI==='show'){o.innerHTML='<p>This code is your delver as saved at the Inn. Paste it into ENTER CODE on the title screen of any device.</p><textarea id="code" readonly aria-label="Save code"></textarea><p id="codemsg"></p>';$('code').value=makeCode()}
+  else if(codeUI==='enter')o.innerHTML='<p>Paste a save code, then press LOAD. It replaces any delver saved on this device.</p><textarea id="code" aria-label="Save code" autocapitalize="off" autocomplete="off" spellcheck="false"></textarea><p id="codemsg"></p>';
+  else
+  if(help)o.innerHTML='<p>Twenty levels down, the HOLLOW KING wears a crown. Kill him, carry the crown back up to the Inn, and you have won. Death is permanent.</p><p>MOVE with the pad, arrow keys or WASD. Doors open as you walk through.</p><p>Gold does nothing below ground. Carry it up to the INN (the ladder where you start on level 1). There you can TRADE GOLD for experience, one for one, or spend it in the SHOP on potions, elixirs, recall scrolls and wand charges. Shop prices rise with your level. The Inn also heals you.</p>'
+   +'<h2>CLASSES</h2><ul><li>FIGHTER: d9 hit points a level, +5% to hit, +1 damage, starts with a sword +1. Needs twice the level for each spell and gains spell points slowly.</li><li>MAGE: d6 hit points a level, 5% worse to hit. Extra spell points, stronger spells, starts with an elixir.</li><li>THIEF: d7 hit points a level, EVADE 20% surer, never falls in pits, spots mimics, fewer chest traps, 25% more gold, and sometimes strikes first for double damage. Needs half again the level for each spell. Starts with a recall scroll.</li></ul><p>When a monster appears: FIGHT, CAST or EVADE. Deeper levels are meaner and richer.</p><p>Fountains, thrones and altars can help or harm. Pits drop you a level. Floating diamonds teleport you. A misty cube lets you jump to a level of your choice. Each fountain, throne and altar works once, then stays spent until your next visit to the Inn.</p><p>MAP shows where you have walked. U and D mark stairs. The game saves only at the Inn. Quit below ground and you wake at your last Inn visit; die and the delver is gone. SAVE CODE at the Inn gives a code that carries your delver to another device.</p>'
+   +'<h2>ATTRIBUTES</h2><ul><li>STR: chance to hit (2% a point) and melee damage.</li><li>INT: spell points and spell power. At 14 or more, 2 SP a level instead of 1.</li><li>DEX: dodging blows (1% a point), EVADE (3% a point) and stepping around pits.</li><li>CON: hit points at the start and at each level.</li></ul><p>Rolled 3d6 each. Fountains and altars can change them.</p>'
+   +'<h2>WEAPONS AND GEAR</h2><ul><li>SWORD +N: N more damage, 2N% better to hit.</li><li>ARMOR +N, SHIELD +N, RING of protection +N: each point makes you 2% harder to hit.</li><li>RING of regeneration: 1 HP every 3 steps.</li><li>ELVEN BOOTS: EVADE is 20% surer.</li><li>POTION: heals 2d8 plus twice your level.</li><li>SCROLL of recall: carries you to the Inn, even mid-fight.</li><li>ELIXIR: restores all spell points.</li><li>WAND of fire: each charge burns a foe for 3d6 plus your level.</li><li>AMULET of life: cheats death once, leaving you at half health.</li></ul><p>You start bare-handed at +0. Better finds replace what you carry; deeper levels hold bigger bonuses.</p>'
+   +'<h2>SPELLS</h2><ul>'+SPELLS.map(x=>`<li>${x.n}, ${x.c} SP, level ${x.l}: ${x.d}</li>`).join('')+'</ul><p>Levels shown are for a mage. INT above 11 adds to damage, healing and the odds of SLUMBER, TURN and DOOM. Spell points return at the Inn, and sometimes at fountains and altars.</p>'
+   +'<h2>MONSTERS</h2><p>Seventeen kinds, meaner with depth. Bats are hard to hit. Goblins steal. Spiders poison. Trolls heal as they fight. Gargoyles shrug off blades, so use spells. Wraiths and vampires drain experience. Dragons and demons breathe fire. Liches cast.</p><p>TURN works on the undead: skeletons, zombies, wraiths, vampires and liches. Now and then a monster comes in peace and leaves a gift.</p>';
+  // status
+  const st=$('stat');st.textContent='';
+  const add=s=>{const e=document.createElement('span');e.textContent=s;st.appendChild(e)};
+  if(!g){let b=0;try{b=+localStorage.getItem('hollowdeep.best')||0}catch(e){}add('A WIREFRAME DELVE');try{const o=JSON.parse(localStorage.getItem('hollowdeep.save'));if(o)add(`SAVED DELVER: LVL ${o.g.lvl}, ${o.inn?'AT THE INN':'DEPTH '+o.g.depth}`)}catch(e){}if(b)add(`BEST ${b} XP`)}
+  else{
+    add(mode==='create'?`LVL ${g.lvl}`:`LVL ${g.lvl} ${kit().n}`);add(`HP ${g.hp}/${g.mhp}`);add(`SP ${g.sp}/${g.msp}`);add(`GOLD ${g.gold}`);add(`XP ${g.xp}/${need()}`);
+    add(`STR ${g.str}`);add(`INT ${g.int}`);add(`DEX ${g.dex}`);add(`CON ${g.con}`);
+    if(mode!=='create'){
+      add(`SWD+${g.sw} ARM+${g.ar} SHD+${g.sh}`+(g.rp?` RNG+${g.rp}`:'')+(g.regen?' REGEN':'')+(g.boots?' BOOTS':'')+(g.amu?' AMULET':'')+(g.crown?' CROWN':'')+(g.ward>0?' WARD':''));
+      {const pk=[['POTION',g.pot],['ELIXIR',g.elx],['WAND',g.wand],['RECALL',g.scr]].filter(x=>x[1]).map(x=>x[0]+' '+x[1]).join(', ');if(pk)add('PACK: '+pk)}
+      if(mode!=='inn')add(`DEPTH ${g.depth} ${'NESW'[g.dir]} ${g.x},${g.y}`);
+      if(showMap){const a=seen[mapD],n=a?a.reduce((x,y)=>x+y,0):0,ks=Object.keys(seen).map(Number);add(`MAP LEVEL ${mapD}`);add(`EXPLORED ${Math.round(n/(N*N)*100)}%`);add(`DEEPEST ${ks.length?Math.max(...ks):1}`)}
+      if(mon){const p=mon.hp/mon.mhp;add(`FOE L${mon.lvl} ${mon.t.n} ${mon.sleep?'ASLEEP':p>.66?'HALE':p>.33?'WOUNDED':'FALTERING'}`)}
+    }
+  }
+  // log
+  const lg=$('log');lg.textContent='';
+  for(const s of(mode==='title'?['Somewhere below, gold. Somewhere below that, worse.','Twenty levels down, a dead king wears a crown.']:showMap?['U up   D down   F fountain   T throne','A altar  P pit  X teleporter  C cube  K king','Gaps in walls are doors. The arrow is you.']:lines)){const e=document.createElement('div');e.textContent=s;lg.appendChild(e)}
+  // pad
+  cur=buttons();const pad=$('pad');pad.textContent='';
+  cur.forEach(b=>{const e=document.createElement('button');e.type='button';if(b){e.textContent=b.t;e.onclick=()=>{if(busy)return;wake();e.blur();b.f()}}else{e.disabled=true;e.textContent='·'}pad.appendChild(e)});
+  if(g&&mode==='inn')save();
+  if(winB){winB=false;lvUp=null;banner({stay:1,lines:[['VICTORY'],['THE CROWN','big'],[`Level ${g.lvl} ${kit().n}. ${g.kills} kills. ${g.steps} steps.`],['The deep is yours. Tap to go on.']]})}
+  else if(lvUp){const l=lvUp;lvUp=null;banner(l)}
+}
+addEventListener('keydown',ev=>{
+  if(ev.metaKey||ev.ctrlKey||ev.altKey)return;
+  if(ev.target&&ev.target.tagName==='TEXTAREA'&&ev.key!=='Escape')return;
+  const k=ev.key.length===1?ev.key.toLowerCase():ev.key,b=cur.find(b=>b&&b.k.includes(k));
+  if(b){ev.preventDefault();if(!busy){wake();b.f()}}
+});
+try{hueI=(+localStorage.getItem('hollowdeep.hue')||0)%HUES.length;const v=localStorage.getItem('hollowdeep.vol');vol=v===null?(localStorage.getItem('hollowdeep.mute')==='1'?0:1):clamp(+v||0,0,2);muted=vol===0}catch(e){}
+setSnd();
+setHue();render();
+</script>
+</body>
+</html>

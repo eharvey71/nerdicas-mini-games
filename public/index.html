@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nerdica's mini-games</title>
+<meta name="description" content="Small browser games by Nerdica. First cabinet: Hollowdeep, a 1-bit wireframe dungeon crawl.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
+<style>
+/* layout: one column on phones, a grid of game cabinets on wider screens; 1-bit phosphor on black */
+:root{
+  --fg:#33ff66;
+  --bg:#000000;
+  --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+main{max-width:960px;margin:0 auto;padding:24px 16px 40px;display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--font-display);font-size:clamp(18px,5vw,28px);letter-spacing:.2em;margin:0;text-transform:uppercase;text-wrap:balance}
+.lead{margin:0;font-size:14px;line-height:1.5;max-width:60ch}
+#games{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;list-style:none;margin:0;padding:0}
+.cab{border:2px solid var(--fg);display:flex;flex-direction:column}
+.cab canvas{width:100%;aspect-ratio:280/192;display:block;image-rendering:pixelated;image-rendering:crisp-edges;border-bottom:2px solid var(--fg)}
+.cab .body{padding:12px;display:flex;flex-direction:column;gap:8px;flex:1}
+.cab h2{font-family:var(--font-display);font-size:18px;letter-spacing:.2em;margin:0}
+.cab p{margin:0;font-size:13px;line-height:1.45}
+.cab .tags{font-size:11px;letter-spacing:.08em}
+.play{margin-top:auto;display:block;text-align:center;font-weight:700;letter-spacing:.15em;font-size:15px;color:var(--fg);background:var(--bg);border:2px solid var(--fg);padding:12px;text-decoration:none}
+.play:hover,.play:active{background:var(--fg);color:var(--bg)}
+.play:focus-visible{outline:2px dashed var(--fg);outline-offset:3px}
+footer{font-size:12px;line-height:1.5;border-top:2px solid var(--fg);padding-top:12px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Nerdica's mini-games</h1>
+  <p class="lead">Small games that run in the browser. No accounts, no downloads. Progress is kept on the device you play on.</p>
+  <ul id="games"></ul>
+  <footer>More cabinets will be wheeled in as they are built.</footer>
+</main>
+<script>
+"use strict";
+/* To add a game: put it in its own folder beside this file (its page named index.html),
+   then add an entry here. `art` draws the 280x192 1-bit preview; leave it out for a blank screen. */
+const GAMES=[
+  {slug:'hollowdeep',title:'HOLLOWDEEP',
+   blurb:'A wireframe dungeon crawl. Twenty levels down, a dead king wears a crown. Pick fighter, mage or thief, haul gold back to the Inn, and bring the crown home. Death is permanent.',
+   tags:'DUNGEON CRAWL · 1 PLAYER · TOUCH OR KEYS',
+   art:g=>{
+     const sc=k=>.7/(k+.7),P=(x,y,k)=>[139.5+x*139.5*sc(k),95.5+(1-y)*95.5*sc(k)],L=(a,b)=>g.line(a[0],a[1],b[0],b[1]);
+     for(let i=0;i<6;i++)for(const s of[-1,1]){
+       if((i+(s>0?1:0))%3===1){const xo=s*sc(i)/sc(i+1);L(P(s,0,i+1),P(xo,0,i+1));L(P(s,2,i+1),P(xo,2,i+1));L(P(s,0,i+1),P(s,2,i+1))}
+       else{L(P(s,0,i),P(s,0,i+1));L(P(s,2,i),P(s,2,i+1));L(P(s,0,i+1),P(s,2,i+1));L(P(s,0,i),P(s,2,i))}
+     }
+     L(P(-1,0,6),P(1,0,6));L(P(1,0,6),P(1,2,6));L(P(1,2,6),P(-1,2,6));L(P(-1,2,6),P(-1,0,6));
+     const sk="8,17 8,20 12,20 12,17 11,16 9,16 8,17;9,18 9,19;11,18 11,19;10,16 10,8;7,14 13,14;7,12 13,12;8,10 12,10;6,15 14,15;6,15 4,10 5,7;14,15 16,10 17,13;17,13 19,19;8,8 12,8;8,8 7,4 8,0 6,0;12,8 13,4 12,0 14,0";
+     for(const pl of sk.split(';')){const q=pl.split(' ').map(c=>{const[x,y]=c.split(',').map(Number);return P((x-10)/10*.75,y/10*.85,1.4)});for(let i=0;i<q.length-1;i++)L(q[i],q[i+1])}
+   }}
+];
+const HUES=[[51,255,102],[255,176,0],[255,255,255]];
+let hue=0;try{hue=(+localStorage.getItem('hollowdeep.hue')||0)%HUES.length}catch(e){}
+const C=HUES[hue];document.documentElement.style.setProperty('--fg',`rgb(${C[0]},${C[1]},${C[2]})`);
+function preview(cv,art){
+  const W=280,H=192,ctx=cv.getContext('2d'),img=ctx.createImageData(W,H),buf=new Uint8Array(W*H);
+  const g={line(x0,y0,x1,y1){
+    x0=Math.round(x0);y0=Math.round(y0);x1=Math.round(x1);y1=Math.round(y1);
+    const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let e=dx-dy,n=0;
+    while(n++<3000){if(x0>=0&&x0<W&&y0>=0&&y0<H)buf[y0*W+x0]=1;if(x0===x1&&y0===y1)break;const e2=2*e;if(e2>-dy){e-=dy;x0+=sx}if(e2<dx){e+=dx;y0+=sy}}
+  }};
+  if(art)art(g);
+  for(let i=0;i<W*H;i++){const o=i*4,v=buf[i];img.data[o]=v?C[0]:0;img.data[o+1]=v?C[1]:0;img.data[o+2]=v?C[2]:0;img.data[o+3]=255}
+  ctx.putImageData(img,0,0);
+}
+const list=document.getElementById('games');
+for(const gm of GAMES){
+  const li=document.createElement('li');li.className='cab';
+  const cv=document.createElement('canvas');cv.width=280;cv.height=192;cv.setAttribute('role','img');cv.setAttribute('aria-label',gm.title+' preview');
+  const body=document.createElement('div');body.className='body';
+  const h=document.createElement('h2');h.textContent=gm.title;
+  const p=document.createElement('p');p.textContent=gm.blurb;
+  const t=document.createElement('p');t.className='tags';t.textContent=gm.tags;
+  const a=document.createElement('a');a.className='play';a.href=gm.slug+'/';a.textContent='PLAY';a.setAttribute('aria-label','Play '+gm.title);
+  body.append(h,p,t,a);li.append(cv,body);list.appendChild(li);preview(cv,gm.art);
+}
+</script>
+</body>
+</html>
