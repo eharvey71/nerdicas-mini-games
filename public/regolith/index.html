@@ -32,7 +32,22 @@ canvas{width:100%;height:100%;display:block;image-rendering:pixelated;image-rend
 #pad button{font:inherit;font-size:14px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:72px;cursor:pointer;touch-action:none}
 #pad button.on{background:var(--fg);color:var(--bg)}
 button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
-#hint{margin:0;font-size:12px;line-height:1.45}
+#app>*{flex-shrink:0}
+#quick{margin:0;padding:0 0 0 1.3em;font-size:12px;line-height:1.45}
+#quick li{margin-bottom:2px}
+#stat span.bad{background:var(--fg);color:var(--bg)}
+#how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#how summary::-webkit-details-marker{display:none}
+#how summary::after{content:"  +"}
+#how[open] summary::after{content:"  \2212"}
+#how[open] summary{border-bottom:2px solid var(--fg)}
+#how summary:active{background:var(--fg);color:var(--bg)}
+#how summary:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+#how h2{font-size:12px;letter-spacing:.1em;margin:10px 10px 2px;border-bottom:1px dotted var(--fg)}
+#how p,#how ul{margin:4px 10px 6px}
+#how ul{padding-left:1.3em}
+#how li{margin-bottom:2px}
 </style>
 </head>
 <body>
@@ -45,7 +60,51 @@ button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-of
     <button type="button" id="bt">THRUST</button>
     <button type="button" id="br">ROTATE &#9654;</button>
   </div>
-  <p id="hint">To land safely on a pad: FALL 15 or less, DRIFT 10 or less either way, TILT 15 or less. A <b>!</b> in the readout marks a number that would crash you. Each ROTATE tap turns the lander 15 degrees; tilt and thrust to cancel sideways drift. Drift at launch is small at first and grows with each landing. Narrow pads score more and give fuel back. A crash burns 20 fuel. Keys: arrows or A and D to rotate, up, W or space to thrust.</p>
+  <ul id="quick">
+    <li>Land on a flat pad, upright, with FALL 15 or less and DRIFT 10 or less.</li>
+    <li>Hold THRUST to slow your fall. ROTATE, then thrust, to stop sideways drift.</li>
+    <li>A highlighted number in the readout would crash you.</li>
+    <li>Beeping means fuel is under 20. No fuel, no engine.</li>
+  </ul>
+  <details id="how">
+    <summary>ALL THE RULES</summary>
+    <h2>GOAL</h2>
+    <p>Score as many points as you can before the fuel runs out. Every safe landing scores, then you launch again over a new map.</p>
+    <h2>CONTROLS</h2>
+    <ul>
+      <li><b>THRUST:</b> hold to fire the engine. It pushes the way the lander's top is pointing.</li>
+      <li><b>ROTATE:</b> each tap turns the lander 15 degrees. Hold to keep turning.</li>
+      <li><b>Keys:</b> arrows or A and D to rotate; up, W or space to thrust.</li>
+    </ul>
+    <h2>A SAFE LANDING</h2>
+    <ul>
+      <li>Both feet on a flat pad.</li>
+      <li>FALL 15 or less.</li>
+      <li>DRIFT 10 or less, in either direction.</li>
+      <li>TILT 15 or less: upright, or one click off.</li>
+    </ul>
+    <p>Anything else is a crash, and the crash box names the number that was over its limit.</p>
+    <h2>THE READOUT</h2>
+    <ul>
+      <li><b>SCORE:</b> points this run.</li>
+      <li><b>FUEL:</b> what is left of 100.</li>
+      <li><b>ALT:</b> height above the ground under you.</li>
+      <li><b>DRIFT:</b> sideways speed. Minus is leftward.</li>
+      <li><b>FALL:</b> downward speed. Minus means you are climbing.</li>
+      <li><b>TILT:</b> degrees off upright.</li>
+    </ul>
+    <p>A number is highlighted while it is over its landing limit, and FUEL is highlighted when it is low.</p>
+    <h2>THE BEEPING</h2>
+    <p>One beep a second means fuel is under 20. When the tank is empty there is a last beep, the engine stops, and you fall.</p>
+    <h2>PADS AND SCORE</h2>
+    <p>Each map has three pads marked x2, x3 and x5. Narrower pads have the bigger number. A landing scores 50 times the pad's number, plus up to 50 more for a gentle touchdown. It also gives fuel back: 10, 15 or 25.</p>
+    <h2>FUEL</h2>
+    <p>A full tank is about 16 seconds of thrust. Fuel carries over from one landing to the next. A crash burns 20. The run ends when you crash with nothing left.</p>
+    <h2>IT GETS HARDER</h2>
+    <p>After each landing the ground is rougher, gravity is a little stronger, and you launch with more sideways drift to cancel.</p>
+    <h2>THE VIEW</h2>
+    <p>The picture zooms in when you are close to the ground. Fly off one side and you come back on the other.</p>
+  </details>
 </div>
 <script>
 "use strict";
@@ -211,11 +270,11 @@ function hud(){
   if(hudN++%5)return;
   const fly=S.mode==='fly',alt=Math.max(0,Math.round(heightAt(S.x)-(S.y+6)));
   const sgn=v=>(v<0?'-':'+')+String(Math.abs(Math.round(v))).padStart(2,'0');
-  const parts=['SCORE '+String(S.score).padStart(4,'0'),'FUEL '+String(Math.ceil(S.fuel)).padStart(3,'0')+(S.fuel<20?'!':' '),
+  const parts=['SCORE '+String(S.score).padStart(4,'0'),'FUEL '+String(Math.ceil(S.fuel)).padStart(3,'0')+(S.fuel<20?' LOW':'    '),
     'ALT '+String(fly?alt:0).padStart(3,'0'),'DRIFT '+sgn(fly?S.vx:0)+(fly&&Math.abs(S.vx)>SAFE_VX?'!':' '),'FALL '+sgn(fly?S.vy:0)+(fly&&S.vy>SAFE_VY?'!':' '),
     'TILT '+sgn(fly?S.a*57.3:0)+(fly&&Math.abs(S.a)>SAFE_A?'!':' ')];
   const st=$('stat');if(st.children.length!==parts.length){st.textContent='';for(const p of parts){const e=document.createElement('span');st.appendChild(e)}}
-  parts.forEach((p,i)=>{if(st.children[i].textContent!==p)st.children[i].textContent=p});
+  parts.forEach((p,i)=>{const e=st.children[i];if(e.textContent!==p){e.textContent=p;e.className=/!|LOW/.test(p)?'bad':''}});
 }
 function show(lines){
   const m=$('msg');if(!lines){m.style.display='none';return}
