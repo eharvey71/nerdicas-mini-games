@@ -14,11 +14,10 @@ public/
 
 1. Install the CLI if needed: `npm install -g firebase-tools`
 2. Sign in: `firebase login`
-3. Pick or create a Firebase project. The project ID becomes the address,
-   `https://<project-id>.web.app`, so choose it with that in mind.
-   Create one in the Firebase console, or run `firebase projects:create`.
-4. From this folder, link it: `firebase use --add` and choose the project.
-5. Publish: `firebase deploy --only hosting`
+3. From this folder, publish: `firebase deploy --only hosting`
+
+The project is set in `.firebaserc` (`nerdica-s-minigames`), so the site is served at
+`https://nerdica-s-minigames.web.app`.
 
 To look before publishing: `firebase emulators:start --only hosting`,
 or a preview channel: `firebase hosting:channel:deploy preview`.
