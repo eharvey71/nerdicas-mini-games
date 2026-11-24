@@ -18,7 +18,11 @@
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
 main{max-width:960px;margin:0 auto;padding:24px 16px 40px;display:flex;flex-direction:column;gap:20px}
-h1{font-family:var(--font-display);font-size:clamp(18px,5vw,28px);letter-spacing:.2em;margin:0;text-transform:uppercase;text-wrap:balance}
+header{display:flex;align-items:center;gap:12px}
+h1{font-family:var(--font-display);font-size:clamp(18px,5vw,28px);letter-spacing:.2em;margin:0;text-transform:uppercase;text-wrap:balance;flex:1}
+#tone{font:inherit;font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:6px 10px;cursor:pointer}
+#tone:active{background:var(--fg);color:var(--bg)}
+#tone:focus-visible{outline:2px dashed var(--fg);outline-offset:3px}
 .lead{margin:0;font-size:14px;line-height:1.5;max-width:60ch}
 #games{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;list-style:none;margin:0;padding:0}
 .cab{border:2px solid var(--fg);display:flex;flex-direction:column}
@@ -35,8 +39,8 @@ footer{font-size:12px;line-height:1.5;border-top:2px solid var(--fg);padding-top
 </head>
 <body>
 <main>
-  <h1>Nerdica's mini-games</h1>
-  <p class="lead">Small games that run in the browser. No accounts, no downloads. Progress is kept on the device you play on.</p>
+  <header><h1>Nerdica's mini-games</h1><button id="tone" type="button">TONE</button></header>
+  <p class="lead">Small games that run in the browser. No accounts, no downloads. Progress is kept on the device you play on. TONE sets the screen colour for the whole site.</p>
   <ul id="games"></ul>
   <footer>More cabinets will be wheeled in as they are built.</footer>
 </main>
@@ -88,8 +92,10 @@ const GAMES=[
    }}
 ];
 const HUES=[[51,255,102],[255,176,0],[255,255,255]];
-let hue=0;try{hue=(+localStorage.getItem('hollowdeep.hue')||0)%HUES.length}catch(e){}
-const C=HUES[hue];document.documentElement.style.setProperty('--fg',`rgb(${C[0]},${C[1]},${C[2]})`);
+let hue=0;try{const tv=localStorage.getItem('nmg.tone');hue=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
+let C=HUES[hue];const shots=[];
+function setTone(){C=HUES[hue];document.documentElement.style.setProperty('--fg',`rgb(${C[0]},${C[1]},${C[2]})`);for(const [cv,art] of shots)preview(cv,art)}
+document.getElementById('tone').onclick=()=>{hue=(hue+1)%HUES.length;try{localStorage.setItem('nmg.tone',hue)}catch(e){}setTone()};
 function preview(cv,art){
   const W=280,H=192,ctx=cv.getContext('2d'),img=ctx.createImageData(W,H),buf=new Uint8Array(W*H);
   const g={line(x0,y0,x1,y1){
@@ -110,8 +116,9 @@ for(const gm of GAMES){
   const p=document.createElement('p');p.textContent=gm.blurb;
   const t=document.createElement('p');t.className='tags';t.textContent=gm.tags;
   const a=document.createElement('a');a.className='play';a.href=gm.slug+'/';a.textContent='PLAY';a.setAttribute('aria-label','Play '+gm.title);
-  body.append(h,p,t,a);li.append(cv,body);list.appendChild(li);preview(cv,gm.art);
+  body.append(h,p,t,a);li.append(cv,body);list.appendChild(li);shots.push([cv,gm.art]);
 }
+setTone();
 </script>
 </body>
 </html>

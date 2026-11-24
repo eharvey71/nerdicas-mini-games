@@ -91,7 +91,7 @@ function line(x0,y0,x1,y1){
 }
 function flush(inv){const c=HUES[hueI],p=img.data,m=inv?1:0;for(let i=0;i<W*H;i++){const o=i*4,v=buf[i]^m;p[o]=v?c[0]:0;p[o+1]=v?c[1]:0;p[o+2]=v?c[2]:0;p[o+3]=255}ctx.putImageData(img,0,0)}
 function setHue(){const c=HUES[hueI];document.documentElement.style.setProperty('--fg',`rgb(${c[0]},${c[1]},${c[2]})`)}
-function hue(){hueI=(hueI+1)%HUES.length;try{localStorage.setItem('hollowdeep.hue',hueI)}catch(e){}setHue();render()}
+function hue(){hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setHue();render()}
 
 /* ---------- perspective: x in [-1,1], y in [0,2] (floor..ceiling), k = depth in cells ---------- */
 const CX=139.5,CY=95.5;
@@ -624,7 +624,7 @@ function buttons(){
     const i=ks.indexOf(mapD),go=n=>()=>{mapD=ks[(i+n+ks.length)%ks.length];render()},many=ks.length>1;
     return[many?{t:'\u25C0 LEVEL',k:['ArrowLeft','ArrowUp','a','w'],f:go(-1)}:null,{t:'CLOSE MAP',k:['m','Escape','x',' ','Enter'],f:()=>{showMap=false;render()}},many?{t:'LEVEL \u25B6',k:['ArrowRight','ArrowDown','d','s'],f:go(1)}:null];
   }
-  const helpB={t:'HELP',k:['h'],f:()=>{help=true;render()}},hueB={t:'HUE',k:['u'],f:hue},mapB={t:'MAP',k:['m'],f:()=>{showMap=true;mapD=g.depth;render()}};
+  const helpB={t:'HELP',k:['h'],f:()=>{help=true;render()}},hueB={t:'TONE',k:['u'],f:hue},mapB={t:'MAP',k:['m'],f:()=>{showMap=true;mapD=g.depth;render()}};
   if(mode==='title')return[{t:'NEW DELVE',k:['n'],f:newGame},hasSave()?{t:'CONTINUE',k:['c','Enter'],f:loadGame}:null,hueB,{t:'ENTER CODE',k:['k'],f:()=>{codeUI='enter';render()}},null,helpB];
   if(mode==='create')return[{t:'FIGHTER',k:['f'],f:()=>accept('F')},{t:'MAGE',k:['m'],f:()=>accept('M')},{t:'THIEF',k:['t'],f:()=>accept('T')},{t:'REROLL',k:['r'],f:newGame},null,helpB];
   if(mode==='inn')return[{t:'DESCEND',k:['Enter',' ','ArrowDown'],f:enterDungeon},{t:'TRADE GOLD',k:['t'],f:trade},{t:'SHOP',k:['b'],f:shop},mapB,{t:'SAVE & QUIT',k:['q'],f:()=>{save();g=null;mon=null;showMap=false;mode='title';lines=[];render()}},{t:'SAVE CODE',k:['k'],f:()=>{save();codeUI='show';render()}},hueB,helpB];
@@ -730,7 +730,7 @@ addEventListener('keydown',ev=>{
   const k=ev.key.length===1?ev.key.toLowerCase():ev.key,b=cur.find(b=>b&&b.k.includes(k));
   if(b){ev.preventDefault();if(!busy){wake();b.f()}}
 });
-try{hueI=(+localStorage.getItem('hollowdeep.hue')||0)%HUES.length;const v=localStorage.getItem('hollowdeep.vol');vol=v===null?(localStorage.getItem('hollowdeep.mute')==='1'?0:1):clamp(+v||0,0,2);muted=vol===0}catch(e){}
+try{const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length;const v=localStorage.getItem('hollowdeep.vol');vol=v===null?(localStorage.getItem('hollowdeep.mute')==='1'?0:1):clamp(+v||0,0,2);muted=vol===0}catch(e){}
 setSnd();
 setHue();render();
 </script>

@@ -36,5 +36,6 @@ or a preview channel: `firebase hosting:channel:deploy preview`.
 
 - Saves are kept in the browser, per site address. A delver from another address
   comes across with a save code: SAVE CODE at the Inn, ENTER CODE on the title screen.
-- The landing page uses the phosphor colour last chosen with HUE in Hollowdeep.
+- TONE (green, amber or white) is one setting for the whole site, stored in the browser as `nmg.tone`.
+  The landing page and every game have a TONE key and read the same value.
 - A custom domain is added in the Firebase console under Hosting.

@@ -9,12 +9,12 @@
 <style>
 /* layout: one phone-width column — tilted map, player legend, status, log, three action keys */
 :root{
-  --fg:#e6e6e6;      /* interface: neutral, so green means you and nothing else */
-  --you:#33ff66;     /* you */
+  --fg:#33ff66;      /* interface: the site tone (green, amber or white), set by the TONE key */
+  --you:#3fe0ff;     /* you: cyan, a colour no tone uses */
   --bg:#000000;
-  --p1:#5c9dff;      /* bots: blue, magenta, amber */
+  --p1:#6a78ff;      /* bots: blue, magenta, red */
   --p2:#ff55ff;
-  --p3:#ffb000;
+  --p3:#ff5a4d;
   --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
   --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
   color-scheme:dark;
@@ -54,14 +54,14 @@ button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-of
 </head>
 <body>
 <div id="app">
-  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>MARCHLANDS</h1><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>MARCHLANDS</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
   <div id="view"><canvas id="cv"></canvas><div id="msg"></div></div>
   <div id="steps"></div>
   <div id="stat"></div>
   <div id="legend"></div>
   <div id="log"></div>
   <div id="pad"></div>
-  <p id="hint">Each turn has three steps: place new armies, attack, then make one move. Tap one of your countries, then a neighbour to attack it. A small block is 1 army; a large hollow block is 5. You get more armies for holding more countries and for keeping them joined up. The move step shifts armies from one of your countries to another that is joined to it by your own land; one army always stays behind, and you get one such move a turn. Take every country to win. The arrow in the list shows whose move it is.</p>
+  <p id="hint">You are cyan. Each turn has three steps: place new armies, attack, then make one move. Tap one of your countries, then a neighbour to attack it. A small block is 1 army; a large hollow block is 5. You get more armies for holding more countries and for keeping them joined up. The move step shifts armies from one of your countries to another that is joined to it by your own land; one army always stays behind, and you get one such move a turn. Take every country to win. The arrow in the list shows whose move it is.</p>
   <p id="rules">How a battle is decided: each roll, the attacker throws up to 3 dice (one fewer than the armies in the attacking country) and the defender up to 2. The highest dice are compared, then the next highest. The higher die wins and the loser removes one army; a tie goes to the defender. The log shows every roll, for example <b>YOU 6 4 2 v BLUE 5 4 | 6&gt;5 BLUE -1 | 4=4 YOU -1</b>. Scroll the log to read back.</p>
 </div>
 <script>
@@ -107,8 +107,8 @@ $('snd').onclick=()=>{vol=(vol+1)%3;try{localStorage.setItem('marchlands.vol',vo
 if(document.addEventListener)document.addEventListener('visibilitychange',()=>{if(document.hidden)hush()});
 
 /* ---------- map generation: a blob of land cut into countries of uneven size ---------- */
-const C=40,R=26,NAME=['YOU','BLUE','MAGENTA','AMBER'],COL=[1,2,3,4];
-const PAL=[[0,0,0],[51,255,102],[92,157,255],[255,85,255],[255,176,0],[255,255,255]];
+const C=40,R=26,NAME=['YOU','BLUE','MAGENTA','RED'],COL=[1,2,3,4];
+const PAL=[[0,0,0],[63,224,255],[106,120,255],[255,85,255],[255,90,77],[255,255,255]];
 const CSS=['var(--you)','var(--p1)','var(--p2)','var(--p3)'];
 let own=new Int16Array(C*R).fill(-1),terr=[],landN=0;
 const n4=i=>{const c=i%C,r=(i-c)/C,o=[];if(c>0)o.push(i-1);if(c<C-1)o.push(i+1);if(r>0)o.push(i-C);if(r<R-1)o.push(i+C);return o};
@@ -213,7 +213,7 @@ function onTap(t){
   if(t<0){if(phase==='move'){if(!mvLocked){mvFrom=-1;sel=-1}}else sel=tgt=-1;return render()}
   const T=terr[t];
   if(phase==='place'){
-    show(null);if(T.owner!==0){sfx('no');log('Place armies on your own countries (green).');return render()}
+    show(null);if(T.owner!==0){sfx('no');log('Place armies on your own countries (cyan).');return render()}
     T.armies++;reinf--;sel=t;sfx('place');drop(T,1);
     show(null);if(reinf<=0){phase='attack';log('Armies placed. Now attack, or end your turn.')}
     return render();
@@ -410,7 +410,7 @@ function ui(){
   }
   let head='',s='',hc='';
   if(phase==='setup'){head='NEW GAME';s='Choose how many computer opponents to play against.'}
-  else if(phase==='place'){head=`TURN ${turn}: PLACE ${reinf} ${reinf===1?'ARMY':'ARMIES'}`;hc=CSS[0];s='Tap your green countries, one army per tap. PLACE ALL puts the rest on the selected country.'}
+  else if(phase==='place'){head=`TURN ${turn}: PLACE ${reinf} ${reinf===1?'ARMY':'ARMIES'}`;hc=CSS[0];s='Tap your own countries (cyan), one army per tap. PLACE ALL puts the rest on the selected country.'}
   else if(phase==='attack'){
     hc=CSS[0];
     if(!can){head='NO ATTACKS LEFT';s='None of your countries has 2 armies next to an enemy. Tap DONE ATTACKING.'}
@@ -443,7 +443,11 @@ cv.addEventListener('pointerdown',e=>{
   if(x<0||y<0||x>=W||y>=H)return;onTap(idb[y*W+x]);
 });
 let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
-try{const v=localStorage.getItem('marchlands.vol');if(v!==null)vol=clamp(+v||0,0,2)}catch(e){}
+const HUES=['#33ff66','#ffb000','#ffffff'];let hueI=0;
+const setTone=()=>document.documentElement.style.setProperty('--fg',HUES[hueI]);
+$('tone').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setTone()};
+try{const v=localStorage.getItem('marchlands.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
+setTone();
 setSnd();resize();title();
 </script>
 </body>

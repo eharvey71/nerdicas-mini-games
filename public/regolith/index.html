@@ -37,7 +37,7 @@ button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-of
 </head>
 <body>
 <div id="app">
-  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>REGOLITH</h1><button class="mini" id="hue" type="button">HUE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>REGOLITH</h1><button class="mini" id="hue" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
   <div id="view"><canvas id="cv" width="280" height="192"></canvas><div id="msg"></div></div>
   <div id="stat"></div>
   <div id="pad">
@@ -65,7 +65,7 @@ function line(x0,y0,x1,y1){
 }
 function flush(){const c=HUES[hueI],p=img.data;for(let i=0;i<W*H;i++){const o=i*4,v=buf[i];p[o]=v?c[0]:0;p[o+1]=v?c[1]:0;p[o+2]=v?c[2]:0;p[o+3]=255}ctx.putImageData(img,0,0)}
 function setHue(){const c=HUES[hueI];document.documentElement.style.setProperty('--fg',`rgb(${c[0]},${c[1]},${c[2]})`)}
-$('hue').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('hollowdeep.hue',hueI)}catch(e){}setHue()};
+$('hue').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setHue()};
 
 /* ---------- sound: square waves, 1-bit noise, and a rumble for the engine ---------- */
 const SFX={land:[[523,.08],[659,.08],[784,.16]],crash:[['n',.4],[90,.2]],warn:[[880,.05]],start:[[440,.05],[660,.08]],over:[[330,.2,165],[165,.4,80]]};
@@ -237,7 +237,7 @@ addEventListener('keyup',e=>{const k=KEYS[e.key.length===1?e.key.toLowerCase():e
 addEventListener('blur',()=>{K.l=K.r=K.t=false});
 
 /* ---------- go ---------- */
-try{hueI=(+localStorage.getItem('hollowdeep.hue')||0)%HUES.length;const v=localStorage.getItem('regolith.vol');if(v!==null)vol=clamp(+v||0,0,2);S.best=+localStorage.getItem('regolith.best')||0}catch(e){}
+try{const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length;const v=localStorage.getItem('regolith.vol');if(v!==null)vol=clamp(+v||0,0,2);S.best=+localStorage.getItem('regolith.best')||0}catch(e){}
 setHue();setSnd();genTerrain();
 show([['REGOLITH','big'],['Land soft. Land level. Mind the fuel.'],['Hold THRUST to launch']]);
 let last=0;
