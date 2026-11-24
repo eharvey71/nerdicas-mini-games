@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Regolith</title>
+<meta name="description" content="A 1-bit vector moon lander. Land softly on a pad before the fuel runs out.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
+<style>
+/* layout: one phone-width column — 1-bit viewport, flight readout, three hold-to-fire controls */
+:root{
+  --fg:#33ff66;          /* phosphor, swapped by the HUE key */
+  --bg:#000000;
+  --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+body{display:flex;justify-content:center;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:6px;padding:8px 16px 12px}
+header{display:flex;align-items:center;gap:8px}
+h1{font-family:var(--font-display);font-size:15px;letter-spacing:.35em;margin:0;font-weight:700;flex:1}
+.mini{font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:4px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.mini:active{background:var(--fg);color:var(--bg)}
+#view{position:relative;border:2px solid var(--fg);aspect-ratio:280/192;width:100%;background:var(--bg)}
+canvas{width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+#msg{position:absolute;left:0;right:0;margin:0 auto;top:50%;transform:translateY(-50%);width:max-content;max-width:92%;display:none;text-align:center;background:var(--bg);border:2px solid var(--fg);box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--fg);padding:10px 18px;font-size:13px;line-height:1.5}
+#msg .big{font-family:var(--font-display);font-size:26px;font-weight:700;letter-spacing:.15em;line-height:1.3}
+#stat{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.4;display:flex;flex-wrap:wrap;gap:0 14px;font-variant-numeric:tabular-nums;white-space:pre}
+#pad{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:6px;touch-action:none}
+#pad button{font:inherit;font-size:14px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:72px;cursor:pointer;touch-action:none}
+#pad button.on{background:var(--fg);color:var(--bg)}
+button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+#hint{margin:0;font-size:12px;line-height:1.45}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>REGOLITH</h1><button class="mini" id="hue" type="button">HUE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <div id="view"><canvas id="cv" width="280" height="192"></canvas><div id="msg"></div></div>
+  <div id="stat"></div>
+  <div id="pad">
+    <button type="button" id="bl">&#9664; ROTATE</button>
+    <button type="button" id="bt">THRUST</button>
+    <button type="button" id="br">ROTATE &#9654;</button>
+  </div>
+  <p id="hint">To land safely on a pad: FALL 15 or less, DRIFT 10 or less either way, TILT 15 or less. A <b>!</b> in the readout marks a number that would crash you. Each ROTATE tap turns the lander 15 degrees; tilt and thrust to cancel sideways drift. Drift at launch is small at first and grows with each landing. Narrow pads score more and give fuel back. A crash burns 20 fuel. Keys: arrows or A and D to rotate, up, W or space to thrust.</p>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- 1-bit framebuffer ---------- */
+const W=280,H=192,ctx=$('cv').getContext('2d'),img=ctx.createImageData(W,H),buf=new Uint8Array(W*H);
+const HUES=[[51,255,102],[255,176,0],[255,255,255]];let hueI=0;
+function cls(){buf.fill(0)}
+function pset(x,y){x|=0;y|=0;if(x>=0&&x<W&&y>=0&&y<H)buf[y*W+x]=1}
+function line(x0,y0,x1,y1){
+  x0=Math.round(x0);y0=Math.round(y0);x1=Math.round(x1);y1=Math.round(y1);
+  if((x0<0&&x1<0)||(x0>=W&&x1>=W)||(y0<0&&y1<0)||(y0>=H&&y1>=H))return;
+  const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let e=dx-dy,n=0;
+  while(n++<1500){pset(x0,y0);if(x0===x1&&y0===y1)break;const e2=2*e;if(e2>-dy){e-=dy;x0+=sx}if(e2<dx){e+=dx;y0+=sy}}
+}
+function flush(){const c=HUES[hueI],p=img.data;for(let i=0;i<W*H;i++){const o=i*4,v=buf[i];p[o]=v?c[0]:0;p[o+1]=v?c[1]:0;p[o+2]=v?c[2]:0;p[o+3]=255}ctx.putImageData(img,0,0)}
+function setHue(){const c=HUES[hueI];document.documentElement.style.setProperty('--fg',`rgb(${c[0]},${c[1]},${c[2]})`)}
+$('hue').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('hollowdeep.hue',hueI)}catch(e){}setHue()};
+
+/* ---------- sound: square waves, 1-bit noise, and a rumble for the engine ---------- */
+const SFX={land:[[523,.08],[659,.08],[784,.16]],crash:[['n',.4],[90,.2]],warn:[[880,.05]],start:[[440,.05],[660,.08]],over:[[330,.2,165],[165,.4,80]]};
+let actx=null,vol=1,nbuf=null,unl=null,eng=null;const VM=[0,.15,.45];
+function silentWav(){
+  const n=2000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  let t='';for(const x of b)t+=String.fromCharCode(x);return 'data:audio/wav;base64,'+btoa(t);
+}
+function wake(){
+  if(!vol)return;
+  try{
+    if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A){$('snd').textContent='NO SOUND HERE';return}actx=new A();
+      nbuf=actx.createBuffer(1,actx.sampleRate,actx.sampleRate);const c=nbuf.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()<.5?-1:1;
+      const src=actx.createBufferSource(),lp=actx.createBiquadFilter();eng=actx.createGain();
+      src.buffer=nbuf;src.loop=true;lp.type='lowpass';lp.frequency.value=420;eng.gain.value=0;src.connect(lp);lp.connect(eng);eng.connect(actx.destination);src.start();
+      setTimeout(()=>{if(vol&&actx.state!=='running')$('snd').textContent='SOUND BLOCKED'},800)}
+    if(actx.state!=='running'){actx.resume().then(setSnd,()=>{});const u=actx.createBufferSource();u.buffer=actx.createBuffer(1,1,22050);u.connect(actx.destination);u.start(0)}
+  }catch(e){}
+  // a looping silent clip puts phones in media-playback mode, so the ringer switch does not mute the game
+  try{if(!unl){unl=new Audio(silentWav());unl.loop=true;unl.setAttribute('playsinline','')}if(unl.paused){const q=unl.play();if(q&&q.catch)q.catch(()=>{})}}catch(e){}
+}
+function hush(){try{if(unl)unl.pause();if(eng)eng.gain.value=0}catch(e){}}
+function sfx(n){
+  if(!vol||!actx||!SFX[n])return;
+  try{
+    let t=actx.currentTime;
+    for(const [f,dur,f2] of SFX[n]){
+      const gn=actx.createGain();gn.gain.setValueAtTime((f==='n'?.05:.07)*VM[vol],t);gn.gain.setValueAtTime(0,t+dur);gn.connect(actx.destination);
+      let src;
+      if(f==='n'){src=actx.createBufferSource();src.buffer=nbuf}
+      else{src=actx.createOscillator();src.type='square';src.frequency.setValueAtTime(f,t);if(f2)src.frequency.linearRampToValueAtTime(f2,t+dur)}
+      src.connect(gn);src.start(t);src.stop(t+dur+.01);t+=dur;
+    }
+  }catch(e){}
+}
+function rumble(on){try{if(eng&&actx)eng.gain.setTargetAtTime(on&&vol?.5*VM[vol]:0,actx.currentTime,.03)}catch(e){}}
+function setSnd(){$('snd').textContent=['SOUND OFF','SOUND LOW','SOUND HIGH'][vol]}
+$('snd').onclick=()=>{vol=(vol+1)%3;try{localStorage.setItem('regolith.vol',vol)}catch(e){}setSnd();if(!vol)hush();else{wake();sfx('start')}};
+if(document.addEventListener)document.addEventListener('visibilitychange',()=>{if(document.hidden)hush()});
+
+/* ---------- world ---------- */
+const N=35,STEP=W/N;               // terrain: N segments of 8 px across one screen, wrapping at the sides
+const GRAV0=6,THRUST=15,STEPA=Math.PI/12,BURN=6,SAFE_VY=15,SAFE_VX=10,SAFE_A=STEPA+.01;   // rotation is in 15-degree clicks
+const SHIP={body:[[-3,-5],[3,-5],[5,-1],[5,2],[-5,2],[-5,-1]],legs:[[[-4,2],[-6,6]],[[4,2],[6,6]],[[-7,6],[-5,6]],[[5,6],[7,6]],[[-2,2],[-1,4]],[[2,2],[1,4]]],hit:[[-6,6],[6,6],[-5,-1],[5,-1],[0,-5]]};
+const GLY={x:"...|...|1.1|.1.|1.1",2:"111|..1|111|1..|111",3:"111|..1|111|..1|111",5:"111|1..|111|..1|111"};
+let ys=[],pads=[],stars=[],cam={s:1,x:0,y:0};
+let S={mode:'title',score:0,best:0,fuel:100,landings:0,x:0,y:0,vx:0,vy:0,a:0,t:0,flame:0,debris:[],lock:0,warn:0,rt:0,rheld:false};
+const K={l:false,r:false,t:false};
+
+function genTerrain(){
+  const rough=Math.min(22,10+S.landings*1.5);
+  ys=[];let y=rnd(125,160);
+  for(let i=0;i<N;i++){ys.push(y);y=clamp(y+rnd(-rough,rough),100,182)}
+  ys.push(ys[0]);
+  pads=[];
+  for(const [w,m] of [[4,2],[3,3],[2,5]]){
+    for(let tries=0;tries<200;tries++){
+      const i=1+Math.floor(Math.random()*(N-w-2));
+      if(pads.some(p=>i<=p.i1+1&&i+w>=p.i0-1))continue;
+      const py=clamp(ys[i],110,180);for(let k=i;k<=i+w;k++)ys[k]=py;
+      pads.push({i0:i,i1:i+w,x0:i*STEP,x1:(i+w)*STEP,y:py,m});break;
+    }
+  }
+  stars=[];for(let i=0;i<28;i++)stars.push([Math.floor(rnd(0,W)),Math.floor(rnd(2,95))]);
+}
+function heightAt(x){x=((x%W)+W)%W;const i=Math.min(N-1,Math.floor(x/STEP)),t=x/STEP-i;return ys[i]+(ys[i+1]-ys[i])*t}
+function launch(){
+  const pd=pads[Math.floor(Math.random()*pads.length)],dr=Math.min(14,S.landings*2.5);S.x=clamp((pd.x0+pd.x1)/2+rnd(-45,45),12,W-12);S.y=14;S.vx=rnd(dr*.5,dr+3)*(Math.random()<.5?-1:1);S.vy=0;S.a=0;S.mode='fly';S.debris=[];cam.s=1;show(null);
+}
+function newGame(){S.score=0;S.fuel=100;S.landings=0;genTerrain();launch();sfx('start')}
+const world=(lx,ly)=>{const c=Math.cos(S.a),s=Math.sin(S.a);return[S.x+lx*c-ly*s,S.y+lx*s+ly*c]};
+
+function update(dt){
+  S.t+=dt;if(S.lock>0)S.lock-=dt;
+  if(S.mode==='title'||S.mode==='over'){rumble(false);if(K.t&&S.lock<=0)newGame();return}
+  if(S.mode==='landed'||S.mode==='crashed'){
+    rumble(false);
+    for(const d of S.debris){d.vy+=GRAV0*3*dt;d.x+=d.vx*dt;d.y+=d.vy*dt;d.r+=d.w*dt}
+    if(S.lock<=0){
+      if(S.fuel<=0){S.mode='over';S.lock=1;if(S.score>S.best){S.best=S.score;try{localStorage.setItem('regolith.best',S.best)}catch(e){}}sfx('over');
+        show([['OUT OF FUEL'],[String(S.score),'big'],['BEST '+S.best],['Hold THRUST to fly again']])}
+      else{if(S.mode==='landed')genTerrain();launch()}
+    }
+    return;
+  }
+  // flying
+  S.rt-=dt;
+  if(K.l!==K.r){if(!S.rheld||S.rt<=0){S.a=clamp(Math.round(S.a/STEPA)+(K.r?1:-1),-6,6)*STEPA;S.rt=S.rheld?.13:.3;S.rheld=true}}else S.rheld=false;
+  const burn=K.t&&S.fuel>0;
+  if(burn){S.vx+=Math.sin(S.a)*THRUST*dt;S.vy-=Math.cos(S.a)*THRUST*dt;S.fuel=Math.max(0,S.fuel-BURN*dt)}
+  S.flame=burn?rnd(4,9):0;rumble(burn);
+  S.vy+=(GRAV0+Math.min(4,S.landings*.4))*dt;S.x+=S.vx*dt;S.y+=S.vy*dt;
+  S.x=((S.x%W)+W)%W;if(S.y<-20){S.y=-20;if(S.vy<0)S.vy=0}
+  if(S.fuel<20){S.warn-=dt;if(S.warn<=0){S.warn=S.fuel<=0?99:1;sfx('warn')}}else S.warn=0;
+  // contact
+  const pts=SHIP.hit.map(p=>world(p[0],p[1]));
+  if(pts.some(p=>p[1]>=heightAt(p[0]))){
+    const f1=pts[0],f2=pts[1],pad=pads.find(p=>Math.min(f1[0],f2[0])>=p.x0-2.5&&Math.max(f1[0],f2[0])<=p.x1+2.5);
+    const fast=S.vy>SAFE_VY||Math.abs(S.vx)>SAFE_VX,tilt=Math.abs(S.a)>SAFE_A;
+    if(pad&&!fast&&!tilt){
+      const pts2=50*pad.m+Math.round((SAFE_VY-Math.max(0,S.vy))/SAFE_VY*50),back=5*pad.m;
+      S.y=pad.y-6;S.a=0;S.vx=S.vy=0;S.flame=0;S.score+=pts2;S.fuel=Math.min(100,S.fuel+back);S.landings++;S.mode='landed';S.lock=1.8;sfx('land');
+      show([['LANDED  x'+pad.m],['+'+pts2,'big'],['+'+back+' FUEL']]);
+    }else{
+      S.fuel=Math.max(0,S.fuel-20);S.mode='crashed';S.lock=1.9;sfx('crash');
+      S.debris=[];for(let i=0;i<16;i++)S.debris.push({x:S.x,y:S.y,vx:S.vx*.4+rnd(-40,40),vy:-rnd(10,60),r:rnd(0,6.3),w:rnd(-8,8),l:rnd(2,5)});
+      const why=!pad?'MISSED THE PAD':S.vy>SAFE_VY?`FALL ${Math.round(S.vy)}, LIMIT ${SAFE_VY}`:Math.abs(S.vx)>SAFE_VX?`DRIFT ${Math.round(Math.abs(S.vx))}, LIMIT ${SAFE_VX}`:`TILT ${Math.round(Math.abs(S.a)*57.3)}, LIMIT 15`;
+      show([[why],['CRASH','big'],['-20 FUEL']]);
+    }
+  }
+}
+
+/* ---------- drawing ---------- */
+const sx=x=>(x-cam.x)*cam.s,sy=y=>(y-cam.y)*cam.s;
+function wline(x0,y0,x1,y1){line(sx(x0),sy(y0),sx(x1),sy(y1))}
+function glyphs(str,wx,wy){
+  const s=cam.s;let x0=Math.round(sx(wx)-str.length*2*s),y0=Math.round(sy(wy));
+  for(const ch of str){GLY[ch].split('|').forEach((row,j)=>{for(let i=0;i<3;i++)if(row[i]==='1')for(let a=0;a<s;a++)for(let b=0;b<s;b++)pset(x0+i*s+a,y0+j*s+b)});x0+=4*s}
+}
+function draw(){
+  cls();
+  const alt=heightAt(S.x)-(S.y+6);
+  if(S.mode==='fly'){if(cam.s===1&&alt<46)cam.s=2;else if(cam.s===2&&alt>62)cam.s=1}
+  if(S.mode==='title'||S.mode==='over')cam.s=1;
+  if(cam.s===2){cam.x=S.x-W/4;cam.y=clamp(S.y-H/4,0,H/2)}else{cam.x=0;cam.y=0}
+  for(const st of stars)if(st[1]<heightAt(st[0])-3)for(const off of cam.s===2?[-W,0,W]:[0])pset(sx(st[0]+off),sy(st[1]));
+  for(const off of cam.s===2?[-W,0,W]:[0]){
+    for(let i=0;i<N;i++)wline(i*STEP+off,ys[i],(i+1)*STEP+off,ys[i+1]);
+    for(const p of pads){wline(p.x0+off,p.y+1,p.x1+off,p.y+1);if(cam.s===2)line(sx(p.x0+off),sy(p.y)+1,sx(p.x1+off),sy(p.y)+1);glyphs('x'+p.m,(p.x0+p.x1)/2+off,p.y+4)}
+  }
+  if(S.mode==='crashed'){for(const d of S.debris){const c=Math.cos(d.r)*d.l,s=Math.sin(d.r)*d.l;wline(d.x-c,d.y-s,d.x+c,d.y+s)}}
+  else if(S.mode!=='title'&&S.mode!=='over'){
+    const b=SHIP.body.map(p=>world(p[0],p[1]));
+    for(let i=0;i<b.length;i++){const q=b[(i+1)%b.length];wline(b[i][0],b[i][1],q[0],q[1])}
+    for(const l of SHIP.legs){const p=world(l[0][0],l[0][1]),q=world(l[1][0],l[1][1]);wline(p[0],p[1],q[0],q[1])}
+    if(S.flame){const p=world(-1.5,4),q=world(0,4+S.flame),r=world(1.5,4);wline(p[0],p[1],q[0],q[1]);wline(q[0],q[1],r[0],r[1])}
+  }
+  flush();
+}
+let hudN=0;
+function hud(){
+  if(hudN++%5)return;
+  const fly=S.mode==='fly',alt=Math.max(0,Math.round(heightAt(S.x)-(S.y+6)));
+  const sgn=v=>(v<0?'-':'+')+String(Math.abs(Math.round(v))).padStart(2,'0');
+  const parts=['SCORE '+String(S.score).padStart(4,'0'),'FUEL '+String(Math.ceil(S.fuel)).padStart(3,'0')+(S.fuel<20?'!':' '),
+    'ALT '+String(fly?alt:0).padStart(3,'0'),'DRIFT '+sgn(fly?S.vx:0)+(fly&&Math.abs(S.vx)>SAFE_VX?'!':' '),'FALL '+sgn(fly?S.vy:0)+(fly&&S.vy>SAFE_VY?'!':' '),
+    'TILT '+sgn(fly?S.a*57.3:0)+(fly&&Math.abs(S.a)>SAFE_A?'!':' ')];
+  const st=$('stat');if(st.children.length!==parts.length){st.textContent='';for(const p of parts){const e=document.createElement('span');st.appendChild(e)}}
+  parts.forEach((p,i)=>{if(st.children[i].textContent!==p)st.children[i].textContent=p});
+}
+function show(lines){
+  const m=$('msg');if(!lines){m.style.display='none';return}
+  m.textContent='';for(const [t,c] of lines){const e=document.createElement('div');e.textContent=t;if(c)e.className=c;m.appendChild(e)}
+  m.style.display='block';
+}
+
+/* ---------- input ---------- */
+function hold(id,key){
+  const b=$(id),set=v=>{K[key]=v;b.classList.toggle('on',v)};
+  b.addEventListener('pointerdown',e=>{e.preventDefault();wake();try{b.setPointerCapture(e.pointerId)}catch(_){}set(true)});
+  for(const ev of['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>set(false));
+  b.addEventListener('contextmenu',e=>e.preventDefault());
+}
+hold('bl','l');hold('bt','t');hold('br','r');
+const KEYS={ArrowLeft:'l',a:'l',ArrowRight:'r',d:'r',ArrowUp:'t',w:'t',' ':'t'};
+addEventListener('keydown',e=>{const k=KEYS[e.key.length===1?e.key.toLowerCase():e.key];if(k&&!e.metaKey&&!e.ctrlKey){e.preventDefault();wake();K[k]=true}});
+addEventListener('keyup',e=>{const k=KEYS[e.key.length===1?e.key.toLowerCase():e.key];if(k)K[k]=false});
+addEventListener('blur',()=>{K.l=K.r=K.t=false});
+
+/* ---------- go ---------- */
+try{hueI=(+localStorage.getItem('hollowdeep.hue')||0)%HUES.length;const v=localStorage.getItem('regolith.vol');if(v!==null)vol=clamp(+v||0,0,2);S.best=+localStorage.getItem('regolith.best')||0}catch(e){}
+setHue();setSnd();genTerrain();
+show([['REGOLITH','big'],['Land soft. Land level. Mind the fuel.'],['Hold THRUST to launch']]);
+let last=0;
+function frame(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;update(dt);draw();hud();requestAnimationFrame(frame)}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

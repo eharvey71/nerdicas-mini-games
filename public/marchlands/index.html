@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marchlands</title>
+<meta name="description" content="A turn-based territory game on a random map. Place armies, attack your neighbours, take every country.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
+<style>
+/* layout: one phone-width column — tilted map, player legend, status, log, three action keys */
+:root{
+  --fg:#e6e6e6;      /* interface: neutral, so green means you and nothing else */
+  --you:#33ff66;     /* you */
+  --bg:#000000;
+  --p1:#5c9dff;      /* bots: blue, magenta, amber */
+  --p2:#ff55ff;
+  --p3:#ffb000;
+  --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+body{display:flex;justify-content:center;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+#app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:6px;padding:8px 16px 12px}
+#app>*{flex-shrink:0}
+header{display:flex;align-items:center;gap:8px}
+h1{font-family:var(--font-display);font-size:15px;letter-spacing:.3em;margin:0;font-weight:700;flex:1}
+.mini{font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:4px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.mini:active{background:var(--fg);color:var(--bg)}
+#view{position:relative;border:2px solid var(--fg);width:100%;background:var(--bg);line-height:0}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;cursor:pointer}
+#msg{position:absolute;left:0;right:0;margin:0 auto;top:50%;transform:translateY(-50%);width:max-content;max-width:92%;display:none;text-align:center;background:var(--bg);border:2px solid var(--fg);box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--fg);padding:10px 18px;font-size:13px;line-height:1.5}
+#msg .big{font-family:var(--font-display);font-size:24px;font-weight:700;letter-spacing:.12em;line-height:1.3}
+#legend{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:12px;line-height:1.4;font-variant-numeric:tabular-nums;border:2px solid var(--fg);padding:4px 8px;min-height:1.4em}
+#legend span.out{text-decoration:line-through;opacity:.5}
+#steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:11px;font-weight:700;letter-spacing:.04em;text-align:center}
+#steps span{border:2px dotted var(--fg);padding:5px 2px;opacity:.45}
+#steps span.on{border-style:solid;background:var(--fg);color:var(--bg);opacity:1}
+#steps span.done{border-style:solid;opacity:.8}
+#stat{border:2px solid var(--fg);padding:6px 8px;font-size:13px;line-height:1.4;min-height:4.4em}
+#stat b{display:block;font-size:16px;letter-spacing:.05em}
+#pad button.hot{background:var(--fg);color:var(--bg)}
+#log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:8.8em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+#log div{white-space:pre-wrap}
+#log div.roll{opacity:.8;padding-left:1.2em;text-indent:-1.2em}
+#pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#pad button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:46px;cursor:pointer}
+#pad button:active{background:var(--fg);color:var(--bg)}
+#pad button:disabled{border-style:dotted;opacity:.35;cursor:default}
+button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+#hint,#rules{margin:0;font-size:12px;line-height:1.45}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>MARCHLANDS</h1><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <div id="view"><canvas id="cv"></canvas><div id="msg"></div></div>
+  <div id="steps"></div>
+  <div id="stat"></div>
+  <div id="legend"></div>
+  <div id="log"></div>
+  <div id="pad"></div>
+  <p id="hint">Each turn has three steps: place new armies, attack, then make one move. Tap one of your countries, then a neighbour to attack it. A small block is 1 army; a large hollow block is 5. You get more armies for holding more countries and for keeping them joined up. The move step shifts armies from one of your countries to another that is joined to it by your own land; one army always stays behind, and you get one such move a turn. Take every country to win. The arrow in the list shows whose move it is.</p>
+  <p id="rules">How a battle is decided: each roll, the attacker throws up to 3 dice (one fewer than the armies in the attacking country) and the defender up to 2. The highest dice are compared, then the next highest. The higher die wins and the loser removes one army; a tie goes to the defender. The log shows every roll, for example <b>YOU 6 4 2 v BLUE 5 4 | 6&gt;5 BLUE -1 | 4=4 YOU -1</b>. Scroll the log to read back.</p>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const ri=n=>Math.floor(Math.random()*n),rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- sound ---------- */
+const SFX={place:[[660,.03]],roll:[['n',.05],[200,.04]],take:[[523,.06],[784,.1]],lost:[[196,.14,110]],win:[[523,.1],[659,.1],[784,.1],[1047,.25]],lose:[[330,.2,165],[165,.4,80]],turn:[[440,.04],[550,.06]],no:[[120,.07]]};
+let actx=null,vol=1,nbuf=null,unl=null,sq=0;const VM=[0,.15,.45];
+function silentWav(){
+  const n=2000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  let t='';for(const x of b)t+=String.fromCharCode(x);return 'data:audio/wav;base64,'+btoa(t);
+}
+function wake(){
+  if(!vol)return;
+  try{
+    if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A){$('snd').textContent='NO SOUND HERE';return}actx=new A();
+      nbuf=actx.createBuffer(1,actx.sampleRate,actx.sampleRate);const c=nbuf.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()<.5?-1:1;
+      setTimeout(()=>{if(vol&&actx.state!=='running')$('snd').textContent='SOUND BLOCKED'},800)}
+    if(actx.state!=='running'){actx.resume().then(setSnd,()=>{});const u=actx.createBufferSource();u.buffer=actx.createBuffer(1,1,22050);u.connect(actx.destination);u.start(0)}
+  }catch(e){}
+  try{if(!unl){unl=new Audio(silentWav());unl.loop=true;unl.setAttribute('playsinline','')}if(unl.paused){const q=unl.play();if(q&&q.catch)q.catch(()=>{})}}catch(e){}
+}
+function hush(){try{if(unl)unl.pause()}catch(e){}}
+function sfx(n){
+  if(!vol||!actx||!SFX[n])return;
+  try{
+    let t=Math.max(actx.currentTime,sq);if(t-actx.currentTime>.6)return;
+    for(const [f,dur,f2] of SFX[n]){
+      const gn=actx.createGain();gn.gain.setValueAtTime((f==='n'?.05:.07)*VM[vol],t);gn.gain.setValueAtTime(0,t+dur);gn.connect(actx.destination);
+      let src;
+      if(f==='n'){src=actx.createBufferSource();src.buffer=nbuf}
+      else{src=actx.createOscillator();src.type='square';src.frequency.setValueAtTime(f,t);if(f2)src.frequency.linearRampToValueAtTime(f2,t+dur)}
+      src.connect(gn);src.start(t);src.stop(t+dur+.01);t+=dur;
+    }
+    sq=t+.02;
+  }catch(e){}
+}
+function setSnd(){$('snd').textContent=['SOUND OFF','SOUND LOW','SOUND HIGH'][vol]}
+$('snd').onclick=()=>{vol=(vol+1)%3;try{localStorage.setItem('marchlands.vol',vol)}catch(e){}setSnd();if(!vol)hush();else{wake();sfx('turn')}};
+if(document.addEventListener)document.addEventListener('visibilitychange',()=>{if(document.hidden)hush()});
+
+/* ---------- map generation: a blob of land cut into countries of uneven size ---------- */
+const C=40,R=26,NAME=['YOU','BLUE','MAGENTA','AMBER'],COL=[1,2,3,4];
+const PAL=[[0,0,0],[51,255,102],[92,157,255],[255,85,255],[255,176,0],[255,255,255]];
+const CSS=['var(--you)','var(--p1)','var(--p2)','var(--p3)'];
+let own=new Int16Array(C*R).fill(-1),terr=[],landN=0;
+const n4=i=>{const c=i%C,r=(i-c)/C,o=[];if(c>0)o.push(i-1);if(c<C-1)o.push(i+1);if(r>0)o.push(i-C);if(r<R-1)o.push(i+C);return o};
+function genMap(){
+  for(let attempt=0;attempt<5000;attempt++){
+    let land=new Uint8Array(C*R);
+    for(let r=1;r<R-1;r++)for(let c=1;c<C-1;c++){const dx=(c-C/2)/(C/2),dy=(r-R/2)/(R/2);land[r*C+c]=Math.random()<.78-(dx*dx+dy*dy)*.4?1:0}
+    for(let it=0;it<4;it++){
+      const n2=new Uint8Array(C*R);
+      for(let r=1;r<R-1;r++)for(let c=1;c<C-1;c++){let k=0;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++)if(a||b)k+=land[(r+a)*C+c+b];n2[r*C+c]=k>=5||(k===4&&land[r*C+c])?1:0}
+      land=n2;
+    }
+    // keep the largest landmass
+    const lab=new Int16Array(C*R).fill(-1);let best=-1,bestN=0,nl=0;
+    for(let i=0;i<C*R;i++){if(!land[i]||lab[i]>=0)continue;let n=0;const q=[i];lab[i]=nl;while(q.length){const x=q.pop();n++;for(const y of n4(x))if(land[y]&&lab[y]<0){lab[y]=nl;q.push(y)}}if(n>bestN){bestN=n;best=nl}nl++}
+    if(bestN<430||bestN>760)continue;landN=bestN;
+    for(let i=0;i<C*R;i++)land[i]=lab[i]===best?1:0;
+    // seeds, kept apart
+    const T=clamp(Math.round(bestN/rnd(24,34)),14,24),cells=[];for(let i=0;i<C*R;i++)if(land[i])cells.push(i);
+    const seeds=[];for(let tries=0;seeds.length<T&&tries<4000;tries++){const s=cells[ri(cells.length)];if(seeds.every(o=>Math.abs(o%C-s%C)+Math.abs(Math.floor(o/C)-Math.floor(s/C))>=5))seeds.push(s)}
+    if(seeds.length<12)continue;
+    // uneven growth: each country spreads at its own rate
+    own=new Int16Array(C*R).fill(-1);const fr=seeds.map(s=>[s]),w=seeds.map(()=>rnd(.3,1.8));let left=bestN-seeds.length;
+    seeds.forEach((s,t)=>own[s]=t);
+    while(left>0){
+      let tot=0;for(let t=0;t<fr.length;t++)if(fr[t].length)tot+=w[t];if(!tot)break;
+      let x=Math.random()*tot,t=0;for(;t<fr.length;t++){if(!fr[t].length)continue;x-=w[t];if(x<=0)break}if(t>=fr.length)t=fr.findIndex(f=>f.length);
+      const f=fr[t],k=ri(f.length),opts=n4(f[k]).filter(n=>land[n]&&own[n]<0);
+      if(!opts.length){f[k]=f[f.length-1];f.pop();continue}
+      const n=opts[ri(opts.length)];own[n]=t;f.push(n);left--;
+    }
+    // fold slivers into a neighbour
+    for(let pass=0;pass<40;pass++){
+      const size=new Map();for(let i=0;i<C*R;i++)if(own[i]>=0)size.set(own[i],(size.get(own[i])||0)+1);
+      let small=-1;for(const [t,n] of size)if(n<8){small=t;break}if(small<0)break;
+      const touch=new Map();for(let i=0;i<C*R;i++)if(own[i]===small)for(const y of n4(i))if(own[y]>=0&&own[y]!==small)touch.set(own[y],(touch.get(own[y])||0)+1);
+      let to=-1,m=0;for(const [t,n] of touch)if(n>m){m=n;to=t}
+      for(let i=0;i<C*R;i++)if(own[i]===small)own[i]=to;
+    }
+    // renumber and describe
+    const ids=[...new Set(Array.from(own).filter(v=>v>=0))];if(ids.length<10)continue;
+    const map=new Map(ids.map((v,i)=>[v,i]));for(let i=0;i<C*R;i++)if(own[i]>=0)own[i]=map.get(own[i]);
+    terr=ids.map((_,i)=>({id:i,cells:[],adj:new Set(),owner:0,armies:1,anchor:0}));
+    const dist=new Int16Array(C*R).fill(-1),q=[];
+    for(let i=0;i<C*R;i++){const t=own[i];if(t<0)continue;terr[t].cells.push(i);let edge=n4(i).length<4;for(const y of n4(i)){if(own[y]!==t){edge=true;if(own[y]>=0)terr[t].adj.add(own[y])}}if(edge){dist[i]=0;q.push(i)}}
+    for(let h=0;h<q.length;h++){const x=q[h];for(const y of n4(x))if(own[y]===own[x]&&dist[y]<0){dist[y]=dist[x]+1;q.push(y)}}
+    for(const t of terr){let b=t.cells[0];for(const i of t.cells)if(dist[i]>dist[b])b=i;t.anchor=b}
+    if(W)layout();
+    return;
+  }
+}
+
+/* ---------- game state ---------- */
+let mvFrom=-1,mvTo=-1,mvLocked=false,logN=0,mover=0,NP=3,phase='setup',sel=-1,tgt=-1,reinf=0,blitz=true,busy=false,turn=0,gid=0,lines=[],sure=0;
+const alive=p=>terr.some(t=>t.owner===p);
+function reach(id){const o=terr[id].owner,seen=new Set([id]),q=[id];while(q.length){const x=q.pop();for(const a of terr[x].adj)if(terr[a].owner===o&&!seen.has(a)){seen.add(a);q.push(a)}}seen.delete(id);return seen}
+const canMove=()=>terr.some(a=>a.owner===0&&a.armies>1&&[...a.adj].some(j=>terr[j].owner===0));
+const canAttack=()=>terr.some(a=>a.owner===0&&a.armies>1&&[...a.adj].some(j=>terr[j].owner!==0));
+function deal(){
+  const ids=terr.map(t=>t.id);for(let i=ids.length-1;i>0;i--){const j=ri(i+1);[ids[i],ids[j]]=[ids[j],ids[i]]}
+  ids.forEach((id,i)=>{terr[id].owner=i%NP;terr[id].armies=1});
+  const extra=Math.round(terr.length/NP*1.5);
+  for(let p=0;p<NP;p++){const mine=terr.filter(t=>t.owner===p);for(let i=0;i<extra;i++)mine[ri(mine.length)].armies++}
+}
+function cluster(p){
+  const seen=new Set();let best=0;
+  for(const t of terr){if(t.owner!==p||seen.has(t.id))continue;let n=0;const q=[t.id];seen.add(t.id);while(q.length){const x=q.pop();n++;for(const a of terr[x].adj)if(terr[a].owner===p&&!seen.has(a)){seen.add(a);q.push(a)}}if(n>best)best=n}
+  return best;
+}
+const income=p=>Math.max(3,Math.floor(terr.filter(t=>t.owner===p).length/3)+Math.floor(cluster(p)/3));
+function log(s,c){lines.push(c?{t:s,c}:{t:s});if(lines.length>400){lines.splice(0,100);logN=-1}}
+function battle(a,d,full,stop){
+  let la=0,ld=0;const rounds=[];
+  while(a.armies>1&&d.armies>0){
+    const ad=Math.min(3,a.armies-1),dd=Math.min(2,d.armies),A=[],D=[];
+    for(let i=0;i<ad;i++)A.push(1+ri(6));for(let i=0;i<dd;i++)D.push(1+ri(6));A.sort((x,y)=>y-x);D.sort((x,y)=>y-x);
+    const pr=[];for(let i=0;i<Math.min(ad,dd);i++){if(A[i]>D[i]){d.armies--;ld++;pr.push([A[i],D[i],1])}else{a.armies--;la++;pr.push([A[i],D[i],0])}}
+    rounds.push({A,D,pr});
+    if(!full||(stop&&stop()))break;
+  }
+  const won=d.armies<=0;
+  if(won){d.owner=a.owner;d.armies=a.armies-1;a.armies=1}
+  return{won,la,ld,rounds};
+}
+function startGame(n){
+  NP=n+1;gid++;genMap();deal();turn=0;lines=[];sel=tgt=-1;busy=false;show(null);
+  log(`${terr.length} countries. ${n} opponent${n>1?'s':''}. You move first.`);playerTurn();
+}
+function playerTurn(){
+  mover=0;turn++;reinf=income(0);phase='place';sel=tgt=-1;sfx('turn');
+  const g=gid,tn=turn;show([['YOUR TURN','big'],[`${reinf} new armies to place`]]);
+  setTimeout(()=>{if(g===gid&&tn===turn&&phase!=='over')show(null)},900);
+  render();
+}
+function checkEnd(){
+  if(terr.every(t=>t.owner===0)){phase='over';sel=tgt=-1;sfx('win');show([['VICTORY'],['THE MAP IS YOURS','big'],[`Won in ${turn} turns.`]]);return true}
+  if(!alive(0)){phase='over';sel=tgt=-1;sfx('lose');show([['DEFEATED'],['NO LAND LEFT','big'],[`You lasted ${turn} turns.`]]);return true}
+  return false;
+}
+function onTap(t){
+  if(busy||phase==='setup'||phase==='over')return;
+  if(t<0){if(phase==='move'){if(!mvLocked){mvFrom=-1;sel=-1}}else sel=tgt=-1;return render()}
+  const T=terr[t];
+  if(phase==='place'){
+    show(null);if(T.owner!==0){sfx('no');log('Place armies on your own countries (green).');return render()}
+    T.armies++;reinf--;sel=t;sfx('place');drop(T,1);
+    show(null);if(reinf<=0){phase='attack';log('Armies placed. Now attack, or end your turn.')}
+    return render();
+  }
+  if(phase==='move')return moveTap(t,T);
+  if(T.owner===0){sel=sel===t?-1:t;tgt=-1;return render()}
+  const A=sel>=0?terr[sel]:null;
+  if(!A||!A.adj.has(t)){tgt=-1;sfx('no');log(`${NAME[T.owner]} country with ${T.armies} ${T.armies===1?'army':'armies'}. Select a neighbour of yours first.`);return render()}
+  if(A.armies<2){sfx('no');log('That country needs at least 2 armies to attack.');return render()}
+  const who=NAME[T.owner],g=gid;busy=true;tgt=t;render();
+  strike(A,T,blitz).then(res=>{
+    if(g!==gid)return;
+    logRolls('YOU',who,res);log(`You hit ${who}: lost ${res.la}, destroyed ${res.ld}.${res.won?' Country taken!':''}`);
+    if(res.won){sfx('take');sel=t;tgt=-1}else tgt=t;
+    wiped();busy=false;checkEnd();render();
+  });
+}
+function moveTap(t,T){
+  if(T.owner!==0){sfx('no');log('Moves go between your own countries.');return render()}
+  const send=n=>{const F=terr[mvFrom];march(F,T,Math.min(3,n));F.armies-=n;T.armies+=n;mvTo=t;mvLocked=true;tgt=t;sfx('place')};
+  if(mvLocked){
+    if(t!==mvTo){sfx('no');log("This turn's move is already under way. Tap the same destination, MOVE ALL, or END TURN.");return render()}
+    if(terr[mvFrom].armies<2){sfx('no');log('One army has to stay behind.');return render()}
+    send(1);return render();
+  }
+  if(mvFrom<0||t===mvFrom||!reach(mvFrom).has(t)){
+    if(t===mvFrom){mvFrom=-1;sel=-1;return render()}
+    if(T.armies<2){sfx('no');log(mvFrom<0?'That country has 1 army, and one must stay. Pick a country with more.':'Not joined to the selected country by your own land.');return render()}
+    mvFrom=t;sel=t;tgt=-1;return render();
+  }
+  send(1);render();
+}
+function moveAll(){
+  if(phase!=='move'||mvFrom<0)return;
+  if(mvTo<0){sfx('no');log('Tap the destination first, then MOVE ALL.');return render()}
+  const F=terr[mvFrom],T=terr[mvTo],n=F.armies-1;if(n<1)return;
+  march(F,T,Math.min(3,n));F.armies=1;T.armies+=n;sfx('place');log(`Moved ${n} more ${n===1?'army':'armies'}.`);render();
+}
+function toMove(){
+  if(busy||phase!=='attack')return;
+  if(!canMove()){log('No armies free to move. Turn ended.');return endTurn()}
+  phase='move';mvFrom=mvTo=-1;mvLocked=false;sel=tgt=-1;log('Attacks done. You may make one move, or end your turn.');render();
+}
+const dead=new Set();
+let wait=ms=>new Promise(r=>setTimeout(r,ms));
+async function endTurn(){
+  if(busy||(phase!=='attack'&&phase!=='move'))return;
+  const g=gid;busy=true;phase='bots';mvFrom=mvTo=-1;mvLocked=false;sel=tgt=-1;render();
+  for(let p=1;p<NP;p++){
+    if(!alive(p))continue;
+    await botPlay(p,g);if(g!==gid)return;if(phase==='over'){busy=false;return render()}
+  }
+  busy=false;playerTurn();
+}
+async function botPlay(p,g){
+  mover=p;const AGG=[0,1.0,1.25,1.6][p];
+  const n=income(p),mine=terr.filter(t=>t.owner===p),border=mine.filter(t=>[...t.adj].some(a=>terr[a].owner!==p)),pool=border.length?border:mine;
+  const score=t=>t.armies-Math.min(99,...[...t.adj].filter(a=>terr[a].owner!==p).map(a=>terr[a].armies))+Math.random()*2;
+  const base=pool.slice().sort((a,b)=>score(b)-score(a))[0];
+  for(let i=0;i<n;i++)(Math.random()<.7?base:pool[ri(pool.length)]).armies++;
+  sel=base.id;tgt=-1;log(`${NAME[p]} places ${n} armies.`);sfx('place');render();await drop(base,Math.min(5,n));await wait(320);if(g!==gid)return;
+  for(let k=0;k<14;k++){
+    let best=null,bs=0;
+    for(const a of terr){if(a.owner!==p||a.armies<2)continue;for(const j of a.adj){const d=terr[j];if(d.owner===p)continue;const s=(a.armies-1)/d.armies;if(s>bs&&a.armies-1>d.armies*AGG){bs=s;best=[a,d]}}}
+    if(!best)break;
+    const [a,d]=best,was=d.owner;sel=a.id;tgt=d.id;render();await wait(280);if(g!==gid)return;
+    const res=await strike(a,d,true,()=>a.armies-1<d.armies);if(g!==gid)return;if(res.won&&was===0)sfx('lost');
+    logRolls(NAME[p],was===0?'YOU':NAME[was],res);log(`${NAME[p]} hits ${was===0?'YOU':NAME[was]}: lost ${res.la}, destroyed ${res.ld}.${res.won?' Country taken!':''}`);
+    if(!alive(was)&&!dead.has(was+':'+gid)){dead.add(was+':'+gid);if(was)log(`${NAME[was]} is wiped out.`)}
+    if(res.won)sel=d.id;tgt=-1;render();if(checkEnd()){render();return}
+    await wait(320);if(g!==gid)return;
+  }
+  // one move: the biggest stack with no enemy beside it goes to the most threatened border it can reach
+  const inner=terr.filter(t=>t.owner===p&&t.armies>1&&![...t.adj].some(a=>terr[a].owner!==p)).sort((x,y)=>y.armies-x.armies)[0];
+  if(inner){
+    const need=t=>Math.max(...[...t.adj].filter(a=>terr[a].owner!==p).map(a=>terr[a].armies))-t.armies;
+    const to=[...reach(inner.id)].map(i=>terr[i]).filter(t=>[...t.adj].some(a=>terr[a].owner!==p)).sort((x,y)=>need(y)-need(x))[0];
+    if(to){
+      const n=inner.armies-1;sel=inner.id;tgt=to.id;render();await wait(260);if(g!==gid)return;
+      await march(inner,to,Math.min(3,n));inner.armies=1;to.armies+=n;sfx('place');log(`${NAME[p]} moves ${n} ${n===1?'army':'armies'} to the front.`);render();await wait(320);if(g!==gid)return;
+    }
+  }
+  sel=tgt=-1;render();
+}
+
+/* ---------- drawing: far rows first, land raised as a slab, the selected country lifted ---------- */
+const cv=$('cv'),ctx=cv.getContext('2d');let W=0,H=0,buf,idb,img,Y=[],SCL=[];
+function resize(){
+  W=Math.max(240,Math.floor($('view').clientWidth));H=Math.round(W*.74);
+  cv.width=W;cv.height=H;cv.style.width=W+'px';cv.style.height=H+'px';
+  buf=new Uint8Array(W*H);idb=new Int16Array(W*H);img=ctx.createImageData(W,H);
+  layout();
+}
+let bb={c0:0,c1:C-1,r0:0,r1:R-1};
+function layout(){
+  // fit the land's bounding box to the canvas; far rows are shorter and narrower than near ones
+  bb={c0:C,c1:0,r0:R,r1:0};for(let i=0;i<C*R;i++)if(own[i]>=0){const c=i%C,r=(i-c)/C;bb.c0=Math.min(bb.c0,c);bb.c1=Math.max(bb.c1,c);bb.r0=Math.min(bb.r0,r);bb.r1=Math.max(bb.r1,r)}
+  if(bb.c0>bb.c1)bb={c0:0,c1:C-1,r0:0,r1:R-1};
+  const n=bb.r1-bb.r0+1,top=Math.round(H*.1),tot=H-top-Math.round(H*.05);let sum=0;const rh=[];
+  for(let k=0;k<n;k++){rh.push(.7+.6*k/n);sum+=rh[k]}
+  Y=[];SCL=[];Y[bb.r0]=top;for(let k=0;k<n;k++){Y[bb.r0+k+1]=Y[bb.r0+k]+rh[k]/sum*tot;SCL[bb.r0+k]=.76+.24*k/Math.max(1,n-1)}
+}
+const xs=(c,r)=>Math.round(W/2+(c-(bb.c0+bb.c1+1)/2)*((W-12)/(bb.c1-bb.c0+1))*SCL[r]);
+function box(x,y,w,h,col,t){for(let b=Math.max(0,y);b<Math.min(H,y+h);b++)for(let a=Math.max(0,x);a<Math.min(W,x+w);a++){buf[b*W+a]=col;if(t!==undefined)idb[b*W+a]=t}}
+function compose(){
+  if(!W)resize();
+  buf.fill(0);idb.fill(-1);
+  const h0=Math.max(3,Math.round(W/80)),lift=h0+Math.max(4,Math.round(W/60)),hOf=t=>t<0?0:t===sel?lift:h0;
+  const tg=new Set();if(phase==='attack'&&sel>=0&&terr[sel].owner===0&&terr[sel].armies>1)for(const a of terr[sel].adj)if(terr[a].owner!==0)tg.add(a);
+  if(phase==='move'&&mvFrom>=0){if(mvLocked)tg.add(mvTo);else for(const a of reach(mvFrom))tg.add(a)}
+  for(let r=bb.r0;r<=bb.r1;r++){
+    const y0=Math.round(Y[r]),y1=Math.round(Y[r+1]);
+    for(let c=0;c<C;c++){
+      const t=own[r*C+c];if(t<0)continue;
+      const col=flash&&flash.id===t?flash.col:COL[terr[t].owner],h=hOf(t),x0=xs(c,r),x1=xs(c+1,r),solid=t===sel,stripe=t===tgt||tg.has(t);
+      const L=c>0?own[r*C+c-1]:-1,U=r>0?own[(r-1)*C+c]:-1,Rt=c<C-1?own[r*C+c+1]:-1,D=r<R-1?own[(r+1)*C+c]:-1;
+      for(let y=y0-h;y<y1-h;y++){
+        if(y<0||y>=H)continue;
+        for(let x=x0;x<x1;x++){
+          let on=solid?1:stripe?((x+y)%4<2?1:0):((x+y)&1);
+          if(L!==t){if(x===x0)on=0;else if(x===x0+1)on=1}
+          if(U!==t){if(y===y0-h)on=0;else if(y===y0-h+1&&!(L!==t&&x===x0))on=1}
+          if(Rt!==t&&x===x1-1)on=1;
+          if(D!==t&&y===y1-h-1)on=1;
+          buf[y*W+x]=on?col:0;idb[y*W+x]=t;
+        }
+      }
+      const hb=hOf(D===t?t:D);
+      if(D!==t&&h>hb)for(let y=y1-h;y<y1-hb;y++){if(y<0||y>=H)continue;for(let x=x0;x<x1;x++){buf[y*W+x]=(y===y1-h||x%2===0||(L!==t&&x===x0)||(Rt!==t&&x===x1-1))?col:0;idb[y*W+x]=t}}
+    }
+  }
+  // armies: small block = 1, large hollow block = 5
+  const u=Math.max(1,Math.round(W/330));
+  for(const T of terr.slice().sort((a,b)=>a.anchor-b.anchor)){
+    const c=T.anchor%C,r=(T.anchor-c)/C,h=hOf(T.id),ax=(xs(c,r)+xs(c+1,r))/2,ay=(Y[r]+Y[r+1])/2-h,col=COL[T.owner];
+    const toks=[];for(let i=0;i<Math.min(7,Math.floor(T.armies/5));i++)toks.push(1);for(let i=0;i<T.armies%5;i++)toks.push(0);
+    const rows=[[]];let wsum=0;for(const b of toks){const w=(b?7:4)*u+2;if(wsum+w>30*u&&rows[rows.length-1].length){rows.push([]);wsum=0}rows[rows.length-1].push(b);wsum+=w}
+    const rowH=r2=>(r2.some(b=>b)?8:5)*u+2;let y=Math.round(ay+rows.reduce((s,r2)=>s+rowH(r2),0)/2);
+    for(const r2 of rows){
+      const rw=r2.reduce((s,b)=>s+(b?7:4)*u+2,0)-2,rh2=rowH(r2);let x=Math.round(ax-rw/2);y-=rh2;
+      for(const b of r2){
+        const w=(b?7:4)*u,ht=(b?5:3)*u,fh=(b?3:2)*u,ty=y+rh2-2-ht-fh;
+        box(x-1,ty-1,w+2,ht+fh+2,0,T.id);box(x,ty,w,ht,5,T.id);box(x,ty+ht,w,fh,col,T.id);
+        if(b)box(x+2*u,ty+u+Math.floor(u/2),w-4*u,ht-2*u,0,T.id);
+        x+=w+2;
+      }
+    }
+  }
+}
+function blit(){const p=img.data;for(let i=0;i<W*H;i++){const c=PAL[buf[i]],o=i*4;p[o]=c[0];p[o+1]=c[1];p[o+2]=c[2];p[o+3]=255}ctx.putImageData(img,0,0)}
+function render(){if(!ticking){compose();blit()}ui()}
+
+/* ---------- motion: blocks march, drop and countries blink so changes can be followed ---------- */
+let anims=[],ticking=false,flash=null,fast=typeof matchMedia==='function'&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function anim(dur,draw){
+  if(fast)return Promise.resolve();
+  return new Promise(res=>{anims.push({t0:performance.now(),dur,draw,res});if(!ticking){ticking=true;requestAnimationFrame(tick)}});
+}
+function tick(now){
+  compose();
+  anims=anims.filter(a=>{const p=clamp((now-a.t0)/a.dur,0,1);a.draw(p);if(p>=1){a.res();return false}return true});
+  blit();
+  if(anims.length)requestAnimationFrame(tick);else{ticking=false;flash=null;compose();blit()}
+}
+const scr=T=>{const c=T.anchor%C,r=(T.anchor-c)/C;return[(xs(c,r)+xs(c+1,r))/2,(Y[r]+Y[r+1])/2-Math.max(3,Math.round(W/80))]};
+function block(x,y,col){const u=Math.max(1,Math.round(W/330)),w=5*u,ht=4*u,fh=3*u;x=Math.round(x-w/2);y=Math.round(y-ht-fh);box(x-1,y-1,w+2,ht+fh+2,0);box(x,y,w,ht,5);box(x,y+ht,w,fh,col)}
+const march=(a,d,n)=>{const col=COL[a.owner],A=scr(a),D=scr(d);return anim(380,p=>{for(let i=0;i<n;i++){const q=clamp(p*1.35-i*.17,0,1);if(q<=0||q>=1)continue;block(A[0]+(D[0]-A[0])*q,A[1]+(D[1]-A[1])*q-Math.sin(q*Math.PI)*W/28,col)}})};
+const blink=id=>anim(360,p=>{flash=p<1&&Math.floor(p*6)%2===0?{id,col:5}:null});
+const drop=(T,n)=>{const col=COL[T.owner];return anim(300,p=>{const A=scr(T);for(let i=0;i<n;i++){const q=clamp(p*1.4-i*.1,0,1);if(q>=1)continue;block(A[0]+(i-(n-1)/2)*W/45,A[1]-(1-q)*W/9,col)}})};
+async function strike(a,d,full,stop){
+  sfx('roll');await march(a,d,Math.min(3,a.armies-1));
+  const res=battle(a,d,full,stop);render();await blink(d.id);return res;
+}
+function logRolls(att,def,res){
+  // one line per roll of the dice: both hands, then each pair compared, highest against highest
+  for(const r of res.rounds)log(`${att} ${r.A.join(' ')}  v  ${def} ${r.D.join(' ')}  |  `+r.pr.map(([x,y,w])=>`${x}${x>y?'>':x===y?'=':'<'}${y} ${w?def:att} -1`).join('  |  '),'roll');
+}
+function wiped(){for(let p=1;p<NP;p++)if(!alive(p)&&!dead.has(p+':'+gid)){dead.add(p+':'+gid);log(`${NAME[p]} is wiped out.`)}}
+function show(rows){
+  const m=$('msg');if(!rows){m.style.display='none';return}
+  m.textContent='';for(const [t,c] of rows){const e=document.createElement('div');e.textContent=t;if(c)e.className=c;m.appendChild(e)}
+  m.style.display='block';
+}
+function ui(){
+  const lg=$('legend');lg.textContent='';
+  if(phase!=='setup')for(let p=0;p<NP;p++){
+    const mine=terr.filter(t=>t.owner===p),e=document.createElement('span');e.style.color=CSS[p];
+    e.textContent=`${p===mover&&phase!=='over'&&phase!=='setup'?'▶':'■'} ${NAME[p]} ${mine.length} lands, ${mine.reduce((s,t)=>s+t.armies,0)} armies`;if(!mine.length)e.className='out';lg.appendChild(e);
+  }
+  const can=canAttack(),stp=$('steps');stp.textContent='';
+  if(phase!=='setup'){
+    const cur=phase==='place'?0:phase==='attack'?1:phase==='move'?2:phase==='bots'?3:-1;
+    ['1 PLACE','2 ATTACK','3 MOVE','4 OTHERS'].forEach((t,i)=>{const e=document.createElement('span');e.textContent=(i<cur?'\u2713 ':'')+t;e.className=i===cur?'on':i<cur?'done':'';stp.appendChild(e)});
+  }
+  let head='',s='',hc='';
+  if(phase==='setup'){head='NEW GAME';s='Choose how many computer opponents to play against.'}
+  else if(phase==='place'){head=`TURN ${turn}: PLACE ${reinf} ${reinf===1?'ARMY':'ARMIES'}`;hc=CSS[0];s='Tap your green countries, one army per tap. PLACE ALL puts the rest on the selected country.'}
+  else if(phase==='attack'){
+    hc=CSS[0];
+    if(!can){head='NO ATTACKS LEFT';s='None of your countries has 2 armies next to an enemy. Tap DONE ATTACKING.'}
+    else if(sel>=0&&terr[sel].owner===0&&terr[sel].armies>1){head=`ATTACK WITH ${terr[sel].armies} ARMIES`;s='Tap a striped neighbour to attack it. Tap DONE ATTACKING when you are finished.'}
+    else if(sel>=0&&terr[sel].owner===0){head='ATTACK, OR MOVE ON';s='That country has 1 army and cannot attack. Pick another, or tap DONE ATTACKING.'}
+    else{head='ATTACK, OR MOVE ON';s='Placing is done. Tap one of your countries, then a neighbour. Tap DONE ATTACKING when you are finished.'}
+  }
+  else if(phase==='move'){
+    hc=CSS[0];
+    if(mvLocked){const n=terr[mvFrom].armies-1;head=n>0?`MOVING: ${n} MORE CAN GO`:'MOVE DONE: END TURN';s=n>0?'Tap the striped destination again for one more, MOVE ALL for the rest, or END TURN.':'One army stays behind. Tap END TURN.'}
+    else if(mvFrom>=0){head=`MOVE FROM HERE: ${terr[mvFrom].armies-1} CAN GO`;s='Tap a striped country to send one army there. Striped countries are joined to this one by your own land.'}
+    else{head='ONE MOVE, OR END TURN';s='Tap a country to take armies from, then where to send them. Only one move each turn. END TURN skips it.'}
+  }
+  else if(phase==='bots'){head=`${NAME[mover]||'OTHERS'} IS MOVING`;hc=CSS[mover];s='Wait for the other players. Your turn comes next.'}
+  else{head='GAME OVER';s='Tap NEW GAME to play again.'}
+  const st=$('stat');st.textContent='';const hb=document.createElement('b');hb.textContent=head;if(hc)hb.style.color=hc;st.appendChild(hb);st.appendChild(document.createTextNode(s));
+  const lgd=$('log');if(logN<0||lines.length<logN){lgd.textContent='';logN=0}
+  if(lines.length>logN){for(;logN<lines.length;logN++){const l=lines[logN],e=document.createElement('div');e.textContent=l.t;if(l.c)e.className=l.c;lgd.appendChild(e)}lgd.scrollTop=lgd.scrollHeight}
+  const pad=$('pad');pad.textContent='';
+  const btn=(t,f,dis,hot)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(dis)e.disabled=true;else e.onclick=()=>{wake();e.blur();f()};pad.appendChild(e)};
+  if(phase==='setup'){btn('1 BOT',()=>startGame(1));btn('2 BOTS',()=>startGame(2));btn('3 BOTS',()=>startGame(3));return}
+  if(phase==='move')btn('MOVE ALL',moveAll,busy||mvFrom<0||terr[mvFrom].armies<2);else btn(blitz?'BLITZ: ON':'BLITZ: OFF',()=>{blitz=!blitz;log(blitz?'Blitz on: one tap fights the battle to the end.':'Blitz off: one tap is one roll of the dice.');render()},phase==='over');
+  if(phase==='place')btn(`PLACE ALL (${reinf})`,()=>{if(sel<0||terr[sel].owner!==0){sfx('no');log('Tap one of your countries first, then PLACE ALL.');return render()}drop(terr[sel],Math.min(5,reinf));terr[sel].armies+=reinf;reinf=0;phase='attack';sfx('place');log('Armies placed. Now attack, or end your turn.');render()},busy);
+  else if(phase==='attack')btn('DONE ATTACKING',toMove,busy,!can);else btn('END TURN',endTurn,phase!=='move'||busy,phase==='move'&&mvLocked&&terr[mvFrom].armies<2);
+  btn(phase==='over'?'NEW GAME':Date.now()<sure?'SURE?':'NEW GAME',()=>{if(phase==='over'||Date.now()<sure){gid++;busy=false;phase='setup';sel=tgt=-1;lines=[];sure=0;title()}else{sure=Date.now()+3000;render();setTimeout(()=>{if(phase!=='setup')render()},3100)}});
+}
+function title(){genMap();NP=4;deal();show([['MARCHLANDS','big'],['Take every country on the map.'],['Choose your opponents below.']]);render()}
+cv.addEventListener('pointerdown',e=>{
+  wake();const b=cv.getBoundingClientRect(),x=Math.floor((e.clientX-b.left)*W/b.width),y=Math.floor((e.clientY-b.top)*H/b.height);
+  if(x<0||y<0||x>=W||y>=H)return;onTap(idb[y*W+x]);
+});
+let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
+try{const v=localStorage.getItem('marchlands.vol');if(v!==null)vol=clamp(+v||0,0,2)}catch(e){}
+setSnd();resize();title();
+</script>
+</body>
+</html>

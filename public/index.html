@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nerdica's mini-games</title>
-<meta name="description" content="Small browser games by Nerdica. First cabinet: Hollowdeep, a 1-bit wireframe dungeon crawl.">
+<meta name="description" content="Small browser games by Nerdica: Hollowdeep, a wireframe dungeon crawl; Regolith, a vector moon lander; Marchlands, a turn-based territory war.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
 <style>
 /* layout: one column on phones, a grid of game cabinets on wider screens; 1-bit phosphor on black */
@@ -57,6 +57,34 @@ const GAMES=[
      L(P(-1,0,6),P(1,0,6));L(P(1,0,6),P(1,2,6));L(P(1,2,6),P(-1,2,6));L(P(-1,2,6),P(-1,0,6));
      const sk="8,17 8,20 12,20 12,17 11,16 9,16 8,17;9,18 9,19;11,18 11,19;10,16 10,8;7,14 13,14;7,12 13,12;8,10 12,10;6,15 14,15;6,15 4,10 5,7;14,15 16,10 17,13;17,13 19,19;8,8 12,8;8,8 7,4 8,0 6,0;12,8 13,4 12,0 14,0";
      for(const pl of sk.split(';')){const q=pl.split(' ').map(c=>{const[x,y]=c.split(',').map(Number);return P((x-10)/10*.75,y/10*.85,1.4)});for(let i=0;i<q.length-1;i++)L(q[i],q[i+1])}
+   }},
+  {slug:'regolith',title:'REGOLITH',
+   blurb:'A vector moon lander. Feather the thrust, cancel the drift and set down on a pad before the fuel runs out. Narrow pads pay more.',
+   tags:'ARCADE \u00B7 1 PLAYER \u00B7 TOUCH OR KEYS',
+   art:g=>{
+     const ys=[150,142,128,133,118,118,118,118,131,146,158,151,163,170,170,170,159,141,124,112,121,137,149,149,149,149,149,140,127,135,148,156,144,139,147,150];
+     for(let i=0;i<35;i++)g.line(i*8,ys[i],i*8+8,ys[i+1]);
+     for(const [a,b,y] of [[32,56,119],[104,120,171],[176,208,150]])g.line(a,y,b,y);
+     for(const [x,y] of [[20,18],[61,40],[96,12],[133,55],[171,24],[214,47],[247,15],[262,70],[38,77],[228,96]])g.line(x,y,x,y);
+     const cx=112,cy=96,k=2.4,P=(x,y)=>[cx+x*k,cy+y*k],L=(p,q)=>g.line(p[0],p[1],q[0],q[1]);
+     const body=[[-3,-5],[3,-5],[5,-1],[5,2],[-5,2],[-5,-1]];body.forEach((p,i)=>L(P(p[0],p[1]),P(body[(i+1)%6][0],body[(i+1)%6][1])));
+     for(const [p,q] of [[[-4,2],[-6,6]],[[4,2],[6,6]],[[-7,6],[-5,6]],[[5,6],[7,6]],[[-2,2],[-1,4]],[[2,2],[1,4]],[[-1.5,4],[0,10]],[[0,10],[1.5,4]]])L(P(p[0],p[1]),P(q[0],q[1]));
+   }},
+  {slug:'marchlands',title:'MARCHLANDS',
+   blurb:'A turn-based war over a random map. Place armies, attack your neighbours with dice, shift your forces, and take every country from one to three computer rivals.',
+   tags:'STRATEGY \u00B7 1 TO 3 BOTS \u00B7 TOUCH',
+   art:g=>{
+     const M=["....aaabb.....","..aaaaabbbcc..",".ddaaeebbbccc.",".dddeeeeffccc.","ddddeeefffggg.",".dddhhhfffggg.","..hhhhhiiigg..","...hhh.iii...."];
+     const R=M.length,Cn=M[0].length,at=(r,c)=>r<0||c<0||r>=R||c>=Cn?'.':M[r][c];
+     const Y=r=>34+r*(13+r*.9),X=(c,r)=>140+(c-Cn/2)*17*(.72+.28*r/(R-1));
+     for(let r=0;r<R;r++)for(let c=0;c<Cn;c++){
+       const t=at(r,c);if(t==='.')continue;const x0=X(c,r),x1=X(c+1,r),y0=Y(r),y1=Y(r+1);
+       if(at(r,c-1)!==t)g.line(x0,y0,x0,y1);if(at(r,c+1)!==t)g.line(x1,y0,x1,y1);if(at(r-1,c)!==t)g.line(x0,y0,x1,y0);
+       if(at(r+1,c)!==t){g.line(x0,y1,x1,y1);if(at(r+1,c)==='.')for(let x=x0;x<=x1;x+=2)g.line(x,y1,x,y1+4)}
+     }
+     for(const [r,c,n] of [[1,4,3],[2,8,2],[3,2,1],[3,5,4],[4,9,2],[5,11,3],[6,4,2],[6,8,1],[2,11,1]]){
+       const x=(X(c,r)+X(c+1,r))/2-n*3,y=(Y(r)+Y(r+1))/2;for(let i=0;i<n;i++)for(let k=0;k<4;k++)g.line(x+i*6,y-2+k,x+i*6+3,y-2+k);
+     }
    }}
 ];
 const HUES=[[51,255,102],[255,176,0],[255,255,255]];

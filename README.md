@@ -7,7 +7,9 @@ firebase.json            hosting config
 public/
   index.html             landing page (the list of games)
   404.html               not-found page
-  hollowdeep/index.html  the game
+  hollowdeep/index.html  Hollowdeep, a wireframe dungeon crawl
+  regolith/index.html    Regolith, a vector moon lander
+  marchlands/index.html  Marchlands, a turn-based territory war
 ```
 
 ## Deploy
