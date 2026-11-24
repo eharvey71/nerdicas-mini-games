@@ -49,7 +49,18 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;curso
 #pad button:active{background:var(--fg);color:var(--bg)}
 #pad button:disabled{border-style:dotted;opacity:.35;cursor:default}
 button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
-#hint,#rules{margin:0;font-size:12px;line-height:1.45}
+#how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#how summary::-webkit-details-marker{display:none}
+#how summary::after{content:"  +"}
+#how[open] summary::after{content:"  \2212"}
+#how[open] summary{border-bottom:2px solid var(--fg)}
+#how summary:active{background:var(--fg);color:var(--bg)}
+#how summary:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+#how h2{font-size:12px;letter-spacing:.1em;margin:10px 10px 2px;border-bottom:1px dotted var(--fg)}
+#how p,#how ol{margin:4px 10px 6px}
+#how ol{padding-left:1.4em}
+#how li{margin-bottom:3px}
 </style>
 </head>
 <body>
@@ -61,8 +72,28 @@ button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-of
   <div id="legend"></div>
   <div id="log"></div>
   <div id="pad"></div>
-  <p id="hint">You are cyan. Each turn has three steps: place new armies, attack, then make one move. Tap one of your countries, then a neighbour to attack it. A small block is 1 army; a large hollow block is 5. You get more armies for holding more countries and for keeping them joined up. The move step shifts armies from one of your countries to another that is joined to it by your own land; one army always stays behind, and you get one such move a turn. Take every country to win. The arrow in the list shows whose move it is.</p>
-  <p id="rules">How a battle is decided: each roll, the attacker throws up to 3 dice (one fewer than the armies in the attacking country) and the defender up to 2. The highest dice are compared, then the next highest. The higher die wins and the loser removes one army; a tie goes to the defender. The log shows every roll, for example <b>YOU 6 4 2 v BLUE 5 4 | 6&gt;5 BLUE -1 | 4=4 YOU -1</b>. Scroll the log to read back.</p>
+  <details id="how">
+    <summary>HOW TO PLAY</summary>
+    <h2>GOAL</h2>
+    <p>You are cyan. Take every country on the map.</p>
+    <h2>YOUR TURN</h2>
+    <ol>
+      <li><b>PLACE.</b> Tap your countries to add your new armies, one per tap. PLACE ALL puts the rest on the selected country.</li>
+      <li><b>ATTACK.</b> Tap one of your countries, then a striped neighbour. Attack as often as you like, then tap DONE ATTACKING.</li>
+      <li><b>MOVE.</b> One move a turn: shift armies from one of your countries to another joined to it by your own land. One army always stays behind. END TURN finishes.</li>
+    </ol>
+    <h2>ARMIES</h2>
+    <p>A small block is 1 army. A large hollow block is 5. Each turn you get at least 3 new armies, and more for holding more countries and for keeping them joined up.</p>
+    <h2>BATTLES</h2>
+    <p>Each roll, the attacker throws up to 3 dice (one fewer than the armies in the attacking country) and the defender up to 2. The highest dice are compared, then the next highest. The higher die wins and the loser removes one army. A tie goes to the defender.</p>
+    <p>The log shows every roll, for example <b>YOU 6 4 2 v BLUE 5 4 | 6&gt;5 BLUE -1 | 4=4 YOU -1</b>. Scroll the log to read back.</p>
+    <h2>BLITZ</h2>
+    <p><b>BLITZ: ON</b> means one tap fights the whole battle. The dice are thrown again and again until the defender has no armies left and you take the country, or your attacking country is down to its last army.</p>
+    <p><b>BLITZ: OFF</b> means one tap is one roll. Tap again to keep going, or stop when the odds turn against you.</p>
+    <p>The odds are the same either way. Blitz only saves taps, and it cannot be stopped halfway. Tap the button to switch.</p>
+    <h2>THE LIST</h2>
+    <p>The arrow in the player list shows whose move it is. A struck-through name has been wiped out.</p>
+  </details>
 </div>
 <script>
 "use strict";
