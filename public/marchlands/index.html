@@ -43,7 +43,13 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;curso
 #pad button.hot{background:var(--fg);color:var(--bg)}
 #log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:8.8em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
 #log div{white-space:pre-wrap}
-#log div.roll{opacity:.8;padding-left:1.2em;text-indent:-1.2em}
+#log div.roll{padding-left:1.2em;text-indent:-1.2em}
+#log .pc{font-weight:700;color:var(--pc)}
+#log div.new{animation:logblink .6s steps(1) 1}
+#log div.new .pc{animation:logblinkpc .6s steps(1) 1}
+@keyframes logblink{0%,24%{background:var(--fg);color:var(--bg)}25%,49%{background:transparent;color:var(--fg)}50%,74%{background:var(--fg);color:var(--bg)}75%,100%{background:transparent;color:var(--fg)}}
+@keyframes logblinkpc{0%,24%{color:var(--bg)}25%,49%{color:var(--pc)}50%,74%{color:var(--bg)}75%,100%{color:var(--pc)}}
+@media (prefers-reduced-motion:reduce){#log div.new,#log div.new .pc{animation:none}}
 #pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 #pad button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:46px;cursor:pointer}
 #pad button:active{background:var(--fg);color:var(--bg)}
@@ -86,11 +92,12 @@ button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-of
     <p>A small block is 1 army. A large hollow block is 5. Each turn you get at least 3 new armies, and more for holding more countries and for keeping them joined up.</p>
     <h2>BATTLES</h2>
     <p>Each roll, the attacker throws up to 3 dice (one fewer than the armies in the attacking country) and the defender up to 2. The highest dice are compared, then the next highest. The higher die wins and the loser removes one army. A tie goes to the defender.</p>
-    <p>The log shows every roll, for example <b>YOU 6 4 2 v BLUE 5 4 | 6&gt;5 BLUE -1 | 4=4 YOU -1</b>. Scroll the log to read back.</p>
+    <p>The log shows every roll, for example <b>YOU 6 4 2 v BLUE 5 4 | 6&gt;5 BLUE -1 | 4=4 YOU -1</b>. Each lost army is written in the colour of the player who lost it, and new lines blink as they arrive. Scroll the log to read back.</p>
+    <p>On the map, a country that loses armies blinks white and the lost armies lift off it as hollow blocks.</p>
     <h2>BLITZ</h2>
     <p><b>BLITZ: ON</b> means one tap fights the whole battle. The dice are thrown again and again until the defender has no armies left and you take the country, or your attacking country is down to its last army.</p>
     <p><b>BLITZ: OFF</b> means one tap is one roll. Tap again to keep going, or stop when the odds turn against you.</p>
-    <p>The odds are the same either way. Blitz only saves taps, and it cannot be stopped halfway. Tap the button to switch.</p>
+    <p>The odds are the same either way. Blitz only saves taps, and it cannot be stopped halfway. Tap the button to switch. It starts OFF, and the game remembers your choice.</p>
     <h2>THE LIST</h2>
     <p>The arrow in the player list shows whose move it is. A struck-through name has been wiped out.</p>
   </details>
@@ -193,7 +200,7 @@ function genMap(){
 }
 
 /* ---------- game state ---------- */
-let mvFrom=-1,mvTo=-1,mvLocked=false,logN=0,mover=0,NP=3,phase='setup',sel=-1,tgt=-1,reinf=0,blitz=true,busy=false,turn=0,gid=0,lines=[],sure=0;
+let mvFrom=-1,mvTo=-1,mvLocked=false,logN=0,mover=0,NP=3,phase='setup',sel=-1,tgt=-1,reinf=0,blitz=false,busy=false,turn=0,gid=0,lines=[],sure=0;
 const alive=p=>terr.some(t=>t.owner===p);
 function reach(id){const o=terr[id].owner,seen=new Set([id]),q=[id];while(q.length){const x=q.pop();for(const a of terr[x].adj)if(terr[a].owner===o&&!seen.has(a)){seen.add(a);q.push(a)}}seen.delete(id);return seen}
 const canMove=()=>terr.some(a=>a.owner===0&&a.armies>1&&[...a.adj].some(j=>terr[j].owner===0));
@@ -254,10 +261,10 @@ function onTap(t){
   const A=sel>=0?terr[sel]:null;
   if(!A||!A.adj.has(t)){tgt=-1;sfx('no');log(`${NAME[T.owner]} country with ${T.armies} ${T.armies===1?'army':'armies'}. Select a neighbour of yours first.`);return render()}
   if(A.armies<2){sfx('no');log('That country needs at least 2 armies to attack.');return render()}
-  const who=NAME[T.owner],g=gid;busy=true;tgt=t;render();
+  const wi=T.owner,g=gid;busy=true;tgt=t;render();
   strike(A,T,blitz).then(res=>{
     if(g!==gid)return;
-    logRolls('YOU',who,res);log(`You hit ${who}: lost ${res.la}, destroyed ${res.ld}.${res.won?' Country taken!':''}`);
+    logRolls(0,wi,res);logResult(0,wi,res);
     if(res.won){sfx('take');sel=t;tgt=-1}else tgt=t;
     wiped();busy=false;checkEnd();render();
   });
@@ -312,7 +319,7 @@ async function botPlay(p,g){
     if(!best)break;
     const [a,d]=best,was=d.owner;sel=a.id;tgt=d.id;render();await wait(280);if(g!==gid)return;
     const res=await strike(a,d,true,()=>a.armies-1<d.armies);if(g!==gid)return;if(res.won&&was===0)sfx('lost');
-    logRolls(NAME[p],was===0?'YOU':NAME[was],res);log(`${NAME[p]} hits ${was===0?'YOU':NAME[was]}: lost ${res.la}, destroyed ${res.ld}.${res.won?' Country taken!':''}`);
+    logRolls(p,was,res);logResult(p,was,res);
     if(!alive(was)&&!dead.has(was+':'+gid)){dead.add(was+':'+gid);if(was)log(`${NAME[was]} is wiped out.`)}
     if(res.won)sel=d.id;tgt=-1;render();if(checkEnd()){render();return}
     await wait(320);if(g!==gid)return;
@@ -359,7 +366,7 @@ function compose(){
     const y0=Math.round(Y[r]),y1=Math.round(Y[r+1]);
     for(let c=0;c<C;c++){
       const t=own[r*C+c];if(t<0)continue;
-      const col=flash&&flash.id===t?flash.col:COL[terr[t].owner],h=hOf(t),x0=xs(c,r),x1=xs(c+1,r),solid=t===sel,stripe=t===tgt||tg.has(t);
+      const col=flash&&flash.ids.has(t)?flash.col:COL[terr[t].owner],h=hOf(t),x0=xs(c,r),x1=xs(c+1,r),solid=t===sel,stripe=t===tgt||tg.has(t);
       const L=c>0?own[r*C+c-1]:-1,U=r>0?own[(r-1)*C+c]:-1,Rt=c<C-1?own[r*C+c+1]:-1,D=r<R-1?own[(r+1)*C+c]:-1;
       for(let y=y0-h;y<y1-h;y++){
         if(y<0||y>=H)continue;
@@ -412,15 +419,30 @@ function tick(now){
 const scr=T=>{const c=T.anchor%C,r=(T.anchor-c)/C;return[(xs(c,r)+xs(c+1,r))/2,(Y[r]+Y[r+1])/2-Math.max(3,Math.round(W/80))]};
 function block(x,y,col){const u=Math.max(1,Math.round(W/330)),w=5*u,ht=4*u,fh=3*u;x=Math.round(x-w/2);y=Math.round(y-ht-fh);box(x-1,y-1,w+2,ht+fh+2,0);box(x,y,w,ht,5);box(x,y+ht,w,fh,col)}
 const march=(a,d,n)=>{const col=COL[a.owner],A=scr(a),D=scr(d);return anim(380,p=>{for(let i=0;i<n;i++){const q=clamp(p*1.35-i*.17,0,1);if(q<=0||q>=1)continue;block(A[0]+(D[0]-A[0])*q,A[1]+(D[1]-A[1])*q-Math.sin(q*Math.PI)*W/28,col)}})};
-const blink=id=>anim(360,p=>{flash=p<1&&Math.floor(p*6)%2===0?{id,col:5}:null});
+const blink=ids=>anim(420,p=>{flash=p<1&&Math.floor(p*6)%2===0?{ids:new Set(ids),col:5}:null});
+function ghost(x,y){const u=Math.max(1,Math.round(W/330)),w=5*u,h=6*u;x=Math.round(x-w/2);y=Math.round(y-h);box(x-1,y-1,w+2,h+2,0);box(x,y,w,h,5);box(x+u,y+u,w-2*u,h-2*u,0)}
+const lossFx=(T,n)=>{n=Math.min(5,n);if(n<1)return Promise.resolve();return anim(520,p=>{const A=scr(T);for(let i=0;i<n;i++){const q=clamp(p*1.3-i*.1,0,1);if(q<=0||q>=1)continue;ghost(A[0]+(i-(n-1)/2)*W/40,A[1]-q*W/9)}})};
 const drop=(T,n)=>{const col=COL[T.owner];return anim(300,p=>{const A=scr(T);for(let i=0;i<n;i++){const q=clamp(p*1.4-i*.1,0,1);if(q>=1)continue;block(A[0]+(i-(n-1)/2)*W/45,A[1]-(1-q)*W/9,col)}})};
 async function strike(a,d,full,stop){
   sfx('roll');await march(a,d,Math.min(3,a.armies-1));
-  const res=battle(a,d,full,stop);render();await blink(d.id);return res;
+  const res=battle(a,d,full,stop);render();
+  await Promise.all([blink(res.la?[a.id,d.id]:[d.id]),lossFx(a,res.la),lossFx(d,res.ld)]);return res;
 }
-function logRolls(att,def,res){
-  // one line per roll of the dice: both hands, then each pair compared, highest against highest
-  for(const r of res.rounds)log(`${att} ${r.A.join(' ')}  v  ${def} ${r.D.join(' ')}  |  `+r.pr.map(([x,y,w])=>`${x}${x>y?'>':x===y?'=':'<'}${y} ${w?def:att} -1`).join('  |  '),'roll');
+function logRolls(ai,di,res){
+  // one line per roll of the dice: both hands, then each pair compared, highest against highest.
+  // The army lost in each pair is shown in the loser's colour.
+  const att=NAME[ai],def=NAME[di];
+  for(const r of res.rounds){
+    const parts=[`${att} ${r.A.join(' ')}  v  ${def} ${r.D.join(' ')}`];
+    for(const [x,y,w] of r.pr){parts.push(`  |  ${x}${x>y?'>':x===y?'=':'<'}${y} `);parts.push([`${w?def:att} -1`,w?di:ai])}
+    log(parts,'roll');
+  }
+}
+function logResult(ai,di,res){
+  const parts=[ai===0?`You hit ${NAME[di]}: `:`${NAME[ai]} hits ${NAME[di]}: `];
+  parts.push(res.la?[`${NAME[ai]} lost ${res.la}`,ai]:`${NAME[ai]} lost 0`);parts.push(', ');
+  parts.push(res.ld?[`${NAME[di]} lost ${res.ld}`,di]:`${NAME[di]} lost 0`);parts.push(res.won?'. Country taken!':'.');
+  log(parts);
 }
 function wiped(){for(let p=1;p<NP;p++)if(!alive(p)&&!dead.has(p+':'+gid)){dead.add(p+':'+gid);log(`${NAME[p]} is wiped out.`)}}
 function show(rows){
@@ -459,11 +481,14 @@ function ui(){
   else{head='GAME OVER';s='Tap NEW GAME to play again.'}
   const st=$('stat');st.textContent='';const hb=document.createElement('b');hb.textContent=head;if(hc)hb.style.color=hc;st.appendChild(hb);st.appendChild(document.createTextNode(s));
   const lgd=$('log');if(logN<0||lines.length<logN){lgd.textContent='';logN=0}
-  if(lines.length>logN){for(;logN<lines.length;logN++){const l=lines[logN],e=document.createElement('div');e.textContent=l.t;if(l.c)e.className=l.c;lgd.appendChild(e)}lgd.scrollTop=lgd.scrollHeight}
+  if(lines.length>logN){for(;logN<lines.length;logN++){const l=lines[logN],e=document.createElement('div');e.className=(l.c?l.c+' ':'')+'new';
+      // a line is plain text, or parts; a part [text, player] is drawn in that player's colour
+      if(typeof l.t==='string')e.textContent=l.t;else for(const part of l.t){if(typeof part==='string')e.appendChild(document.createTextNode(part));else{const sp=document.createElement('span');sp.className='pc';sp.style.setProperty('--pc',CSS[part[1]]);sp.textContent=part[0];e.appendChild(sp)}}
+      lgd.appendChild(e)}lgd.scrollTop=lgd.scrollHeight}
   const pad=$('pad');pad.textContent='';
   const btn=(t,f,dis,hot)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(dis)e.disabled=true;else e.onclick=()=>{wake();e.blur();f()};pad.appendChild(e)};
   if(phase==='setup'){btn('1 BOT',()=>startGame(1));btn('2 BOTS',()=>startGame(2));btn('3 BOTS',()=>startGame(3));return}
-  if(phase==='move')btn('MOVE ALL',moveAll,busy||mvFrom<0||terr[mvFrom].armies<2);else btn(blitz?'BLITZ: ON':'BLITZ: OFF',()=>{blitz=!blitz;log(blitz?'Blitz on: one tap fights the battle to the end.':'Blitz off: one tap is one roll of the dice.');render()},phase==='over');
+  if(phase==='move')btn('MOVE ALL',moveAll,busy||mvFrom<0||terr[mvFrom].armies<2);else btn(blitz?'BLITZ: ON':'BLITZ: OFF',()=>{blitz=!blitz;try{localStorage.setItem('marchlands.blitz',blitz?1:0)}catch(e){}log(blitz?'Blitz on: one tap fights the battle to the end.':'Blitz off: one tap is one roll of the dice.');render()},phase==='over');
   if(phase==='place')btn(`PLACE ALL (${reinf})`,()=>{if(sel<0||terr[sel].owner!==0){sfx('no');log('Tap one of your countries first, then PLACE ALL.');return render()}drop(terr[sel],Math.min(5,reinf));terr[sel].armies+=reinf;reinf=0;phase='attack';sfx('place');log('Armies placed. Now attack, or end your turn.');render()},busy);
   else if(phase==='attack')btn('DONE ATTACKING',toMove,busy,!can);else btn('END TURN',endTurn,phase!=='move'||busy,phase==='move'&&mvLocked&&terr[mvFrom].armies<2);
   btn(phase==='over'?'NEW GAME':Date.now()<sure?'SURE?':'NEW GAME',()=>{if(phase==='over'||Date.now()<sure){gid++;busy=false;phase='setup';sel=tgt=-1;lines=[];sure=0;title()}else{sure=Date.now()+3000;render();setTimeout(()=>{if(phase!=='setup')render()},3100)}});
@@ -477,7 +502,7 @@ let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resi
 const HUES=['#33ff66','#ffb000','#ffffff'];let hueI=0;
 const setTone=()=>document.documentElement.style.setProperty('--fg',HUES[hueI]);
 $('tone').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setTone()};
-try{const v=localStorage.getItem('marchlands.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
+try{const v=localStorage.getItem('marchlands.vol');if(v!==null)vol=clamp(+v||0,0,2);blitz=localStorage.getItem('marchlands.blitz')==='1';const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
 setTone();
 setSnd();resize();title();
 </script>
