@@ -16,8 +16,8 @@ public/
 2. Sign in: `firebase login`
 3. From this folder, publish: `firebase deploy --only hosting`
 
-The project is set in `.firebaserc` (`nerdica-s-minigames`), so the site is served at
-`https://nerdica-s-minigames.web.app`.
+The project is set in `.firebaserc` (`nerdicas-mini-games`), so the site is served at
+`https://nerdicas-mini-games.web.app`.
 
 To look before publishing: `firebase emulators:start --only hosting`,
 or a preview channel: `firebase hosting:channel:deploy preview`.
