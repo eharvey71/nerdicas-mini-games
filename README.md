@@ -10,6 +10,7 @@ public/
   hollowdeep/index.html  Hollowdeep, a wireframe dungeon crawl
   regolith/index.html    Regolith, a vector moon lander
   marchlands/index.html  Marchlands, a turn-based territory war
+  skerry/index.html      Skerry, a tiny top-down island quest
 ```
 
 ## Deploy

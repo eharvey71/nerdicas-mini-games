@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skerry</title>
+<meta name="description" content="A tiny top-down quest on a random island. Find three shards and relight the beacon.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
+<style>
+/* layout: one phone-width column — tile map, grouped status, scrolling log, a cross of move keys */
+:root{
+  --fg:#33ff66;          /* phosphor, set by the TONE key for the whole site */
+  --bg:#000000;
+  --hp:#ff6b6b; --food:#8fd9a0; --gold:#ffd24a; --xp:#c58bff; --quest:#6fb1ff;
+  --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+body{display:flex;justify-content:center;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+#app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:6px;padding:8px 16px 12px}
+#app>*{flex-shrink:0}
+header{display:flex;align-items:center;gap:8px}
+h1{font-family:var(--font-display);font-size:15px;letter-spacing:.35em;margin:0;font-weight:700;flex:1}
+.mini{font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:4px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.mini:active{background:var(--fg);color:var(--bg)}
+#view{position:relative;border:2px solid var(--fg);width:100%;background:var(--bg);display:flex;justify-content:center;line-height:0;padding:3px 0}
+canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges}
+#msg{position:absolute;left:0;right:0;margin:0 auto;top:50%;transform:translateY(-50%);width:max-content;max-width:92%;display:none;text-align:center;background:var(--bg);border:2px solid var(--fg);box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--fg);padding:10px 18px;font-size:13px;line-height:1.5}
+#msg .big{font-family:var(--font-display);font-size:24px;font-weight:700;letter-spacing:.14em;line-height:1.3}
+#stat{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.4;display:grid;gap:3px;font-variant-numeric:tabular-nums}
+#stat .grp{display:flex;flex-wrap:wrap;align-items:center;gap:1px 10px;padding-top:3px;border-top:1px dotted var(--fg)}
+#stat .grp:first-child{border-top:0;padding-top:0}
+#stat .gl{font-size:10px;letter-spacing:.06em;opacity:.55;width:44px;flex:none}
+#stat .it{--c:var(--fg);color:var(--c);padding:0 3px;white-space:nowrap}
+#stat .lab{opacity:.65;font-size:11px;margin-right:5px}
+#stat .val{font-weight:700}
+#stat .dl{font-size:11px;font-weight:700;margin-left:5px}
+#stat .bar{display:inline-block;width:30px;height:7px;border:1px solid var(--c);margin-left:6px;vertical-align:middle}
+#stat .bar i{display:block;height:100%;background:var(--c)}
+#stat .hp{--c:var(--hp)}#stat .food{--c:var(--food)}#stat .gold{--c:var(--gold)}#stat .xp{--c:var(--xp)}#stat .quest{--c:var(--quest)}#stat .boss{--c:#ff5cff}
+#stat .low{outline:1px solid var(--c)}
+#stat .flash,#log div.new{animation:blink .6s steps(1) 1}
+@keyframes blink{0%,24%{background:var(--c,var(--fg));color:var(--bg)}25%,49%{background:transparent;color:var(--c,var(--fg))}50%,74%{background:var(--c,var(--fg));color:var(--bg)}75%,100%{background:transparent;color:var(--c,var(--fg))}}
+@media (prefers-reduced-motion:reduce){#stat .flash,#log div.new{animation:none}}
+#log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:7.4em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+#pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#pad button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:46px;cursor:pointer}
+#pad button:active{background:var(--fg);color:var(--bg)}
+#pad button:disabled{border-style:dotted;opacity:.35;cursor:default}
+#pad button.hot{background:var(--fg);color:var(--bg)}
+button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+#quick{margin:0;padding:0 0 0 1.3em;font-size:12px;line-height:1.45}
+#quick li{margin-bottom:2px}
+#how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#how summary::-webkit-details-marker{display:none}
+#how summary::after{content:"  +"}
+#how[open] summary::after{content:"  \2212"}
+#how[open] summary{border-bottom:2px solid var(--fg)}
+#how h2{font-size:12px;letter-spacing:.1em;margin:10px 10px 2px;border-bottom:1px dotted var(--fg)}
+#how p,#how ul{margin:4px 10px 6px}
+#how ul{padding-left:1.3em}
+#how li{margin-bottom:2px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>SKERRY</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <div id="view"><canvas id="cv"></canvas><div id="msg"></div></div>
+  <div id="stat"></div>
+  <div id="log"></div>
+  <div id="pad"></div>
+  <ul id="quick">
+    <li>The beacon is dark. Take a shard from each of three lairs, then light the beacon.</li>
+    <li>Walk into a monster to fight it. Stand on a town or lair and press ENTER.</li>
+    <li>A lair's shard is held by its guardian, shown in magenta. The chest is only a bonus.</li>
+    <li>You are cyan. Monsters are red, towns pink, lairs purple, the beacon pale blue, mountains grey, the sea deep blue.</li>
+    <li>Towns heal you and sell food, potions, weapons and armor.</li>
+    <li>QUEST tells you what is left and which way to go.</li>
+  </ul>
+  <details id="how">
+    <summary>ALL THE RULES</summary>
+    <h2>GOAL</h2>
+    <p>The beacon that keeps the fog off the island has gone dark. Three shards of its flame lie in three lairs: a cave, a ruin and a barrow. Kill each lair's guardian to take its shard. With all three, enter the beacon, kill the Fog King, and the game is won.</p>
+    <h2>MOVING</h2>
+    <ul>
+      <li>The arrow buttons, the arrow keys or WASD move you one square.</li>
+      <li>Sea and mountains cannot be crossed.</li>
+      <li>The middle button enters the place you stand on, leaves a lair from its doorway, or waits a turn.</li>
+      <li>MAP shows the parts of the island you have seen.</li>
+    </ul>
+    <h2>FIGHTING</h2>
+    <p>Monsters move when you do. Walk into one to strike it; it strikes back when it is next to you. Better weapons hit harder, and armor takes points off every blow you receive. A potion heals you and uses your turn.</p>
+    <h2>FOOD AND DAYS</h2>
+    <p>Walking the island eats rations, faster in forest, hills and swamp. With no food you lose health as you walk. Every 200 steps is a day, and each day the fog makes the island's monsters stronger, so do not dawdle.</p>
+    <h2>TOWNS</h2>
+    <p>Rest to heal, buy rations and potions, and trade up your weapon and armor one grade at a time. RUMOUR is free and marks the next place you need on your map.</p>
+    <h2>LAIRS</h2>
+    <p>The cave is the easiest, then the ruin, then the barrow. Each has lesser monsters (red), a chest, and its guardian (magenta) at the far end. Only killing the guardian gives the shard; the status panel shows the guardian's health while you are inside.</p>
+    <p>You can walk back out through the doorway at any time. If you do, the guardian and the lesser monsters are back at full strength next time, but an opened chest stays empty.</p>
+    <h2>LEVELS</h2>
+    <p>Kills give experience. Each level adds health and a little damage.</p>
+    <h2>SAVING</h2>
+    <p>The game saves itself as you walk the island, on this device. A lair is not saved part-way. Death ends the run and a new island is made.</p>
+  </details>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const ri=n=>Math.floor(Math.random()*n),rnd=(a,b)=>a+ri(b-a+1),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+function mulberry(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+/* ---------- tone and sound ---------- */
+const HUES=[[51,255,102],[255,176,0],[255,255,255]];let hueI=0;
+const setTone=()=>{const c=HUES[hueI];document.documentElement.style.setProperty('--fg',`rgb(${c[0]},${c[1]},${c[2]})`)};
+$('tone').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setTone();render()};
+const SFX={step:[['g',.03]],bump:[[110,.06]],hit:[['n',.04],[220,.04]],hurt:[[250,.12,110]],kill:[[330,.05],[440,.05],[660,.08]],gold:[[988,.04],[1319,.07]],buy:[[659,.05],[880,.08]],enter:[[262,.06],[330,.06],[392,.08]],leave:[[392,.06],[330,.06],[262,.08]],level:[[440,.08],[554,.08],[659,.08],[880,.2]],shard:[[523,.1],[659,.1],[784,.1],[1047,.1],[1319,.3]],win:[[523,.12],[659,.12],[784,.12],[1047,.12],[1319,.12],[1568,.4]],die:[[440,.25,220],[220,.3,110],[110,.5,50]],no:[[120,.07]],heal:[[440,.1,880]],day:[[196,.15],[147,.25]]};
+let actx=null,vol=1,nbuf=null,unl=null,sq=0;const VM=[0,.15,.45],VS=[0,.4,1];
+function silentWav(){
+  const n=2000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  let t='';for(const x of b)t+=String.fromCharCode(x);return 'data:audio/wav;base64,'+btoa(t);
+}
+function wake(){
+  if(!vol)return;
+  try{
+    if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A){$('snd').textContent='NO SOUND HERE';return}actx=new A();
+      nbuf=actx.createBuffer(1,actx.sampleRate,actx.sampleRate);const c=nbuf.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()<.5?-1:1;
+      setTimeout(()=>{if(vol&&actx.state!=='running')$('snd').textContent='SOUND BLOCKED'},800)}
+    if(actx.state!=='running'){actx.resume().then(setSnd,()=>{});const u=actx.createBufferSource();u.buffer=actx.createBuffer(1,1,22050);u.connect(actx.destination);u.start(0)}
+  }catch(e){}
+  try{if(!unl){unl=new Audio(silentWav());unl.loop=true;unl.setAttribute('playsinline','')}if(unl.paused){const q=unl.play();if(q&&q.catch)q.catch(()=>{})}}catch(e){}
+}
+function hush(){try{if(unl)unl.pause()}catch(e){}}
+function sfx(n){
+  if(!vol||!actx||!SFX[n])return;
+  try{
+    let t=Math.max(actx.currentTime,sq);if(t-actx.currentTime>.5)return;
+    for(const [f,dur,f2] of SFX[n]){
+      if(f==='g'){const gn=actx.createGain(),bp=actx.createBiquadFilter(),src=actx.createBufferSource();bp.type='bandpass';bp.frequency.value=700+ri(1200);bp.Q.value=.7;gn.gain.setValueAtTime(.05*VS[vol],t);gn.gain.linearRampToValueAtTime(0,t+dur);src.buffer=nbuf;src.connect(bp);bp.connect(gn);gn.connect(actx.destination);src.start(t,Math.random()*.9);src.stop(t+dur+.01);t+=dur;continue}
+      const gn=actx.createGain();gn.gain.setValueAtTime((f==='n'?.05:.07)*VM[vol],t);gn.gain.setValueAtTime(0,t+dur);gn.connect(actx.destination);
+      let src;
+      if(f==='n'){src=actx.createBufferSource();src.buffer=nbuf}
+      else{src=actx.createOscillator();src.type='square';src.frequency.setValueAtTime(f,t);if(f2)src.frequency.linearRampToValueAtTime(f2,t+dur)}
+      src.connect(gn);src.start(t);src.stop(t+dur+.01);t+=dur;
+    }
+    sq=t+.01;
+  }catch(e){}
+}
+function setSnd(){$('snd').textContent=['SOUND OFF','SOUND LOW','SOUND HIGH'][vol]}
+$('snd').onclick=()=>{vol=(vol+1)%3;try{localStorage.setItem('skerry.vol',vol)}catch(e){}setSnd();if(!vol)hush();else{wake();sfx('buy')}};
+if(document.addEventListener)document.addEventListener('visibilitychange',()=>{if(document.hidden)hush()});
+
+/* ---------- 8x8 1-bit tiles ---------- */
+const ART={
+sea:"........|.##...##|#..###..|........|........|##...##.|..###..#|........",
+grass:"........|.#......|........|......#.|........|...#....|........|........",
+forest:"...##...|..####..|.######.|.######.|..####..|...##...|...##...|........",
+hill:"........|...#....|..#.#...|.#...#..|#.....#.|....##..|...#..#.|..#....#",
+mount:"...#....|..#.#...|..#.#...|.#...#..|.#.#.#..|#..#..#.|#.....#.|########",
+swamp:"........|..#...#.|..#...#.|.###.###|........|#...#...|#...#...|###.###.",
+sand:"#...#...|........|..#...#.|........|#...#...|........|..#...#.|........",
+wall:"########|#.#.#.#.|########|.#.#.#.#|########|#.#.#.#.|########|.#.#.#.#",
+floor:"........|........|........|....#...|........|........|........|........",
+exit:"########|#......#|#.####.#|#.#..#.#|#.#..#.#|#.####.#|#......#|########",
+chest:"........|.######.|#......#|########|#..##..#|#......#|########|........",
+town:".#....#.|###..###|###..###|#.#..#.#|........|...##...|..####..|..#..#..",
+cave:"..####..|.######.|##....##|#......#|#......#|#......#|#......#|########",
+ruin:"#..#..#.|#..#..#.|#..#....|#.....#.|#..#..#.|...#..#.|#..#..#.|########",
+barrow:"........|..####..|.######.|########|###..###|###..###|###..###|........",
+beacon:"...##...|..#..#..|...##...|..####..|..#..#..|..####..|.######.|.######.",
+lit:"#..##..#|.#.##.#.|..####..|##.##.##|..####..|..#..#..|.######.|.######.",
+done:"........|........|..#..#..|...##...|...##...|..#..#..|........|........",
+you:"...##...|...##...|..####..|.#.##.#.|...##...|..#..#..|..#..#..|.##..##.",
+beast:"........|#.....#.|##...###|########|.######.|.#....#.|.#....#.|........",
+orc:"..####..|..#..#..|..####..|.######.|#.####.#|..####..|..#..#..|.##..##.",
+slime:"........|........|..####..|.######.|#.#..#.#|########|########|........",
+undead:"..####..|.#.##.#.|.######.|..#..#..|.######.|#.####.#|..#..#..|..#..#..",
+spider:"#......#|.#.##.#.|..####..|########|..####..|.#.##.#.|#......#|........",
+brute:".######.|#.#..#.#|########|#.####.#|########|.##..##.|.##..##.|###..###",
+king:"#.#..#.#|########|.#.##.#.|.######.|########|#.####.#|#.#..#.#|.#....#."
+};
+const BM={};for(const k in ART){const a=new Uint8Array(64);ART[k].split('|').forEach((r,j)=>{for(let i=0;i<8;i++)a[j*8+i]=r[i]==='#'?1:0});BM[k]=a}
+const SEA=0,GRASS=1,FOREST=2,HILL=3,MOUNT=4,SWAMP=5,SAND=6,WALL=7,FLOOR=8,EXIT=9,CHEST=10;
+const TART=['sea','grass','forest','hill','mount','swamp','sand','wall','floor','exit','chest'],PASS=[0,1,1,1,0,1,1,0,1,1,1],COST=[0,1,1.5,2,0,2,1,0,0,0,0];
+// palette: 0 black, 1 the tone, then colours that no tone uses
+const PALX=[[0,0,0],null,[154,167,184],[255,157,225],[179,125,255],[124,155,255],[63,224,255],[255,90,77],[255,92,255],[255,233,74],[59,111,217]];
+const C_STONE=2,C_TOWN=3,C_LAIR=4,C_BEACON=5,C_YOU=6,C_MON=7,C_BOSS=8,C_CHEST=9,C_SEA=10;
+const TCOL=[C_SEA,1,1,1,C_STONE,1,1,1,1,C_LAIR,C_CHEST],SCOL={town:C_TOWN,cave:C_LAIR,ruin:C_LAIR,barrow:C_LAIR,beacon:C_BEACON};
+const TNAME=['sea','grassland','forest','hills','mountains','swamp','shore','rock','floor','doorway','chest'];
+
+/* ---------- the island ---------- */
+const WN=40,DIRS=[[0,-1],[1,0],[0,1],[-1,0]];
+const WPN=['DAGGER','SWORD','BROADSWORD','RUNEBLADE'],ARM=['CLOTH','LEATHER','CHAIN','PLATE'],PRICE=[40,100,220];
+const LAIRS=[{t:'cave',n:'CAVE',boss:'CAVE TROLL',hp:24,L:2},{t:'ruin',n:'RUIN',boss:'RUST KNIGHT',hp:40,L:4},{t:'barrow',n:'BARROW',boss:'BARROW WIGHT',hp:56,L:6}];
+const KING={boss:'FOG KING',hp:90,L:8};
+let world=null,lair=null,S=null,mode='title',menu=null,showMap=false,lines=[],logN=0,explored=null,sure=0;
+function vnoise(r,gw){
+  const g=[];for(let i=0;i<(gw+1)*(gw+1);i++)g.push(r());
+  return(x,y)=>{const fx=x/WN*gw,fy=y/WN*gw,x0=Math.floor(fx),y0=Math.floor(fy),tx=fx-x0,ty=fy-y0,sx=tx*tx*(3-2*tx),sy=ty*ty*(3-2*ty),w=gw+1,a=g[y0*w+x0],b=g[y0*w+x0+1],c=g[(y0+1)*w+x0],d=g[(y0+1)*w+x0+1];return a+(b-a)*sx+(c-a)*sy+(a-b-c+d)*sx*sy};
+}
+function bfs(m,sx,sy){
+  const d=new Int16Array(m.w*m.h).fill(-1),q=[sy*m.w+sx];d[q[0]]=0;
+  for(let h=0;h<q.length;h++){const i=q[h],x=i%m.w,y=(i-x)/m.w;for(const [dx,dy] of DIRS){const nx=x+dx,ny=y+dy;if(nx<0||ny<0||nx>=m.w||ny>=m.h)continue;const j=ny*m.w+nx;if(d[j]<0&&PASS[m.t[j]]){d[j]=d[i]+1;q.push(j)}}}
+  return d;
+}
+function genWorld(seed){
+  for(let att=0;att<400;att++){
+    const r=mulberry(seed+att*7919),n1=vnoise(r,5),n2=vnoise(r,9),n3=vnoise(r,17),mo=vnoise(r,6),t=new Uint8Array(WN*WN);
+    for(let y=0;y<WN;y++)for(let x=0;x<WN;x++){
+      const dx=(x-WN/2+.5)/(WN/2),dy=(y-WN/2+.5)/(WN/2),h=.6*n1(x,y)+.3*n2(x,y)+.1*n3(x,y)-(dx*dx+dy*dy)*.52+.1,m=mo(x,y);
+      t[y*WN+x]=x<1||y<1||x>WN-2||y>WN-2||h<.3?SEA:h<.335?SAND:h>.68?MOUNT:h>.59?HILL:m>.62?FOREST:m<.3&&h<.42?SWAMP:GRASS;
+    }
+    const m={w:WN,h:WN,t};
+    // largest stretch of walkable land
+    let seen=new Uint8Array(WN*WN),best=null;
+    for(let i=0;i<WN*WN;i++){if(!PASS[t[i]]||seen[i])continue;const d=bfs(m,i%WN,Math.floor(i/WN)),cells=[];for(let j=0;j<WN*WN;j++)if(d[j]>=0){seen[j]=1;cells.push(j)}if(!best||cells.length>best.length)best=cells}
+    if(!best||best.length<330)continue;
+    const shore=best.filter(i=>t[i]===SAND),st=(shore.length?shore:best)[Math.floor(r()*(shore.length||best.length))],d=bfs(m,st%WN,Math.floor(st/WN));
+    let maxD=0;for(const i of best)if(d[i]>maxD)maxD=d[i];if(maxD<26)continue;
+    const far=(a,b)=>Math.max(Math.abs(a%WN-b%WN),Math.abs(Math.floor(a/WN)-Math.floor(b/WN))),picked=[st];
+    const pick=(lo,hi,gap)=>{const c=best.filter(i=>d[i]>=lo&&d[i]<=hi&&picked.every(p=>far(p,i)>=gap));if(!c.length)return -1;const i=c[Math.floor(r()*c.length)];picked.push(i);return i};
+    const town2=pick(maxD*.35,maxD*.7,8),l=[pick(7,maxD*.45,6),pick(maxD*.3,maxD*.75,6),pick(maxD*.45,maxD*.9,6)],bc=pick(maxD*.8,maxD,5);
+    if(town2<0||bc<0||l.some(v=>v<0))continue;
+    l.sort((a,b)=>d[a]-d[b]);
+    const names=['GULLPORT','SALTWICK','TERNHOLM','KELPSIDE','MARROW','BRINE'],n0=Math.floor(r()*names.length);
+    const sites=[{t:'town',n:names[n0],i:st},{t:'town',n:names[(n0+1+Math.floor(r()*(names.length-1)))%names.length],i:town2}];
+    l.forEach((i,k)=>sites.push({t:LAIRS[k].t,n:LAIRS[k].n,i,tier:k+1}));sites.push({t:'beacon',n:'BEACON',i:bc});
+    const smap=new Int8Array(WN*WN).fill(-1);sites.forEach((s,k)=>{s.x=s.i%WN;s.y=Math.floor(s.i/WN);smap[s.i]=k;if(t[s.i]!==SAND)t[s.i]=GRASS});
+    return{w:WN,h:WN,t,sites,smap,d,mons:[]};
+  }
+  return null;
+}
+function genLair(k){
+  const s=world.sites[k],tier=s.t==='beacon'?4:s.tier,r=mulberry(S.seed*31+k*977+5),w=13,h=11,t=new Uint8Array(w*h).fill(WALL);
+  let x=6,y=9,n=1;t[y*w+x]=FLOOR;
+  for(let g=0;g<4000&&n<62;g++){const [dx,dy]=DIRS[Math.floor(r()*4)],nx=clamp(x+dx,1,w-2),ny=clamp(y+dy,1,h-2);x=nx;y=ny;if(t[y*w+x]===WALL){t[y*w+x]=FLOOR;n++}}
+  t[9*w+6]=EXIT;
+  const m={w,h,t,mons:[],site:k,tier},d=bfs(m,6,9);let fi=9*w+6;for(let i=0;i<w*h;i++)if(d[i]>d[fi])fi=i;
+  const B=tier===4?KING:LAIRS[tier-1];
+  m.mons.push({x:fi%w,y:Math.floor(fi/w),hp:B.hp,mhp:B.hp,L:B.L,k:tier===4?'king':'brute',n:B.boss,boss:1});
+  const free=[];for(let i=0;i<w*h;i++)if(t[i]===FLOOR&&d[i]>=4&&i!==fi)free.push(i);
+  for(let q=0;q<2+Math.min(tier,3)&&free.length;q++){const i=free.splice(Math.floor(r()*free.length),1)[0],L=tier+(tier===4?2:0);m.mons.push(mk(tier>=3?'undead':tier===2?'orc':'spider',tier>=3?(tier===4?'DROWNED':'WIGHT'):tier===2?'RUST GUARD':'CAVE SPIDER',i%w,Math.floor(i/w),L))}
+  if(free.length&&!(S.loot&&S.loot[k])){const i=free[Math.floor(r()*free.length)];t[i]=CHEST}
+  return m;
+}
+const mk=(k,n,x,y,L)=>({x,y,L,k,n,hp:4+L*4,mhp:4+L*4});
+const cur=()=>lair||world,need=()=>30*S.lvl*S.lvl+30;
+const monAt=(x,y)=>cur().mons.find(m=>m.x===x&&m.y===y);
+const siteHere=()=>lair?-1:world.smap[S.y*WN+S.x];
+function log(s){lines.push(s);if(lines.length>300){lines.splice(0,100);logN=-1}}
+
+/* ---------- saving ---------- */
+function packBits(a){let s='';for(let i=0;i<a.length;i+=8){let b=0;for(let j=0;j<8;j++)b|=(a[i+j]?1:0)<<j;s+=String.fromCharCode(b)}return btoa(s)}
+function unpackBits(t,n){const s=atob(t),a=new Uint8Array(n);for(let i=0;i<n;i++)a[i]=(s.charCodeAt(i>>3)>>(i&7))&1;return a}
+function save(){if(lair||mode!=='play')return;try{localStorage.setItem('skerry.save',JSON.stringify({S,e:packBits(explored)}))}catch(e){}}
+const hasSave=()=>{try{return !!localStorage.getItem('skerry.save')}catch(e){return false}};
+function loadGame(){
+  try{const o=JSON.parse(localStorage.getItem('skerry.save'));S=o.S;world=genWorld(S.seed);explored=unpackBits(o.e,WN*WN);lair=null;menu=null;mode='play';lines=[];logN=-1;show(null);log('You wake on the island, the fog a little closer.');quest()}
+  catch(e){log('The save could not be read.')}
+  render();
+}
+function newGame(){
+  let seed;do{seed=rnd(1,2000000000);world=genWorld(seed)}while(!world);
+  const st=world.sites[0];
+  S={seed,x:st.x,y:st.y,hp:24,mhp:24,lvl:1,xp:0,gold:30,food:150,fa:0,wpn:0,arm:0,pot:1,shards:0,steps:0,day:1,known:[1,0,0,0,0,0],done:[0,0,0,0,0,0]};
+  explored=new Uint8Array(WN*WN);lair=null;menu=null;showMap=false;mode='play';lines=[];logN=-1;prevS={};flashT={};show(null);look();
+  log(`You land at ${st.n}. The beacon is dark and the fog is coming.`);log('Find the three shards. Ask in town for a RUMOUR.');save();render();
+}
+
+/* ---------- turns ---------- */
+function look(){
+  if(lair)return;
+  for(let dy=-5;dy<=5;dy++)for(let dx=-6;dx<=6;dx++){const x=S.x+dx,y=S.y+dy;if(x<0||y<0||x>=WN||y>=WN)continue;explored[y*WN+x]=1;const k=world.smap[y*WN+x];if(k>=0&&!S.known[k]){S.known[k]=1;const s=world.sites[k];log(`You sight ${s.t==='town'?'the town of '+s.n:'the '+s.n}.`)}}
+}
+function gainXP(n){S.xp+=n;while(S.xp>=need()){S.lvl++;S.mhp+=6;S.hp=Math.min(S.mhp,S.hp+6);sfx('level');log(`*** LEVEL ${S.lvl}. You feel stronger. ***`)}}
+function strike(m){
+  if(Math.random()<.12){sfx('bump');log(`You miss the ${m.n}.`);return}
+  const dm=rnd(1+S.wpn,3+S.wpn*3+S.lvl);m.hp-=dm;sfx('hit');
+  if(m.hp>0){log(`You hit the ${m.n} for ${dm}.`);return}
+  const M=cur().mons;M.splice(M.indexOf(m),1);
+  const g=m.boss?0:rnd(4,10)*m.L,xp=m.boss?50*(lair.tier):m.L*8;S.gold+=g;sfx('kill');
+  log(`You hit the ${m.n} for ${dm}. It dies.${g?` ${g} gold.`:''} +${xp} XP.`);gainXP(xp);
+  if(m.boss){
+    if(lair.tier===4)return win();
+    S.done[lair.site]=1;S.shards++;sfx('shard');log(`*** You take the SHARD from the ${world.sites[lair.site].n}. ${S.shards} of 3. ***`);
+    if(S.shards===3)log('All three. Now the BEACON.');
+  }
+}
+function monsHit(m){
+  if(Math.random()>(m.boss?.75:.6)){log(`The ${m.n} misses.`);return}
+  const dm=Math.max(0,rnd(1,2+m.L*2)-S.arm);
+  if(!dm){log(`The ${m.n}'s blow glances off your armor.`);return}
+  S.hp-=dm;sfx('hurt');log(`The ${m.n} hits you for ${dm}.`);
+  if(S.hp<=0){S.hp=0;die(`killed by ${/^[AEIOU]/.test(m.n)?'an':'a'} ${m.n}`)}
+}
+function monsAct(){
+  const map=cur();
+  for(const m of map.mons.slice()){
+    if(mode!=='play')return;
+    const dx=S.x-m.x,dy=S.y-m.y,dist=Math.abs(dx)+Math.abs(dy);
+    if(dist===1){monsHit(m);continue}
+    let step=null;
+    if(dist<=7){const o=[[Math.sign(dx),0],[0,Math.sign(dy)]];if(Math.abs(dy)>Math.abs(dx))o.reverse();step=o.find(([a,b])=>(a||b)&&free(map,m.x+a,m.y+b))}
+    else if(Math.random()<.3){const [a,b]=DIRS[ri(4)];if(free(map,m.x+a,m.y+b))step=[a,b]}
+    if(step){m.x+=step[0];m.y+=step[1]}
+  }
+  if(!lair){
+    world.mons=world.mons.filter(m=>Math.abs(m.x-S.x)+Math.abs(m.y-S.y)<18);
+    if(world.mons.length<5&&Math.random()<.07){
+      for(let tries=0;tries<30;tries++){
+        const x=S.x+rnd(-9,9),y=S.y+rnd(-8,8),dd=Math.abs(x-S.x)+Math.abs(y-S.y);
+        if(dd<7||dd>11||!free(world,x,y)||world.smap[y*WN+x]>=0)continue;
+        const tt=world.t[y*WN+x],L=clamp(1+Math.floor((S.day-1)/3)+Math.floor(world.d[y*WN+x]/20),1,8);
+        const pick=S.day>=4&&Math.random()<.3?['undead','DROWNED']:tt===FOREST?['spider','SPIDER']:tt===HILL?['orc','ORC']:tt===SWAMP?['slime','SLIME']:Math.random()<.5?['beast','WOLF']:['orc','BANDIT'];
+        world.mons.push(mk(pick[0],pick[1],x,y,L));break;
+      }
+    }
+  }
+}
+const free=(map,x,y)=>x>=0&&y>=0&&x<map.w&&y<map.h&&PASS[map.t[y*map.w+x]]&&!(x===S.x&&y===S.y)&&!map.mons.some(m=>m.x===x&&m.y===y)&&(map!==world||world.smap[y*WN+x]<0);
+function endTurn(){
+  if(mode!=='play')return render();
+  if(!lair){
+    S.steps++;S.fa+=COST[world.t[S.y*WN+S.x]]||1;
+    while(S.fa>=4){S.fa-=4;if(S.food>0){S.food--;if(S.food===20)log('Your rations are running low.')}else{S.hp--;if(S.hp<=0){S.hp=0;die('starved on the road');return render()}}}
+    if(S.food===0&&S.steps%6===0)log('You are starving.');
+    if(S.steps%200===0){S.day++;sfx('day');log(`Day ${S.day}. The fog thickens; the island's creatures grow bolder.`)}
+    look();
+  }
+  monsAct();
+  if(mode==='play')save();
+  render();
+}
+function move(dx,dy){
+  if(mode!=='play'||menu)return;
+  showMap=false;const map=cur(),x=S.x+dx,y=S.y+dy;
+  if(x<0||y<0||x>=map.w||y>=map.h||!PASS[map.t[y*map.w+x]]){sfx('bump');if(x>=0&&y>=0&&x<map.w&&y<map.h)log(`The ${TNAME[map.t[y*map.w+x]]} bars the way.`);return render()}
+  const m=monAt(x,y);
+  if(m){strike(m);return endTurn()}
+  S.x=x;S.y=y;sfx('step');
+  if(lair){
+    const i=y*map.w+x;
+    if(map.t[i]===CHEST){map.t[i]=FLOOR;(S.loot||(S.loot=[]))[lair.site]=1;if(Math.random()<.35){S.pot++;sfx('buy');log('A chest: a POTION inside.')}else{const g=rnd(20,40)*lair.tier;S.gold+=g;sfx('gold');log(`A chest: ${g} gold.`)}}
+    else if(map.t[i]===EXIT)log('The doorway. Press LEAVE to go back out.');
+  }else{const k=siteHere();if(k>=0){const s=world.sites[k];log(s.t==='town'?`The town of ${s.n}. Press ENTER.`:S.done[k]?`The ${s.n}, emptied.`:`The ${s.n}. Press ENTER.`)}}
+  endTurn();
+}
+function act(){
+  if(mode!=='play'||menu)return;
+  if(lair){
+    if(lair.t[S.y*lair.w+S.x]!==EXIT){log('You wait.');return endTurn()}
+    const s=world.sites[lair.site],boss=lair.mons.find(m=>m.boss);lair=null;S.x=s.x;S.y=s.y;sfx('leave');
+    log(boss?`You leave the ${s.n} WITHOUT ${s.t==='beacon'?'lighting it':'its shard'}. The ${boss.n} still lives; come back and kill it.`:`You step out of the ${s.n} into daylight.`);save();return render();
+  }
+  const k=siteHere();if(k<0){log('You wait.');return endTurn()}
+  const s=world.sites[k];
+  if(s.t==='town')return town(s);
+  if(S.done[k]){log(`The ${s.n} is empty now.`);return render()}
+  if(s.t==='beacon'&&S.shards<3){sfx('no');log(`The beacon door is sealed. It wants three shards; you have ${S.shards}.`);return render()}
+  S.known[k]=1;save();lair=genLair(k);S.x=6;S.y=9;sfx('enter');{const b=lair.mons.find(m=>m.boss);log(s.t==='beacon'?`You climb into the dark beacon. Kill the ${b.n} (magenta) to light it.`:`You enter the ${s.n}. The shard is held by its guardian, the ${b.n} (magenta). Kill it to take the shard.`)}render();
+}
+function potion(){
+  if(mode!=='play'||menu)return;
+  if(!S.pot){sfx('no');log('You have no potions.');return render()}
+  if(S.hp>=S.mhp){log('You are not hurt.');return render()}
+  S.pot--;const b=S.hp;S.hp=Math.min(S.mhp,S.hp+14+S.lvl*3);sfx('heal');log(`You drink a potion: +${S.hp-b} health.`);endTurn();
+}
+const DIRN=(dx,dy)=>{const a=Math.atan2(dy,dx)*180/Math.PI,i=Math.round(((a+360)%360)/45)%8;return['east','south-east','south','south-west','west','north-west','north','north-east'][i]};
+const where=s=>{const dx=s.x-S.x,dy=s.y-S.y,d=Math.abs(dx)+Math.abs(dy);return d===0?'right here':`${d<8?'close by':d<20?'some way':'far'} to the ${DIRN(dx,dy)}`};
+function quest(){
+  if(!S)return;
+  let s=`QUEST: ${S.shards} of 3 shards.`;
+  world.sites.forEach((x,k)=>{if(x.t==='town')return;if(x.t==='beacon'){s+=S.known[k]?` The BEACON is ${lair?'outside':where(x)}.`:' The BEACON is not yet found.';return}
+    s+=S.done[k]?` ${x.n}: shard taken.`:S.known[k]?` The ${x.n} (guardian alive) is ${lair&&lair.site===k?'where you stand':lair?'elsewhere':where(x)}.`:` The ${x.n} is not yet found.`});
+  log(s);render();
+}
+function town(s){
+  sfx('enter');log(`${s.n}. Smoke, gulls, and a wary welcome.`);
+  const build=()=>{
+    const it=[],buy=(c,f)=>()=>{if(S.gold<c){sfx('no');log(`That costs ${c} gold. You have ${S.gold}.`)}else{S.gold-=c;sfx('buy');f()}build();render()};
+    it.push({t:'REST 10G',f:buy(10,()=>{S.hp=S.mhp;log('You sleep at the inn. Fully healed.')}),dis:S.hp>=S.mhp});
+    it.push({t:'RATIONS 20G',f:buy(20,()=>{S.food+=100;log('You buy 100 rations.')})});
+    it.push({t:'POTION 25G',f:buy(25,()=>{S.pot++;log('You buy a potion.')})});
+    if(S.wpn<3)it.push({t:`${WPN[S.wpn+1]} ${PRICE[S.wpn]}G`,f:buy(PRICE[S.wpn],()=>{S.wpn++;log(`You buy a ${WPN[S.wpn]}.`)})});
+    if(S.arm<3)it.push({t:`${ARM[S.arm+1]} ${PRICE[S.arm]}G`,f:buy(PRICE[S.arm],()=>{S.arm++;log(`You buy ${ARM[S.arm]} armor.`)})});
+    it.push({t:'RUMOUR',f:()=>{
+      const k=world.sites.findIndex((x,i)=>x.t!=='town'&&!S.known[i]&&!S.done[i]);
+      if(k<0)log('"You know every corner already. Go and finish it."');
+      else{S.known[k]=1;const x=world.sites[k];log(`"The ${x.n}? ${where(x)[0].toUpperCase()+where(x).slice(1)}." It is marked on your map.`)}
+      render()}});
+    it.push({t:'LEAVE',f:()=>{menu=null;sfx('leave');save();render()},hot:1});
+    menu=it;
+  };
+  build();render();
+}
+function die(why){mode='dead';menu=null;sfx('die');try{localStorage.removeItem('skerry.save')}catch(e){}log(`You are dead, ${why}, on day ${S.day}.`);show([['YOU DIED'],[why.toUpperCase(),'big'],[`Day ${S.day}. Level ${S.lvl}. ${S.shards} of 3 shards.`]])}
+function win(){
+  mode='won';menu=null;sfx('win');S.done[lair.site]=1;
+  let best=0;try{best=+localStorage.getItem('skerry.best')||0;if(!best||S.steps<best){best=S.steps;localStorage.setItem('skerry.best',best)}localStorage.removeItem('skerry.save')}catch(e){}
+  log('The Fog King comes apart like breath on glass. The beacon blazes.');
+  show([['THE BEACON IS LIT'],['VICTORY','big'],[`${S.steps} steps over ${S.day} days. Level ${S.lvl}.`],[best?`Fewest steps so far: ${best}.`:'']]);
+}
+
+/* ---------- drawing ---------- */
+const cv=$('cv'),ctx=cv.getContext('2d');let K=3,COLS=13,ROWS=11,FW=0,FH=0,buf,img;
+function resize(){
+  const vw=Math.floor($('view').clientWidth)||360;K=vw>=480?4:vw>=312?3:2;COLS=Math.min(17,Math.floor((vw-4)/(8*K)));if(COLS%2===0)COLS--;ROWS=11;
+  FW=COLS*8;FH=ROWS*8;cv.width=FW;cv.height=FH;cv.style.width=FW*K+'px';cv.style.height=FH*K+'px';buf=new Uint8Array(FW*FH);img=ctx.createImageData(FW,FH);
+}
+function stamp(name,cx,cy,clear,col){const b=BM[name],x0=cx*8,y0=cy*8,c=col||1;for(let j=0;j<8;j++)for(let i=0;i<8;i++){const v=b[j*8+i];if(v||clear)buf[(y0+j)*FW+x0+i]=v?c:0}}
+function drawMapView(){
+  // the whole island, two pixels to the square, showing only what has been seen
+  const ox=(FW-WN*2)>>1,oy=(FH-WN*2)>>1;let pc=1;const p=(x,y)=>{if(x>=0&&y>=0&&x<FW&&y<FH)buf[y*FW+x]=pc};
+  for(let y=0;y<WN;y++)for(let x=0;x<WN;x++){if(!explored[y*WN+x])continue;const t=world.t[y*WN+x],X=ox+x*2,Y=oy+y*2;
+    if(t===SEA)continue;pc=t===MOUNT?C_STONE:1;if(t===MOUNT||t===HILL){p(X,Y);p(X+1,Y);p(X,Y+1);p(X+1,Y+1)}else if(t===FOREST){p(X,Y);p(X+1,Y+1)}else p(X,Y)}
+  world.sites.forEach((s,k)=>{if(!S.known[k])return;const X=ox+s.x*2,Y=oy+s.y*2;for(let a=-3;a<=4;a++)for(let b=-3;b<=4;b++){const edge=a===-3||a===4||b===-3||b===4;if(X+a>=0&&Y+b>=0&&X+a<FW&&Y+b<FH)buf[(Y+b)*FW+X+a]=(edge?1:s.t==='town'?0:S.done[k]?0:((a+b)&1))?SCOL[s.t]:0}});
+  pc=C_YOU;
+  const X=ox+S.x*2,Y=oy+S.y*2;for(let a=-2;a<=3;a++){p(X+a,Y);p(X+a,Y+1);p(X,Y+a);p(X+1,Y+a)}
+}
+function render(){
+  if(!buf)resize();
+  buf.fill(0);
+  if(world&&S){
+    if(showMap&&!lair)drawMapView();
+    else{
+      const m=cur(),ox=m.w<=COLS?-((COLS-m.w)>>1):clamp(S.x-(COLS>>1),0,m.w-COLS),oy=m.h<=ROWS?-((ROWS-m.h)>>1):clamp(S.y-(ROWS>>1),0,m.h-ROWS);
+      for(let j=0;j<ROWS;j++)for(let i=0;i<COLS;i++){
+        const x=ox+i,y=oy+j;if(x<0||y<0||x>=m.w||y>=m.h){if(!lair)stamp('sea',i,j,0,C_SEA);continue}
+        stamp(TART[m.t[y*m.w+x]],i,j,0,TCOL[m.t[y*m.w+x]]);
+        if(!lair){const k=world.smap[y*WN+x];if(k>=0){const s=world.sites[k];stamp(s.t==='beacon'&&mode==='won'?'lit':s.t,i,j,1,SCOL[s.t]);if(S.done[k]&&s.t!=='beacon')stamp('done',i,j,1,SCOL[s.t])}}
+      }
+      for(const mo of m.mons){const i=mo.x-ox,j=mo.y-oy;if(i>=0&&j>=0&&i<COLS&&j<ROWS)stamp(mo.k,i,j,1,mo.boss?C_BOSS:C_MON)}
+      if(mode!=='dead'){const i=S.x-ox,j=S.y-oy;if(i>=0&&j>=0&&i<COLS&&j<ROWS)stamp('you',i,j,1,C_YOU)}
+    }
+  }
+  PALX[1]=HUES[hueI];const p=img.data;for(let i=0;i<FW*FH;i++){const o=i*4,c=PALX[buf[i]];p[o]=c[0];p[o+1]=c[1];p[o+2]=c[2];p[o+3]=255}
+  ctx.putImageData(img,0,0);
+  drawStatus();ui();
+}
+function show(rows){
+  const m=$('msg');if(!rows){m.style.display='none';return}
+  m.textContent='';for(const [t,c] of rows){if(!t)continue;const e=document.createElement('div');e.textContent=t;if(c)e.className=c;m.appendChild(e)}
+  m.style.display='block';
+}
+let prevS={},flashT={},stT=0;
+function drawStatus(){
+  const st=$('stat');st.textContent='';
+  const mkE=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
+  const grp=name=>{const e=mkE('div','grp');if(name)e.appendChild(mkE('span','gl',name));st.appendChild(e);return e};
+  if(!S||mode==='title'){const G=grp();let b=0;try{b=+localStorage.getItem('skerry.best')||0}catch(e){}G.appendChild(mkE('span','it','A SMALL ISLAND, A DARK BEACON'));if(b)G.appendChild(mkE('span','it',`FEWEST STEPS ${b}`));return}
+  const now=Date.now();let again=false;
+  const it=(G,k,label,val,num,cls,bar)=>{
+    val=String(val);const p=prevS[k];
+    if(p&&p.val!==val)flashT[k]={until:now+700,dUntil:now+1900,d:typeof num==='number'&&typeof p.num==='number'?num-p.num:0};
+    prevS[k]={val,num};
+    const f=flashT[k],e=mkE('span','it'+(cls?' '+cls:'')+(f&&now<f.until?' flash':''));
+    e.appendChild(mkE('span','lab',label));e.appendChild(mkE('span','val',val));
+    if(bar){const b=mkE('span','bar'),i=mkE('i');i.style.width=clamp(Math.round(bar[0]/Math.max(1,bar[1])*100),0,100)+'%';b.appendChild(i);e.appendChild(b)}
+    if(f&&now<f.dUntil&&f.d)e.appendChild(mkE('span','dl',(f.d>0?'+':'−')+Math.abs(f.d)));
+    if(f&&now<f.dUntil)again=true;
+    G.appendChild(e);
+  };
+  let G=grp('VITALS');
+  it(G,'lvl','LVL',S.lvl,S.lvl);it(G,'hp','HP',`${S.hp}/${S.mhp}`,S.hp,'hp'+(S.hp<=S.mhp/3?' low':''),[S.hp,S.mhp]);it(G,'food','FOOD',S.food,S.food,'food'+(S.food<=20?' low':''));
+  G=grp('WEALTH');it(G,'gold','GOLD',S.gold,S.gold,'gold');it(G,'xp','XP',`${S.xp}/${need()}`,S.xp,'xp',[S.xp,need()]);
+  G=grp('GEAR');it(G,'wpn','',WPN[S.wpn]);it(G,'arm','',ARM[S.arm]);it(G,'pot','POTION',S.pot,S.pot);
+  G=grp('QUEST');it(G,'sh','SHARDS',`${S.shards}/3`,S.shards,'quest');it(G,'day','DAY',S.day,S.day);
+  G.appendChild(mkE('span','it',lair?world.sites[lair.site].n:TNAME[world.t[S.y*WN+S.x]].toUpperCase()));
+  if(lair){const b=lair.mons.find(m=>m.boss);it(G,'boss','GUARDIAN',b?`${b.n} ${b.hp}/${b.mhp}`:'DEAD',b?b.hp:0,'boss')}else prevS.boss=undefined;
+  clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
+}
+let pads=[];
+function ui(){
+  const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
+  if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new';e.textContent=lines[logN];lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
+  const pad=$('pad');pad.textContent='';pads=[];
+  const btn=(t,f,keys,dis,hot)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(dis||!f)e.disabled=true;else{e.onclick=()=>{wake();e.blur();f()};pads.push({keys:keys||[],f})}pad.appendChild(e)};
+  const fresh=()=>{if(mode==='play'&&Date.now()>sure){sure=Date.now()+3000;render();setTimeout(()=>render(),3100)}else{sure=0;newGame()}};
+  if(mode==='title'){btn('NEW ISLAND',newGame,['n','Enter']);btn('CONTINUE',hasSave()?loadGame:null,['c']);btn('·',null);return}
+  if(mode==='dead'||mode==='won'){btn('NEW ISLAND',newGame,['n','Enter'],false,true);btn('·',null);btn('·',null);return}
+  if(menu){menu.forEach((m,i)=>btn(m.t,m.f,m.hot?['Escape','l']:[String(i+1)],m.dis,m.hot));return}
+  const k=siteHere(),s=k>=0?world.sites[k]:null,onExit=lair&&lair.t[S.y*lair.w+S.x]===EXIT;
+  btn(`POTION ${S.pot}`,potion,['p'],!S.pot);btn('▲',()=>move(0,-1),['ArrowUp','w']);btn(showMap?'VIEW':'MAP',lair?null:()=>{showMap=!showMap;render()},['m']);
+  btn('◀',()=>move(-1,0),['ArrowLeft','a']);btn(onExit?'LEAVE':s?(s.t==='town'||!S.done[k]?'ENTER':'WAIT'):'WAIT',act,[' ','Enter'],false,onExit||(s&&(s.t==='town'||!S.done[k])));btn('▶',()=>move(1,0),['ArrowRight','d']);
+  btn(Date.now()<sure?'SURE?':'NEW ISLAND',fresh,[]);btn('▼',()=>move(0,1),['ArrowDown','s']);btn('QUEST',quest,['q']);
+}
+addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  const k=e.key.length===1?e.key.toLowerCase():e.key,b=pads.find(p=>p.keys.includes(k));
+  if(b){e.preventDefault();wake();b.f()}
+});
+let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
+try{const v=localStorage.getItem('skerry.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
+setTone();setSnd();resize();
+world=genWorld(20261124);S=null;
+show([['SKERRY','big'],['The beacon is dark. The fog is coming.'],['Find three shards. Light it again.']]);
+render();
+</script>
+</body>
+</html>
