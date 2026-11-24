@@ -38,6 +38,22 @@ canvas{width:100%;height:100%;display:block;image-rendering:pixelated;image-rend
 #ban{max-width:92%;width:max-content;position:absolute;left:0;right:0;margin:0 auto;top:50%;transform:translateY(-50%);display:none;text-align:center;background:var(--bg);border:2px solid var(--fg);box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--fg);padding:10px 20px;font-size:13px;line-height:1.5;cursor:pointer}
 #ban .big{font-family:var(--font-display);font-size:30px;font-weight:700;letter-spacing:.15em;line-height:1.3}
 #stat{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.4;display:flex;flex-wrap:wrap;gap:0 12px;min-height:3.3em;font-variant-numeric:tabular-nums}
+#stat{display:grid;gap:3px;min-height:0}
+#stat .grp{display:flex;flex-wrap:wrap;align-items:center;gap:1px 10px;padding-top:3px;border-top:1px dotted var(--fg)}
+#stat .grp:first-child{border-top:0;padding-top:0}
+#stat .gl{font-size:10px;letter-spacing:.08em;opacity:.55;width:34px;flex:none}
+#stat .it{--c:var(--fg);color:var(--c);padding:0 3px;white-space:nowrap}
+#stat .lab{opacity:.65;font-size:11px;margin-right:5px}
+#stat .val{font-weight:700}
+#stat .dl{font-size:11px;font-weight:700;margin-left:5px}
+#app>*{flex-shrink:0}
+#stat .bar{display:inline-block;width:30px;height:7px;border:1px solid var(--c);margin-left:6px;vertical-align:middle}
+#stat .bar i{display:block;height:100%;background:var(--c)}
+#stat .hp{--c:#ff6b6b}#stat .sp{--c:#6fb1ff}#stat .gold{--c:#ffd24a}#stat .xp{--c:#c58bff}#stat .foe{--c:#ff6b6b}
+#stat .low{outline:1px solid var(--c)}
+#stat .flash{animation:statblink .6s steps(1) 1}
+@keyframes statblink{0%,24%{background:var(--c);color:var(--bg)}25%,49%{background:transparent;color:var(--c)}50%,74%{background:var(--c);color:var(--bg)}75%,100%{background:transparent;color:var(--c)}}
+@media (prefers-reduced-motion:reduce){#stat .flash{animation:none;outline:1px dashed var(--c)}}
 #log{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.3;height:7.6em;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
 #log div:last-child::before{content:"> "}
 #pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
@@ -622,6 +638,59 @@ function buttons(){
     {t:'CAST',k:['c'],f:castMenu},{t:'ITEMS',k:['i'],f:itemMenu},helpB
   ];
 }
+/* status panel: like items grouped, each kind in its own colour, and a blink plus a +/- tag when a number changes */
+let prevS={},flashT={},seedS=null,stT=0;
+function drawStatus(){
+  const st=$('stat');st.textContent='';
+  const mk=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
+  const grp=name=>{const e=mk('div','grp');if(name)e.appendChild(mk('span','gl',name));st.appendChild(e);return e};
+  const txt=(G,t)=>G.appendChild(mk('span','it',t));
+  if(!g){
+    const G=grp();let b=0;try{b=+localStorage.getItem('hollowdeep.best')||0}catch(e){}txt(G,'A WIREFRAME DELVE');
+    try{const o=JSON.parse(localStorage.getItem('hollowdeep.save'));if(o)txt(G,`SAVED DELVER: LVL ${o.g.lvl}, ${o.inn?'AT THE INN':'DEPTH '+o.g.depth}`)}catch(e){}
+    if(b)txt(G,`BEST ${b} XP`);return;
+  }
+  if(seedS!==g.seed){seedS=g.seed;prevS={};flashT={}}
+  const now=Date.now();let again=false;
+  const it=(G,k,label,val,num,cls,bar)=>{
+    val=String(val);const p=prevS[k];
+    if(p&&p.val!==val)flashT[k]={until:now+700,dUntil:now+1900,d:typeof num==='number'&&typeof p.num==='number'?num-p.num:0};
+    prevS[k]={val,num};
+    if(val==='')return;
+    const f=flashT[k],e=mk('span','it'+(cls?' '+cls:'')+(f&&now<f.until?' flash':''));
+    if(label)e.appendChild(mk('span','lab',label));e.appendChild(mk('span','val',val));
+    if(bar){const b=mk('span','bar'),i=mk('i');i.style.width=clamp(Math.round(bar[0]/Math.max(1,bar[1])*100),0,100)+'%';b.appendChild(i);e.appendChild(b)}
+    if(f&&now<f.dUntil&&f.d)e.appendChild(mk('span','dl',(f.d>0?'+':'\u2212')+Math.abs(f.d)));
+    if(f&&now<f.dUntil)again=true;
+    G.appendChild(e);
+  };
+  const made=mode!=='create';
+  let G=grp('BODY');
+  it(G,'lvl','LVL',g.lvl+(made?' '+kit().n:''),g.lvl);
+  it(G,'hp','HP',`${g.hp}/${g.mhp}`,g.hp,'hp'+(g.hp<=g.mhp/3?' low':''),[g.hp,g.mhp]);
+  it(G,'sp','SP',`${g.sp}/${g.msp}`,g.sp,'sp',[g.sp,g.msp]);
+  G=grp('GAIN');
+  it(G,'gold','GOLD',g.gold,g.gold,'gold');
+  it(G,'xp','XP',`${g.xp}/${need()}`,g.xp,'xp',[g.xp,need()]);
+  G=grp('SELF');
+  for(const k of STATS)it(G,k,k.toUpperCase(),g[k],g[k]);
+  if(made){
+    G=grp('GEAR');
+    it(G,'sw','SWORD','+'+g.sw,g.sw);it(G,'ar','ARMOR','+'+g.ar,g.ar);it(G,'sh','SHIELD','+'+g.sh,g.sh);it(G,'rp','RING',g.rp?'+'+g.rp:'',g.rp||0);
+    for(const [k,n] of [['regen','REGEN'],['boots','BOOTS'],['amu','AMULET'],['crown','CROWN']])it(G,k,'',g[k]?n:'');
+    it(G,'ward','',g.ward>0?'WARD':'');
+    G=grp('PACK');let any=false;
+    for(const [k,n] of [['pot','POTION'],['elx','ELIXIR'],['wand','WAND'],['scr','RECALL']]){const v=g[k]||0;if(v)any=true;it(G,k,n,v?v:'',v)}
+    if(!any)txt(G,'empty');
+    if(mode!=='inn'||mon||showMap){
+      G=grp('HERE');
+      if(mode!=='inn'){it(G,'depth','DEPTH',g.depth,g.depth);txt(G,`FACING ${'NESW'[g.dir]}  AT ${g.x},${g.y}`)}
+      if(showMap){const a=seen[mapD],n=a?a.reduce((x,y)=>x+y,0):0,ks=Object.keys(seen).map(Number);txt(G,`MAP LEVEL ${mapD}`);txt(G,`EXPLORED ${Math.round(n/(N*N)*100)}%`);txt(G,`DEEPEST ${ks.length?Math.max(...ks):1}`)}
+      if(mon){const q=mon.hp/mon.mhp;it(G,'foe','FOE',`L${mon.lvl} ${mon.t.n} ${mon.sleep?'ASLEEP':q>.66?'HALE':q>.33?'WOUNDED':'FALTERING'}`,undefined,'foe')}else prevS.foe=undefined;
+    }
+  }
+  clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
+}
 let cur=[];
 function drawScene(){
   if(mode==='title')drawTitle();
@@ -644,21 +713,7 @@ function render(){
    +'<h2>WEAPONS AND GEAR</h2><ul><li>SWORD +N: N more damage, 2N% better to hit.</li><li>ARMOR +N, SHIELD +N, RING of protection +N: each point makes you 2% harder to hit.</li><li>RING of regeneration: 1 HP every 3 steps.</li><li>ELVEN BOOTS: EVADE is 20% surer.</li><li>POTION: heals 2d8 plus twice your level.</li><li>SCROLL of recall: carries you to the Inn, even mid-fight.</li><li>ELIXIR: restores all spell points.</li><li>WAND of fire: each charge burns a foe for 3d6 plus your level.</li><li>AMULET of life: cheats death once, leaving you at half health.</li></ul><p>You start bare-handed at +0. Better finds replace what you carry; deeper levels hold bigger bonuses.</p>'
    +'<h2>SPELLS</h2><ul>'+SPELLS.map(x=>`<li>${x.n}, ${x.c} SP, level ${x.l}: ${x.d}</li>`).join('')+'</ul><p>Levels shown are for a mage. INT above 11 adds to damage, healing and the odds of SLUMBER, TURN and DOOM. Spell points return at the Inn, and sometimes at fountains and altars.</p>'
    +'<h2>MONSTERS</h2><p>Seventeen kinds, meaner with depth. Bats are hard to hit. Goblins steal. Spiders poison. Trolls heal as they fight. Gargoyles shrug off blades, so use spells. Wraiths and vampires drain experience. Dragons and demons breathe fire. Liches cast.</p><p>TURN works on the undead: skeletons, zombies, wraiths, vampires and liches. Now and then a monster comes in peace and leaves a gift.</p>';
-  // status
-  const st=$('stat');st.textContent='';
-  const add=s=>{const e=document.createElement('span');e.textContent=s;st.appendChild(e)};
-  if(!g){let b=0;try{b=+localStorage.getItem('hollowdeep.best')||0}catch(e){}add('A WIREFRAME DELVE');try{const o=JSON.parse(localStorage.getItem('hollowdeep.save'));if(o)add(`SAVED DELVER: LVL ${o.g.lvl}, ${o.inn?'AT THE INN':'DEPTH '+o.g.depth}`)}catch(e){}if(b)add(`BEST ${b} XP`)}
-  else{
-    add(mode==='create'?`LVL ${g.lvl}`:`LVL ${g.lvl} ${kit().n}`);add(`HP ${g.hp}/${g.mhp}`);add(`SP ${g.sp}/${g.msp}`);add(`GOLD ${g.gold}`);add(`XP ${g.xp}/${need()}`);
-    add(`STR ${g.str}`);add(`INT ${g.int}`);add(`DEX ${g.dex}`);add(`CON ${g.con}`);
-    if(mode!=='create'){
-      add(`SWD+${g.sw} ARM+${g.ar} SHD+${g.sh}`+(g.rp?` RNG+${g.rp}`:'')+(g.regen?' REGEN':'')+(g.boots?' BOOTS':'')+(g.amu?' AMULET':'')+(g.crown?' CROWN':'')+(g.ward>0?' WARD':''));
-      {const pk=[['POTION',g.pot],['ELIXIR',g.elx],['WAND',g.wand],['RECALL',g.scr]].filter(x=>x[1]).map(x=>x[0]+' '+x[1]).join(', ');if(pk)add('PACK: '+pk)}
-      if(mode!=='inn')add(`DEPTH ${g.depth} ${'NESW'[g.dir]} ${g.x},${g.y}`);
-      if(showMap){const a=seen[mapD],n=a?a.reduce((x,y)=>x+y,0):0,ks=Object.keys(seen).map(Number);add(`MAP LEVEL ${mapD}`);add(`EXPLORED ${Math.round(n/(N*N)*100)}%`);add(`DEEPEST ${ks.length?Math.max(...ks):1}`)}
-      if(mon){const p=mon.hp/mon.mhp;add(`FOE L${mon.lvl} ${mon.t.n} ${mon.sleep?'ASLEEP':p>.66?'HALE':p>.33?'WOUNDED':'FALTERING'}`)}
-    }
-  }
+  drawStatus();
   // log
   const lg=$('log');lg.textContent='';
   for(const s of(mode==='title'?['Somewhere below, gold. Somewhere below that, worse.','Twenty levels down, a dead king wears a crown.']:showMap?['U up   D down   F fountain   T throne','A altar  P pit  X teleporter  C cube  K king','Gaps in walls are doors. The arrow is you.']:lines)){const e=document.createElement('div');e.textContent=s;lg.appendChild(e)}
