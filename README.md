@@ -13,7 +13,7 @@ public/
   skerry/index.html      Skerry, a tiny top-down island quest
   farlane/index.html     Farlane, a space trading run with wireframe combat and docking
   underdeck/index.html   Underdeck, a first-person maze shooter (work in progress)
-  cryptward/index.html   Cryptward, a dungeon board game (work in progress)
+  cryptward/index.html   Cryptward, a dungeon board game
   stoppress/index.html   Stop the Press, a point-and-click adventure (work in progress)
 ```
 
