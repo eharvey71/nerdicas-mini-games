@@ -102,7 +102,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
   <div id="pad"></div>
   <div id="fly" hidden>
     <div id="stick" aria-label="Steering stick"><i id="nub"></i></div>
-    <div id="fbtn"><button id="bfire" type="button">FIRE</button><button id="bthr" type="button">THRUST</button><button id="inv" type="button"></button><button id="pace" type="button"></button></div>
+    <div id="fbtn"><button id="bfire" type="button">FIRE</button><button id="bthr" type="button">THRUST OFF</button><button id="inv" type="button"></button><button id="pace" type="button"></button></div>
   </div>
   <details id="help">
     <summary>HELP</summary>
@@ -110,7 +110,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
     <li>Pick a goal: clear a debt, kill the raider flagship, or win renown.</li>
     <li>Buy goods where they are cheap, tap a star on the chart, jump, and sell where they are dear.</li>
     <li>Raiders may meet you on arrival: fight them, run, or dump your cargo.</li>
-    <li>In the cockpit, stick left and right roll the ship, down pulls the nose up. FIRE shoots, THRUST speeds you up. Raiders are red.</li>
+    <li>In the cockpit, stick left and right roll the ship, down pulls the nose up. FIRE shoots while held. THRUST is a switch: tap it on, tap it off. Raiders are red.</li>
     <li>To dock, fly round to the front of the station, line up with the dotted frames, and go through the slot slowly.</li>
     <li>Spend profit at the shipyard. Hull at zero ends the run.</li>
   </ul>
@@ -150,7 +150,8 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
     <h2>THE COCKPIT</h2>
     <ul>
       <li>The stick, arrow keys or WASD fly the ship. Left and right roll it. Down pulls the nose up and up pushes it down. To turn, roll until the target is above or below the crosshair, then pull or push.</li>
-      <li>FIRE or Space shoots. THRUST or Shift speeds up; letting go slows you to a crawl.</li>
+      <li>FIRE or Space shoots while held.</li>
+      <li>THRUST is a switch. Tap it once and the engine stays on; tap again and you slow to a crawl. On a keyboard, hold Shift instead, or press T to switch it.</li>
       <li>The button under FIRE flips up and down on the stick.</li>
       <li>TURN, under THRUST, sets how quickly the ship rolls and pitches: SLOW, MEDIUM or FAST. Nothing else changes speed.</li>
       <li>The laser hits what is under the crosshair, out to range 450. It runs off a charge (LAS) that refills when you stop firing.</li>
@@ -164,7 +165,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>You arrive well away from the station and usually off to one side. The arrow at the screen edge points to it, with the range.</li>
       <li>The slot is on one face only. Dotted frames stretch out from it and mark the way in.</li>
       <li>Fly to the far end of the frames, turn to face the slot, and follow them in.</li>
-      <li>THRUST goes much faster here than in a fight, and it takes about two seconds to slow down. Let go early.</li>
+      <li>THRUST goes much faster here than in a fight, and it takes about two seconds to slow down. Switch it off early.</li>
       <li>You must pass through the slot at speed 32 or less, heading nearly straight in.</li>
       <li>The readout says ON LINE when your present heading passes squarely through the slot, and marks your speed TOO FAST when it is over the limit.</li>
       <li>Hitting the station costs 12 hull and puts you back in front of it. The message says which went wrong: line, angle or speed.</li>
@@ -386,6 +387,7 @@ let readIn=()=>{
   return {x:dz(x),y:dz(y)*(inv?-1:1),fire:HB.fire||!!KS[' '],thr:HB.thr||!!KS.Shift||!!KS.x};
 };
 function baseF(kind){
+  if(typeof setThr==='function')setThr(false);
   const dust=[];for(let i=0;i<36;i++)dust.push([(Math.random()-.5)*300,(Math.random()-.5)*300,(Math.random()-.5)*300]);
   return {kind,P:[0,0,0],B:ID(),spd:CRUISE,ents:[],fx:[],deb:[],dust,t:0,energy:100,cool:0,hitT:0,hitK:'',shake:0,note:null,over:null,boss:false,stT:0};
 }
@@ -682,19 +684,26 @@ stick.addEventListener('pointerdown',e=>{e.preventDefault();wake();sid=e.pointer
 stick.addEventListener('pointermove',e=>{if(e.pointerId===sid)sset(e)});
 const sup=e=>{if(e.pointerId===sid){sid=null;TS.x=TS.y=0;nub.style.transform=''}};
 stick.addEventListener('pointerup',sup);stick.addEventListener('pointercancel',sup);
-function hold(el,k){const dn=e=>{e.preventDefault();wake();HB[k]=true;el.classList.add('on')},upF=()=>{HB[k]=false;el.classList.remove('on')};el.addEventListener('pointerdown',dn);for(const n of ['pointerup','pointercancel','pointerleave'])el.addEventListener(n,upF);el.addEventListener('contextmenu',e=>e.preventDefault())}
-hold($('bfire'),'fire');hold($('bthr'),'thr');
+/* FIRE is held. THRUST is a switch: one tap on, one tap off, so a slipped or cancelled touch cannot cut the engine. */
+function hold(el,k){const ids=new Set(),sync=()=>{HB[k]=ids.size>0;el.classList.toggle('on',HB[k])};
+  el.addEventListener('pointerdown',e=>{e.preventDefault();wake();ids.add(e.pointerId);try{el.setPointerCapture(e.pointerId)}catch(x){}sync()});
+  for(const n of ['pointerup','pointercancel'])el.addEventListener(n,e=>{ids.delete(e.pointerId);sync()});
+  el.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});el.addEventListener('contextmenu',e=>e.preventDefault())}
+function setThr(v){HB.thr=v;const el=$('bthr');el.classList.toggle('on',v);el.textContent=v?'THRUST ON':'THRUST OFF'}
+{const el=$('bthr');el.addEventListener('pointerdown',e=>{e.preventDefault();wake();setThr(!HB.thr);sfx('sel')});el.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});el.addEventListener('contextmenu',e=>e.preventDefault())}
+$('stick').addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+hold($('bfire'),'fire');
 const setInv=()=>{$('inv').textContent=inv?'DOWN = NOSE UP':'UP = NOSE UP';$('pace').textContent='TURN: '+PACEN[pace]};
 $('pace').onclick=()=>{pace=(pace+1)%3;try{localStorage.setItem('farlane.turn',pace)}catch(e){}setInv()};
 $('inv').onclick=()=>{inv=!inv;try{localStorage.setItem('farlane.inv',inv?1:0)}catch(e){}setInv()};
 addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey)return;
   const k=e.key.length===1?e.key.toLowerCase():e.key;
-  if(mode==='fly'){KS[k]=true;if(k===' '||k.startsWith('Arrow'))e.preventDefault();wake();return}
+  if(mode==='fly'){if(k==='t'&&!e.repeat)setThr(!HB.thr);KS[k]=true;if(k===' '||k.startsWith('Arrow'))e.preventDefault();wake();return}
   const b=pads.find(p=>p.keys.includes(k));if(b){e.preventDefault();wake();b.f()}
 });
 addEventListener('keyup',e=>{const k=e.key.length===1?e.key.toLowerCase():e.key;KS[k]=false});
-addEventListener('blur',()=>{for(const k in KS)KS[k]=false;HB.fire=HB.thr=false});
+addEventListener('blur',()=>{for(const k in KS)KS[k]=false});
 let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
 try{const v=localStorage.getItem('farlane.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length;const iv=localStorage.getItem('farlane.inv');if(iv!==null)inv=iv==='1';const pv=localStorage.getItem('farlane.turn');if(pv!==null)pace=clamp(+pv||0,0,2)}catch(e){}
 setTone();setSnd();setInv();resize();
