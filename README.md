@@ -12,6 +12,7 @@ public/
   marchlands/index.html  Marchlands, a turn-based territory war
   skerry/index.html      Skerry, a tiny top-down island quest
   farlane/index.html     Farlane, a space trading run with wireframe combat and docking
+  underdeck/index.html   Underdeck, a first-person maze shooter
 ```
 
 ## Deploy

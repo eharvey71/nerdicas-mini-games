@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nerdica's mini-games</title>
-<meta name="description" content="Small browser games by Nerdica: Hollowdeep, a wireframe dungeon crawl; Regolith, a vector moon lander; Marchlands, a turn-based territory war; Skerry, a tiny island quest; Farlane, a space trading run.">
+<meta name="description" content="Small browser games by Nerdica: Hollowdeep, a wireframe dungeon crawl; Regolith, a vector moon lander; Marchlands, a turn-based territory war; Skerry, a tiny island quest; Farlane, a space trading run; Underdeck, a first-person maze shooter.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
 <style>
 /* layout: one column on phones, a grid of game cabinets on wider screens; 1-bit phosphor on black */
@@ -116,6 +116,20 @@ const GAMES=[
      P([[40,60],[78,52],[58,44],[40,60],[20,48],[58,44]]);P([[20,48],[52,54],[78,52]]);P([[52,54],[40,60]]);
      for(const [x,y] of [[14,18],[60,12],[110,30],[250,20],[262,150],[20,150],[90,170],[130,8],[236,176],[8,100]])g.line(x,y,x,y);
      g.line(128,150,136,150);g.line(144,150,152,150);g.line(140,138,140,146);g.line(140,154,140,162);
+   }},
+  {slug:'underdeck',title:'UNDERDECK',
+   blurb:'A first-person maze shooter. Five random floors of doors, rooms and wireframe guards. Find the keycard, reach the lift, and kill the Warden at the bottom.',
+   tags:'SHOOTER · 1 PLAYER · TWIN STICK OR KEYS',
+   art:g=>{
+     const P=(pts,close)=>{for(let i=0;i<pts.length-1;i++)g.line(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1]);if(close)g.line(pts[pts.length-1][0],pts[pts.length-1][1],pts[0][0],pts[0][1])};
+     const R=(x0,y0,x1,y1)=>P([[x0,y0],[x1,y0],[x1,y1],[x0,y1]],1);
+     R(0,0,279,191);R(50,34,230,158);R(96,66,184,126);R(120,82,160,110);
+     g.line(0,0,120,82);g.line(279,0,160,82);g.line(0,191,120,110);g.line(279,191,160,110);
+     g.line(140,82,140,110);g.line(120,92,160,92);
+     R(128,96,152,128);R(134,84,146,96);g.line(132,128,130,156);g.line(148,128,150,156);g.line(128,100,120,124);g.line(152,100,160,112);g.line(160,112,176,112);
+     P([[196,112],[208,100],[220,112],[208,124]],1);g.line(208,100,208,124);g.line(196,112,220,112);
+     g.line(132,96,136,96);g.line(144,96,148,96);g.line(140,88,140,92);g.line(140,100,140,104);
+     P([[130,191],[134,166],[146,166],[150,191]]);
    }}
 ];
 const HUES=[[51,255,102],[255,176,0],[255,255,255]];
