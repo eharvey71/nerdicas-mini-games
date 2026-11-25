@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stop Press</title>
+<meta name="description" content="A short point-and-click adventure. Your made-up tabloid headline is coming true, and the front page locks at midnight.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
+<style>
+/* layout: one phone-width column — painted scene, sentence line, verbs, pockets, scrolling log */
+:root{
+  --fg:#33ff66;          /* interface phosphor, set by the TONE key for the whole site */
+  --bg:#000000;
+  --hold:#ffd24a;        /* the thing in your hand */
+  --say:#3fe0ff;         /* speech in the log */
+  --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+body{display:flex;justify-content:center;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+#app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:6px;padding:8px 16px 12px}
+#app>*{flex-shrink:0}
+header{display:flex;align-items:center;gap:8px}
+h1{font-family:var(--font-display);font-size:15px;letter-spacing:.3em;margin:0;font-weight:700;flex:1}
+.mini{font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:4px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.mini:active{background:var(--fg);color:var(--bg)}
+#view{position:relative;border:2px solid var(--fg);width:100%;aspect-ratio:320/200;background:var(--bg);line-height:0}
+canvas{display:block;width:100%;height:100%;cursor:pointer}
+#msg{position:absolute;left:0;right:0;margin:0 auto;bottom:8px;width:max-content;max-width:94%;display:none;text-align:center;background:var(--bg);border:2px solid var(--fg);padding:6px 12px;font-size:12px;line-height:1.45}
+#msg .big{font-family:var(--font-display);font-size:18px;font-weight:700;letter-spacing:.12em}
+#line{border:2px solid var(--fg);padding:5px 8px;font-size:13px;font-weight:700;line-height:1.3;min-height:2em;display:flex;justify-content:space-between;gap:10px}
+#line .w{font-weight:400;opacity:.75;white-space:nowrap}
+#verbs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+#verbs button,#more button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:11px 2px;min-height:44px;cursor:pointer}
+#verbs button.on,#verbs button:active,#more button:active{background:var(--fg);color:var(--bg)}
+#verbs.topics{grid-template-columns:1fr}
+#inv{border:2px solid var(--fg);padding:5px 6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:44px;font-size:12px}
+#inv .gl{font-size:10px;letter-spacing:.06em;opacity:.55;margin-right:2px}
+#inv button{font:inherit;font-size:12px;font-weight:700;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:7px 8px;cursor:pointer}
+#inv button.on{background:var(--hold);border-color:var(--hold);color:var(--bg)}
+#inv button.new{animation:blink .6s steps(1) 1}
+#log{border:2px solid var(--fg);padding:4px 8px;font-size:12.5px;line-height:1.45;height:8.6em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+#log div{margin-bottom:3px;--c:var(--fg);color:var(--c)}
+#log div.q{--c:var(--say)}
+#inv button{--c:var(--fg)}
+#log div.new{animation:blink .6s steps(1) 1}
+@keyframes blink{0%,24%{background:var(--c);color:var(--bg)}25%,49%{background:transparent;color:var(--c)}50%,74%{background:var(--c);color:var(--bg)}75%,100%{background:transparent;color:var(--c)}}
+@media (prefers-reduced-motion:reduce){#log div.new,#inv button.new{animation:none}}
+#more{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+#quick{margin:0;padding:0 0 0 1.3em;font-size:12px;line-height:1.45}
+#quick li{margin-bottom:2px}
+#how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#how summary::-webkit-details-marker{display:none}
+#how summary::after{content:"  +"}
+#how[open] summary::after{content:"  \2212"}
+#how[open] summary{border-bottom:2px solid var(--fg)}
+#how h2{font-size:12px;letter-spacing:.1em;margin:10px 10px 2px;border-bottom:1px dotted var(--fg)}
+#how p,#how ul{margin:4px 10px 6px}
+#how ul{padding-left:1.3em}
+#how li{margin-bottom:2px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>STOP PRESS</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <div id="view"><canvas id="cv"></canvas><div id="msg"></div></div>
+  <div id="line"></div>
+  <div id="verbs"></div>
+  <div id="inv"></div>
+  <div id="log"></div>
+  <div id="more"></div>
+  <ul id="quick">
+    <li>Tap the picture to walk. Tap a thing to look at it, or a door to go through.</li>
+    <li>Pick LOOK, TAKE, USE or TALK, then tap a thing.</li>
+    <li>Tap something in your pockets, then tap what to use it on.</li>
+    <li>Stuck? HINT nudges you. LABELS shows what can be tapped.</li>
+  </ul>
+  <details id="how">
+    <summary>ALL THE RULES</summary>
+    <h2>THE STORY</h2>
+    <p>You are Vane, night reporter at THE WEEKLY PECULIAR. An hour ago you invented tomorrow's headline, MOON MAN LIVES IN OUR BASEMENT. The front page locks at midnight, and the editor wants a photograph.</p>
+    <h2>GETTING ABOUT</h2>
+    <ul>
+      <li>Tap the floor to walk there.</li>
+      <li>Tap a door or stairway to go through it.</li>
+      <li>There are six places: the newsroom, the editor's office, the hallway, the darkroom, the basement and the roof.</li>
+    </ul>
+    <h2>THE FOUR VERBS</h2>
+    <ul>
+      <li><b>LOOK:</b> describes a thing. With no verb chosen, a tap looks.</li>
+      <li><b>TAKE:</b> picks a thing up, if it can be picked up.</li>
+      <li><b>USE:</b> works a thing: a machine, a lever, a door.</li>
+      <li><b>TALK:</b> speaks to someone. You may get a choice of things to say.</li>
+    </ul>
+    <p>The line under the picture shows what you are about to do.</p>
+    <h2>YOUR POCKETS</h2>
+    <p>Tap a thing in your pockets to hold it; it turns yellow. Then tap something in the picture, or another thing in your pockets, to use the two together. Tap it again to put it away. LOOK then a pocket thing describes it.</p>
+    <h2>HINT AND LABELS</h2>
+    <p>HINT gives a gentle nudge toward the next step. Press it again without making progress and it says plainly what to do. LABELS draws a name on everything that can be tapped.</p>
+    <h2>NO DEAD ENDS</h2>
+    <p>You cannot die, lose, or throw away something you need. The clock moves only when you make progress.</p>
+    <h2>SAVING</h2>
+    <p>The game saves itself after every action, on this device. One or two things are hidden in a different place each new game.</p>
+  </details>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const ri=n=>Math.floor(Math.random()*n),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- tone and sound ---------- */
+const HUES=['#33ff66','#ffb000','#ffffff'];let hueI=0;
+const setTone=()=>document.documentElement.style.setProperty('--fg',HUES[hueI]);
+$('tone').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setTone()};
+const SFX={take:[[659,.05],[880,.08]],ok:[[523,.06],[784,.1]],no:[[130,.08]],door:[[196,.05],[147,.08]],talk:[[440,.03],[494,.03]],flash:[['n',.2]],win:[[523,.12],[659,.12],[784,.12],[1047,.12],[1319,.12],[1568,.4]],step:[['g',.03]]};
+let actx=null,vol=1,nbuf=null,unl=null,sq=0;const VM=[0,.15,.45],VS=[0,.4,1];
+function silentWav(){
+  const n=2000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  let t='';for(const x of b)t+=String.fromCharCode(x);return 'data:audio/wav;base64,'+btoa(t);
+}
+function wake(){
+  if(!vol)return;
+  try{
+    if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A){$('snd').textContent='NO SOUND HERE';return}actx=new A();
+      nbuf=actx.createBuffer(1,actx.sampleRate,actx.sampleRate);const c=nbuf.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()<.5?-1:1;
+      setTimeout(()=>{if(vol&&actx.state!=='running')$('snd').textContent='SOUND BLOCKED'},800)}
+    if(actx.state!=='running'){actx.resume().then(setSnd,()=>{});const u=actx.createBufferSource();u.buffer=actx.createBuffer(1,1,22050);u.connect(actx.destination);u.start(0)}
+  }catch(e){}
+  try{if(!unl){unl=new Audio(silentWav());unl.loop=true;unl.setAttribute('playsinline','')}if(unl.paused){const q=unl.play();if(q&&q.catch)q.catch(()=>{})}}catch(e){}
+}
+function hush(){try{if(unl)unl.pause()}catch(e){}}
+function sfx(n){
+  if(!vol||!actx||!SFX[n])return;
+  try{
+    let t=Math.max(actx.currentTime,sq);if(t-actx.currentTime>.4)return;
+    for(const [f,dur,f2] of SFX[n]){
+      if(f==='g'){const gn=actx.createGain(),bp=actx.createBiquadFilter(),src=actx.createBufferSource();bp.type='bandpass';bp.frequency.value=700+ri(1200);bp.Q.value=.7;gn.gain.setValueAtTime(.04*VS[vol],t);gn.gain.linearRampToValueAtTime(0,t+dur);src.buffer=nbuf;src.connect(bp);bp.connect(gn);gn.connect(actx.destination);src.start(t,Math.random()*.9);src.stop(t+dur+.01);t+=dur;continue}
+      const gn=actx.createGain();gn.gain.setValueAtTime((f==='n'?.05:.07)*VM[vol],t);gn.gain.setValueAtTime(0,t+dur);gn.connect(actx.destination);
+      let src;
+      if(f==='n'){src=actx.createBufferSource();src.buffer=nbuf}
+      else{src=actx.createOscillator();src.type='square';src.frequency.setValueAtTime(f,t);if(f2)src.frequency.linearRampToValueAtTime(f2,t+dur)}
+      src.connect(gn);src.start(t);src.stop(t+dur+.01);t+=dur;
+    }
+    sq=t+.01;
+  }catch(e){}
+}
+function setSnd(){$('snd').textContent=['SOUND OFF','SOUND LOW','SOUND HIGH'][vol]}
+$('snd').onclick=()=>{vol=(vol+1)%3;try{localStorage.setItem('stoppress.vol',vol)}catch(e){}setSnd();if(!vol)hush();else{wake();sfx('ok')}};
+if(document.addEventListener)document.addEventListener('visibilitychange',()=>{if(document.hidden)hush()});
+
+/* ---------- state ---------- */
+const ITEMS={mug:'EMPTY MUG',coffee:'MUG OF COFFEE',key:'BASEMENT KEY',coin:'COIN',film:'FILM',camera:'CAMERA',scissors:'SCISSORS',photo:'PHOTOGRAPH'};
+const ROOMN={news:'THE NEWSROOM',ed:"THE EDITOR'S OFFICE",hall:'THE HALLWAY',dark:'THE DARKROOM',base:'THE BASEMENT',roof:'THE ROOF'};
+const FLOOR=172;
+let G=null,verb=null,held=null,topics=null,labels=false,lines=[],logN=0,newItem=null,sure=0,walk=null,hintAt='',hintN=0,instant=false;
+const has=i=>G.inv.includes(i),give=i=>{if(!has(i)){G.inv.push(i);newItem=i;sfx('take')}},drop=i=>{G.inv=G.inv.filter(x=>x!==i)};
+const camName=()=>G.f.photo?'CAMERA':G.f.shot?'CAMERA (SHOT TAKEN)':G.f.loaded?'LOADED CAMERA':'CAMERA (NO FILM)';
+const itemName=i=>i==='camera'?camName():ITEMS[i];
+function say(t,q){lines.push({t,q});if(lines.length>300){lines.splice(0,100);logN=-1}}
+const quote=t=>say(t,1);
+const progress=()=>['mug','coffeeMade','key','coin','film','cam','loaded','bdoor','met','sciss','freed','shot','photo','plate'].filter(k=>G.f[k]).length;
+const clock=()=>{const m=40+Math.min(19,Math.floor(progress()*19/14));return `11:${m} PM`};
+function save(){try{localStorage.setItem('stoppress.save',JSON.stringify(G))}catch(e){}}
+const hasSave=()=>{try{return !!localStorage.getItem('stoppress.save')}catch(e){return false}};
+function newGame(){
+  G={room:'news',x:160,face:1,inv:[],f:{},moves:0,coinAt:['phone','coat','vend'][ri(3)],scisAt:['board','desk'][ri(2)]};
+  verb=held=topics=null;lines=[];logN=-1;hintAt='';hintN=0;show(null);
+  say("11:40 PM, the newsroom of THE WEEKLY PECULIAR. An hour ago you invented tomorrow's front page: MOON MAN LIVES IN OUR BASEMENT.");
+  say('The page locks at midnight. Somewhere below, something goes clank.');save();render();
+}
+function loadGame(){try{G=JSON.parse(localStorage.getItem('stoppress.save'));verb=held=topics=null;lines=[];logN=-1;show(null);say(`You are back in ${ROOMN[G.room].toLowerCase()}. It is ${clock()}.`)}catch(e){return newGame()}render()}
+
+/* ---------- rooms: what can be tapped, and where you stand to do it ---------- */
+const HOT={
+ news:[
+  {id:'toEd',n:"editor's door",r:[6,58,40,96],to:'ed',tx:280},
+  {id:'window',n:'window',r:[58,26,64,54]},
+  {id:'board',n:'pinboard',r:[134,30,62,48]},
+  {id:'scis',n:'scissors',r:[178,40,14,22],if:()=>G.scisAt==='board'&&!G.f.sciss},
+  {id:'clock',n:'clock',r:[206,22,24,24]},
+  {id:'desk',n:'your desk',r:[112,104,104,50]},
+  {id:'mug',n:'mug',r:[196,94,14,14],if:()=>!G.f.mug},
+  {id:'machine',n:'coffee machine',r:[230,82,36,72]},
+  {id:'toHall',n:'hall door',r:[276,58,40,96],to:'hall',tx:40}],
+ ed:[
+  {id:'frames',n:'framed front pages',r:[24,30,84,50]},
+  {id:'editor',n:'the editor',r:[146,58,50,52],wx:118},
+  {id:'ashtray',n:'ashtray',r:[204,98,18,10],wx:240},
+  {id:'plant',n:'rubber plant',r:[238,70,30,84]},
+  {id:'toNews',n:'newsroom door',r:[276,58,40,96],to:'news',tx:40}],
+ hall:[
+  {id:'toNews',n:'newsroom door',r:[4,58,38,96],to:'news',tx:280},
+  {id:'phone',n:'pay phone',r:[52,64,24,50]},
+  {id:'coat',n:'coat rack',r:[84,56,22,98]},
+  {id:'toDark',n:'darkroom door',r:[116,58,38,96],to:'dark',tx:40},
+  {id:'vend',n:'vending machine',r:[166,52,42,102]},
+  {id:'bdoor',n:'basement door',r:[220,58,38,96]},
+  {id:'toRoof',n:'stairs to the roof',r:[268,40,50,114],to:'roof',tx:50}],
+ dark:[
+  {id:'toHall',n:'hall door',r:[4,58,38,96],to:'hall',tx:135},
+  {id:'camera',n:'camera',r:[66,66,26,20],if:()=>!G.f.cam},
+  {id:'shelf',n:'shelf',r:[56,84,48,8]},
+  {id:'photos',n:'drying prints',r:[112,26,120,34]},
+  {id:'trays',n:'developing trays',r:[114,104,112,22]},
+  {id:'sink',n:'sink',r:[246,96,48,58]}],
+ base:[
+  {id:'toHall',n:'stairs up',r:[0,50,44,104],to:'hall',tx:239},
+  {id:'press',n:'printing press',r:[66,50,150,104]},
+  {id:'lever',n:'brass lever',r:[218,74,20,60],wx:214},
+  {id:'crate',n:'crate',r:[250,108,58,46],wx:232,if:()=>!G.f.met},
+  {id:'moon',n:'the Moon Man',r:[256,98,34,58],wx:228,if:()=>G.f.met}],
+ roof:[
+  {id:'toHall',n:'roof hatch',r:[6,112,48,44],to:'hall',tx:285},
+  {id:'sign',n:'neon sign',r:[70,44,160,50]},
+  {id:'saucer',n:'saucer',r:[232,14,70,40],wx:262},
+  {id:'sky',n:'the moon',r:[30,10,40,40]}]
+};
+const hot=()=>HOT[G.room].filter(h=>!h.if||h.if());
+
+/* ---------- what happens ---------- */
+const NOPE={look:'Nothing more to see.',take:"You can't take that.",use:'Nothing happens.',talk:'It has nothing to say.'};
+function coinLine(where){return G.coinAt===where&&!G.f.coin}
+function takeCoin(text){G.f.coin=1;give('coin');say(text)}
+function act(v,id,it){
+  const f=G.f,r=G.room,U=(a)=>v==='use'&&it===a,none=v==='use'&&!it;
+  if(r==='news'){
+    if(id==='window')return say(v==='look'?'Midnight city. A full moon hangs over the roof, suspiciously close.':v==='use'?'Painted shut since the last election.':NOPE[v]);
+    if(id==='clock')return say(v==='look'?`It is ${clock()}. The front page locks at midnight.`:v==='take'?'You have never had enough time. Taking the clock will not help.':NOPE[v]);
+    if(id==='board'||id==='scis'){
+      if((v==='take'||id==='scis'&&v==='use')&&G.scisAt==='board'&&!f.sciss){f.sciss=1;give('scissors');return say('You unpin the SCISSORS. Somewhere a clipping goes unclipped.')}
+      if(v==='look')return say("Clippings from better days: GHOST HAUNTS WRONG HOUSE, APOLOGISES. DOG ELECTED MAYOR, VETOES BATH."+(G.scisAt==='board'&&!f.sciss?' A pair of SCISSORS hangs from a pin.':''));
+      return say(v==='take'?'The clippings are load-bearing. They hold up the wall.':NOPE[v]);
+    }
+    if(id==='desk'){
+      if((v==='take'||none)&&G.scisAt==='desk'&&!f.sciss){f.sciss=1;give('scissors');return say('You rummage in the drawer and come up with a pair of SCISSORS.')}
+      if(v==='look')return say("Your desk. In the typewriter sits tomorrow's front page, all your own work: MOON MAN LIVES IN OUR BASEMENT. It needs a photograph."+(G.scisAt==='desk'&&!f.sciss?' The drawer is ajar; something glints inside.':''));
+      if(none)return say("You type THE END. Then you cross it out. It isn't, yet.");
+      return say(v==='take'?'You have deadlines enough without carrying furniture.':NOPE[v]);
+    }
+    if(id==='mug'){
+      if(v==='take'||none){f.mug=1;give('mug');return say("You take your MUG. It says WORLD'S OKAYEST REPORTER.")}
+      return say(v==='look'?"Your mug. WORLD'S OKAYEST REPORTER. Empty, like the promise.":NOPE[v]);
+    }
+    if(id==='machine'){
+      if(U('mug')){drop('mug');f.coffeeMade=1;give('coffee');sfx('ok');return say('The machine coughs, shudders, and fills the mug. Black, hot, faintly radioactive. A MUG OF COFFEE.')}
+      if(U('coffee'))return say("It's already full. Don't push your luck.");
+      if(v==='look')return say('The office percolator. It has outlived four editors and may have caused two of the vacancies.');
+      if(none)return say('It gurgles hopefully. It needs something to pour into.');
+      return say(v==='take'?'Bolted to the table. People have tried.':v==='talk'?'It gurgles. You gurgle back. A moment passes.':NOPE[v]);
+    }
+  }
+  if(r==='ed'){
+    if(id==='editor'){
+      if(U('coffee')){drop('coffee');f.key=1;give('key');sfx('ok');
+        say('Bull Krantz drains the mug in one swallow and focuses on you for the first time tonight.');
+        quote('"Vane! Your Moon Man story is page one. I want a PHOTOGRAPH of him by midnight, or you are back on obituaries."');
+        quote('"But chief, I made it —" "BASEMENT, you wrote. So here is the BASEMENT KEY. Go."');return}
+      if(v==='use'&&it)return quote(it==='photo'?'"Don\'t show ME. Lock it in the press and pull the lever."':'"Does that look like coffee to you, Vane?"');
+      if(v==='look')return say('Bull Krantz, editor. Built like a filing cabinet, with fewer feelings.'+(f.key?'':' He is glaring at a crossword and an empty cup.'));
+      if(v==='talk'){
+        if(!f.key)return quote('"No coffee, no conversation." He goes back to glaring at seven across.');
+        topics=[{t:'ABOUT THE PHOTOGRAPH',say:'"A picture, Vane. In focus, for once. Then lock it into the press downstairs and pull the lever."'},
+                {t:'ABOUT THE MOON MAN',say:'"You wrote it, so it is true. That is journalism. Now go and prove us right."'},
+                {t:'ABOUT A RAISE',say:'"I raised you up from obituaries. That was the raise."'}];
+        return quote('"What now, Vane?"');
+      }
+      return say(v==='take'?'He is not that kind of editor.':NOPE[v]);
+    }
+    if(id==='frames')return say(v==='look'?'Framed triumphs: WOMAN MARRIES OWN HAT. MAN, 104, STILL WAITING FOR BUS.':v==='take'?'Bull counts them every morning.':NOPE[v]);
+    if(id==='ashtray')return say(v==='look'?'An ashtray shaped like Ohio. Nobody has ever asked.':v==='take'?'Bull growls without looking up. You leave Ohio where it is.':NOPE[v]);
+    if(id==='plant')return say(v==='look'?"A rubber plant. Arguably the paper's most reliable source.":v==='take'?'It has seniority.':v==='talk'?'"No comment," says the plant, in the usual way.':NOPE[v]);
+  }
+  if(r==='hall'){
+    if(id==='phone'){
+      if(v==='take'||none){if(coinLine('phone'))return takeCoin('You hook a finger into the coin return and find a COIN.');return say(none?'You dial the weather. It is night. You knew that.':'It is chained to the wall, like the staff.')}
+      return say(v==='look'?'A pay phone.'+(coinLine('phone')?' Something glints in the coin return.':' The coin return holds only lint.'):v==='talk'?'"Hello?" Dial tone. It has heard it all before.':NOPE[v]);
+    }
+    if(id==='coat'){
+      if(v==='take'||none){if(coinLine('coat'))return takeCoin('You go through the pockets like a professional and find a COIN.');return say('The coat would not survive being worn.')}
+      return say(v==='look'?'A coat rack with one coat, abandoned decades ago.'+(coinLine('coat')?' One pocket sags with something small and heavy.':' The pockets hang empty.'):NOPE[v]);
+    }
+    if(id==='vend'){
+      if(U('coin')){drop('coin');f.film=1;give('film');sfx('ok');return say('Clunk. Whirr. One roll of FILM drops into the tray, only slightly out of date.')}
+      if(v==='take'){if(coinLine('vend'))return takeCoin('You fish about under the machine and find a COIN, and something else that you put back.');return say('It weighs more than the editor.')}
+      if(v==='look')return say('A vending machine. Row A: peanuts, vintage. Row B: FILM. This is that sort of newspaper.'+(coinLine('vend')?' Something glints on the floor underneath it.':''));
+      if(none)return say(f.film?'You have film. The peanuts are a risk too far.':'It wants a coin. Everything does.');
+      return say(NOPE[v]);
+    }
+    if(id==='bdoor'){
+      if(f.bdoor){if(v==='look')return say('The basement door, unlocked. Stairs lead down into a smell of ink.');return go('base',60)}
+      if(U('key')){drop('key');f.bdoor=1;sfx('door');return say('The padlock gives. The key stays in it, as keys do. The BASEMENT is open.')}
+      return say(v==='look'?'The basement door, padlocked. Beyond it: the press and, by your own reporting, a Moon Man.':'Padlocked. The editor keeps the key.');
+    }
+  }
+  if(r==='dark'){
+    if(id==='camera'){
+      if(v==='take'||none){f.cam=1;give('camera');return say('You take the press CAMERA. Its flash is the size of a hubcap. There is no film in it.')}
+      return say(v==='look'?'A press camera with a flash the size of a hubcap.':NOPE[v]);
+    }
+    if(id==='shelf')return say(v==='look'?(f.cam?'An empty shelf with a camera-shaped clean patch in the dust.':'A shelf. On it, a camera.'):NOPE[v]);
+    if(id==='photos')return say(v==='look'?'Drying prints: a blurry lake, a blurry dog, and a blurry blur captioned PROOF.':v==='take'?'Evidence, apparently. You leave it.':NOPE[v]);
+    if(id==='sink')return say(v==='look'?'A sink. The tap drips in what might be morse. Probably nothing.':none?'You wash your hands of the whole affair. It does not take.':NOPE[v]);
+    if(id==='trays'){
+      if(U('camera')){
+        if(f.photo)return say('The roll is developed. There is nothing left on it.');
+        if(f.shot){f.photo=1;give('photo');sfx('ok');return say('You work by the red light. An image swims up in the tray: the Moon Man in sunglasses, giving a thumbs-up with too many thumbs. A PHOTOGRAPH!')}
+        return say(f.loaded?'You would be developing a roll of nothing. Take a picture first.':'The camera is empty.');
+      }
+      if(U('film'))return say('Unexposed film makes a very modern photograph. Put it in a camera first.');
+      return say(v==='look'?'Developer, stop bath, fixer. It smells of vinegar and regret.':none?'Nothing to develop yet.':v==='take'?'You would slosh.':NOPE[v]);
+    }
+  }
+  if(r==='base'){
+    if(id==='press'){
+      if(U('photo')){drop('photo');f.plate=1;sfx('ok');return say('You lock the photograph into the front-page plate. It fits like the truth never does.')}
+      if(v==='look')return say('The press. Two tons of iron that turns your imagination into newsprint.'+(f.plate?' Your photograph is locked into the front page.':' The front-page plate has a photograph-shaped hole in it.'));
+      return say(none?'It runs off the brass lever.':v==='take'?'Two tons. You checked.':NOPE[v]);
+    }
+    if(id==='lever'){
+      if(v==='look')return say('A big brass lever. STOP at the top. PRESS at the bottom.');
+      if(v==='use'&&!it||v==='take'){if(!f.plate)return say('You reach for it and stop. The front page still has a hole where the photograph goes. Even this paper has standards.');return win()}
+      return say(NOPE[v]);
+    }
+    if(id==='crate'){
+      if(v==='talk'){f.met=1;sfx('talk');
+        quote('"Don\'t print me!" A small silvery person edges out from behind the crate, antennae drooping.');
+        quote('"I only stopped to read the comics. Now my saucer is snagged on your roof and I cannot reach it."');
+        quote('"Free it," you say, "and I get one photograph." "One. And no flash in my eyes."');return}
+      if(v==='use'&&it==='camera')return say('You would be photographing a crate. Whatever is behind it ducks.');
+      return say(v==='look'?'A crate marked INK. Two antennae stick up behind it. When you look, they duck.':v==='take'?'Whatever is behind it squeaks. You let go.':none?'It is nailed shut. Something behind it holds its breath.':NOPE[v]);
+    }
+    if(id==='moon'){
+      if(v==='use'&&it==='camera'){
+        if(!f.freed)return quote('"Saucer first, picture second. That is the Moon way."');
+        if(f.shot)return quote('"One picture. That was the agreement. I have a good side and you have had it."');
+        if(!f.loaded)return say('Click. No film. The Moon Man politely pretends not to notice.');
+        f.shot=1;sfx('flash');flashT=Date.now();return say('FOOMP. The flash goes off like a small sun. The Moon Man holds the pose, sunglasses on. That is the shot. Now it needs developing.');
+      }
+      if(v==='use'&&it)return quote(it==='scissors'?'"Not on ME! On the string, upstairs!"':'"Very nice. My saucer is still stuck."');
+      if(v==='look')return say('Three feet of worried Moon Man: silver, antennaed, and far from home.');
+      if(v==='talk'){sfx('talk');
+        if(!f.freed)return quote('"The roof! Something stringy has my saucer. I am not good with string."');
+        if(!f.shot)return quote('"It floats free! You are a prince among newspaper persons. One picture, as agreed. I brought sunglasses."');
+        return quote('"Print it nicely. My mother takes this paper."');
+      }
+      return say(v==='take'?'He is not a souvenir.':NOPE[v]);
+    }
+  }
+  if(r==='roof'){
+    if(id==='sign')return say(v==='look'?'The neon sign: THE WEEKLY PECULIAR. The P flickers, so half the city reads it as the WEEKLY ECULIAR.':v==='take'?'It would clash with your coat.':NOPE[v]);
+    if(id==='sky')return say(v==='look'?'The moon. It looks back. You get the feeling it is waiting on your copy.':v==='talk'?'"No comment," says the moon, by saying nothing.':NOPE[v]);
+    if(id==='saucer'){
+      if(f.freed)return say(v==='look'?'The saucer hovers by the edge of the roof, purring.':v==='take'?'It does not fit in a coat pocket.':'It purrs at you. That seems to be all.');
+      if(U('scissors')){if(!f.met)return say('You have no reason to go cutting strange knots on a roof. Yet.');f.freed=1;sfx('ok');return say('Snip. Snip. Snip. The old election bunting falls away and the saucer bobs up free, humming with relief.')}
+      if(v==='look')return say('A silver saucer the size of a hot tub, trussed up in old election bunting.'+(f.met?' So that is the saucer.':' Not your problem. Yet.'));
+      return say(v==='take'?'It is a little big for your coat.':none?'The knots are thirty years old. They need cutting, not untying.':NOPE[v]);
+    }
+  }
+  if(v==='use'&&it)return say("That doesn't work.");
+  say(NOPE[v]||'Nothing happens.');
+}
+function combine(a,b){
+  const p=[a,b].sort().join('+');
+  if(p==='camera+film'){drop('film');G.f.loaded=1;sfx('ok');return say('You load the film. The camera feels dangerous now. A LOADED CAMERA.')}
+  if(p==='coffee+mug')return say('One mug is plenty.');
+  say('Those two have nothing to say to each other.');
+}
+const ILOOK={mug:"WORLD'S OKAYEST REPORTER. Empty.",coffee:'Black, hot, faintly radioactive. Not for you.',key:'A key on a tag marked BASEMENT. KEEP OUT. THIS MEANS YOU, VANE.',coin:'A coin. Everything in this building wants one.',film:'One roll of film, only slightly out of date.',scissors:'Clipping scissors. Sharp enough for bunting.',photo:'The Moon Man in sunglasses, thumbs up. The scoop of the century, for a paper nobody believes.'};
+function go(to,tx){G.room=to;G.x=tx;sfx('door');say(`You are in ${ROOMN[to].toLowerCase()}.`);walk=null}
+function win(){
+  G.f.won=1;sfx('win');
+  say('You haul the lever down. The press shudders, roars, and starts to roll. STOP PRESS: it is true.');
+  say(`The Moon Man waves from the stairs and is gone. The paper sells out by noon. Nobody believes a word. ${G.moves} moves.`);
+  let best=0;try{best=+localStorage.getItem('stoppress.best')||0;if(!best||G.moves<best){best=G.moves;localStorage.setItem('stoppress.best',best)}}catch(e){}
+  show([['EXTRA! EXTRA!'],['THE END','big'],[`Finished in ${G.moves} moves.`+(best?` Fewest so far: ${best}.`:'')]]);
+}
+
+/* ---------- hints: the next step, said gently, then plainly ---------- */
+function nextStep(){
+  const f=G.f;
+  if(!f.key){
+    if(!f.mug)return['mug','The editor is no use to anyone before his coffee.','TAKE the mug from your desk in the newsroom.'];
+    if(has('mug'))return['brew','An empty mug is a sad thing in a room with a coffee machine.','Hold the mug, then tap the coffee machine in the newsroom.'];
+    return['serve','Someone in this building runs on coffee.',"Hold the mug of coffee, then tap the editor in his office."];
+  }
+  if(!f.cam)return['cam','A photograph needs a camera. Where do photographs get made?','TAKE the camera from the shelf in the darkroom, off the hallway.'];
+  if(!f.loaded){
+    if(!f.film){if(!f.coin)return['coin','The vending machine sells film, but it wants a coin. Coins get left in odd places in a hallway.',`Search the hallway: TAKE at the ${G.coinAt==='phone'?'pay phone':G.coinAt==='coat'?'coat rack':'vending machine'}.`];return['film','You have a coin and the hallway has a vending machine.','Hold the coin, then tap the vending machine.']}
+    return['load','Film and camera belong together.','Hold the film, then tap the camera in your pockets.'];
+  }
+  if(!f.bdoor)return['door','The editor gave you a key for a reason.','Hold the basement key, then tap the basement door in the hallway.'];
+  if(!f.met)return['meet','Something in the basement is hiding. Hiding things like to be spoken to kindly.','In the basement, choose TALK and tap the crate.'];
+  if(!f.freed){if(!f.sciss)return['sciss','The saucer is tied up in string. Reporters keep something for cutting.',`TAKE the scissors from ${G.scisAt==='board'?'the pinboard':'your desk drawer'} in the newsroom.`];return['free','The Moon Man said his saucer is stuck on the roof.','Go up the stairs at the end of the hallway. Hold the scissors and tap the saucer.']}
+  if(!f.shot)return['shoot','A deal is a deal. He owes you one photograph.','In the basement, hold the loaded camera and tap the Moon Man.'];
+  if(!f.photo)return['dev','A picture on film is no use to a printing press. It needs a darkroom.','In the darkroom, hold the camera and tap the developing trays.'];
+  if(!f.plate)return['plate','The front page has a hole waiting for your photograph.','In the basement, hold the photograph and tap the printing press.'];
+  return['lever','Everything is ready. Something has to start the press.','In the basement, choose USE and tap the brass lever.'];
+}
+function hint(){
+  if(G.f.won)return;const s=nextStep();
+  if(hintAt===s[0])hintN=Math.min(2,hintN+1);else{hintAt=s[0];hintN=1}
+  say('HINT: '+s[hintN]);render();
+}
+
+/* ---------- doing things ---------- */
+const VTXT={look:'LOOK AT',take:'TAKE',use:'USE',talk:'TALK TO'};
+function sentence(){
+  if(G.f.won)return'THE END';
+  if(held)return`USE ${itemName(held)} WITH …`;
+  if(verb)return`${VTXT[verb]} …`;
+  return'Tap a thing to look. Tap a door to go.';
+}
+function perform(h){
+  const v=held?'use':(verb||(h.to?'go':'look')),it=held;
+  verb=null;held=null;G.moves++;
+  if(h.to&&(v==='go'||v==='use'&&!it))go(h.to,h.tx);
+  else if(h.to&&v==='look')say(`The ${h.n}.`);
+  else if(h.to)say(v==='take'?'It is attached to the building.':v==='talk'?'Doors are poor conversationalists.':"That doesn't work.");
+  else act(v==='go'?'look':v,h.id,it);
+  save();render();
+}
+function tapHot(h){
+  if(G.f.won||topics)return;
+  const tx=clamp(h.wx!==undefined?h.wx:h.r[0]+h.r[2]/2,14,306);
+  walkTo(tx,()=>perform(h));
+}
+function walkTo(tx,then){
+  if(instant||Math.abs(tx-G.x)<3){G.x=tx;walk=null;if(then)then();else render();return}
+  G.face=tx>G.x?1:-1;const was=walk;walk={tx,then,t0:performance.now(),last:performance.now()};if(!was)requestAnimationFrame(tick);
+}
+function tick(now){
+  if(!walk)return;
+  const dt=Math.min(.05,(now-walk.last)/1000);walk.last=now;const d=walk.tx-G.x,stepLen=120*dt;
+  if(Math.abs(d)<=stepLen){G.x=walk.tx;const th=walk.then;walk=null;if(th)th();else{save();render()}return}
+  G.x+=Math.sign(d)*stepLen;if(Math.floor((now-walk.t0)/260)!==Math.floor((now-walk.t0-dt*1000)/260))sfx('step');
+  draw();requestAnimationFrame(tick);
+}
+function tapInv(i){
+  if(G.f.won||topics)return;
+  if(verb==='look'){verb=null;say(i==='camera'?(G.f.photo?'The camera, its work done.':G.f.shot?'One shot taken. It needs developing in the darkroom.':G.f.loaded?'Loaded and ready. One good shot.':'A press camera. No film in it.'):ILOOK[i]);return render()}
+  if(held===i){held=null;return render()}
+  if(held){const a=held;held=null;verb=null;G.moves++;combine(a,i);save();return render()}
+  verb=null;held=i;render();
+}
+
+/* ---------- painting ---------- */
+const cv=$('cv'),ctx=cv.getContext('2d');let SC=1,flashT=0;
+const INK='#0b0d14';
+const R=(x,y,w,h,f,s)=>{ctx.beginPath();ctx.rect(x,y,w,h);if(f){ctx.fillStyle=f;ctx.fill()}if(s){ctx.strokeStyle=s;ctx.lineWidth=1;ctx.stroke()}};
+const P=(pts,f,s,open)=>{ctx.beginPath();pts.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));if(!open)ctx.closePath();if(f){ctx.fillStyle=f;ctx.fill()}if(s){ctx.strokeStyle=s;ctx.lineWidth=1;ctx.stroke()}};
+const L=(x0,y0,x1,y1,s,w)=>{ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.strokeStyle=s;ctx.lineWidth=w||1;ctx.stroke()};
+const C=(x,y,r,f,s)=>{ctx.beginPath();ctx.arc(x,y,r,0,7);if(f){ctx.fillStyle=f;ctx.fill()}if(s){ctx.strokeStyle=s;ctx.lineWidth=1;ctx.stroke()}};
+const E=(x,y,rx,ry,f,s)=>{ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,7);if(f){ctx.fillStyle=f;ctx.fill()}if(s){ctx.strokeStyle=s;ctx.lineWidth=1;ctx.stroke()}};
+const T=(t,x,y,size,f,align)=>{ctx.font=`bold ${size}px "Courier New",monospace`;ctx.textAlign=align||'center';ctx.textBaseline='middle';ctx.fillStyle=f;ctx.fillText(t,x,y)};
+function room(wall,floor,skirt){R(0,0,320,154,wall);R(0,154,320,46,floor);R(0,150,320,5,skirt||INK)}
+function door(x,label,col,open){R(x,58,38,96,open?'#0a0b10':col||'#7a4a25',INK);if(!open){R(x+5,64,28,36,null,INK);R(x+5,106,28,40,null,INK);C(x+32,108,2,'#ffd24a',INK)}R(x+3,46,32,9,'#e8e2c8',INK);T(label,x+19,51,5,INK)}
+const SCENE={
+ news(){
+  room('#3f4a6b','#5b4632');
+  door(6,'EDITOR','#5a3a22');door(276,'HALL');
+  R(58,26,64,54,'#141a33',INK);for(const [x,y] of [[66,34],[80,46],[104,32],[112,58],[72,66]])R(x,y,1,1,'#fff');C(98,44,9,'#f3efc9');L(90,26,90,80,INK);L(58,53,122,53,INK);
+  R(134,30,62,48,'#a8763e',INK);for(const [x,y,w,h,c] of [[139,35,16,12,'#e8e2c8'],[158,34,14,18,'#f3efc9'],[140,52,20,14,'#e8e2c8'],[164,56,12,14,'#d9d2b0']])R(x,y,w,h,c,INK);
+  C(218,34,10,'#e8e2c8',INK);L(218,34,218,27,INK);L(218,34,214,31,INK);
+  R(112,116,104,8,'#8a5a2b',INK);R(116,124,8,30,'#6b4420',INK);R(204,124,8,30,'#6b4420',INK);R(130,124,40,16,'#7a4a25',INK);C(150,132,1.5,'#ffd24a');
+  R(140,100,34,16,'#2a2f3a',INK);R(146,92,22,9,'#e8e2c8',INK);L(149,95,165,95,INK,.5);L(149,98,161,98,INK,.5);
+  R(228,124,40,30,'#6b4420',INK);R(234,86,28,38,'#9aa7b8',INK);R(239,91,18,12,'#1b2340',INK);R(243,108,10,12,'#12141f',INK);C(256,112,2,'#d8483a');
+ },
+ newsDyn(){
+  if(G.scisAt==='board'&&!G.f.sciss){L(184,42,180,58,'#cfd6e0',1.5);L(180,42,186,58,'#cfd6e0',1.5);C(180,60,2.5,null,'#d8483a');C(187,60,2.5,null,'#d8483a')}
+  if(!G.f.mug){R(198,104,9,11,'#f4f4f4',INK);P([[207,107],[211,107],[211,112],[207,112]],null,INK,1)}
+ },
+ ed(){
+  room('#2f5247','#6b2f33');
+  for(const [x,y] of [[26,32],[54,32],[82,32],[40,58],[68,58]]){R(x,y,24,20,'#3a2a18',INK);R(x+3,y+3,18,14,'#e8e2c8');L(x+5,y+7,x+19,y+7,INK,1.5);L(x+5,y+11,x+17,y+11,INK,.5);L(x+5,y+14,x+19,y+14,INK,.5)}
+  door(276,'NEWS');
+  P([[140,112],[146,88],[196,88],[202,112]],'#23262e',INK);C(171,74,12,'#e7b98a',INK);P([[159,72],[161,62],[166,66]],'#9aa7b8',INK);P([[183,72],[181,62],[176,66]],'#9aa7b8',INK);
+  L(164,71,169,73,INK,1.5);L(178,71,173,73,INK,1.5);C(166,75,1,INK);C(176,75,1,INK);L(167,81,175,81,INK);L(175,81,186,84,'#8a5a2b',2);C(187,84,1,'#d8483a');
+  R(104,108,132,10,'#8a5a2b',INK);R(110,118,120,36,'#6b4420',INK);R(150,100,26,8,'#e8e2c8',INK);for(let i=0;i<4;i++)for(let j=0;j<2;j++)R(153+i*5,101.5+j*3,3,2,(i+j)%2?INK:null,INK);
+  P([[206,108],[204,101],[214,99],[222,102],[220,108]],'#9aa7b8',INK);
+  R(244,134,18,20,'#a8763e',INK);L(253,134,253,96,'#2f7d46',2);for(const [a,b] of [[-12,-6],[12,-10],[-10,-22],[11,-26],[0,-38]])E(253+a,120+b,8,4,'#4fbf6a',INK);
+ },
+ edDyn(){if(!G.f.key){R(124,100,9,8,'#f4f4f4',INK)}},
+ hall(){
+  room('#565a66','#3a3d48');for(let i=0;i<16;i++)if(i%2)P([[i*20,154],[i*20+20,154],[i*20+14,200],[i*20-14,200]],'#4a4e5c');
+  door(4,'NEWS');door(116,'DARKROOM','#3a2330');C(135,40,4,'#d8483a',INK);
+  R(54,66,20,34,'#23262e',INK);R(57,70,14,10,'#9aa7b8',INK);for(let i=0;i<3;i++)for(let j=0;j<3;j++)R(58+i*4,83+j*4,3,3,'#e8e2c8');L(74,74,78,86,INK,2);R(60,102,8,5,'#12141f',INK);
+  L(95,58,95,154,'#6b4420',3);L(88,62,102,62,'#6b4420',2);L(86,154,104,154,'#6b4420',3);P([[90,64],[101,64],[104,110],[87,110]],'#7d6b4a',INK);L(95,68,95,108,INK,.5);
+  R(166,52,42,102,'#b2463a',INK);R(171,58,22,60,'#1b2340',INK);for(let j=0;j<4;j++)for(let i=0;i<3;i++)R(173+i*7,61+j*14,5,9,j===1?'#ffd24a':'#9aa7b8');R(197,62,7,16,'#e8e2c8',INK);R(198,84,5,3,'#12141f');R(172,128,30,12,'#12141f',INK);T('SNAX',187,146,5,'#e8e2c8');
+  for(let i=0;i<6;i++)R(268+i*8,146-i*18,52-i*8,18,'#6c7080',INK);L(268,128,316,38,'#8a5a2b',2);R(286,24,30,9,'#e8e2c8',INK);T('ROOF',301,29,5,INK);
+ },
+ hallDyn(){
+  door(220,'BASEMENT','#4d3b2a',!!G.f.bdoor);
+  if(!G.f.bdoor){R(250,104,7,8,'#ffd24a',INK);P([[251,104],[251,100],[256,100],[256,104]],null,'#cfd6e0',1)}
+  else{for(let i=0;i<4;i++)L(224,150-i*8,254,146-i*8,'#3a3d48')}
+  if(coinLine('phone'))C(64,104.5,1.6,'#ffd24a');if(coinLine('vend'))C(176,152.5,1.6,'#ffd24a');if(coinLine('coat'))C(100,100,1.6,'#ffd24a');
+ },
+ dark(){
+  room('#3b1418','#241014','#12080a');
+  door(4,'HALL','#4a1c22');
+  L(108,30,236,30,'#7a2c30');for(const [x,c] of [[118,'#5a2a2e'],[142,'#6a3034'],[166,'#5a2a2e'],[190,'#6a3034'],[214,'#5a2a2e']]){R(x,32,16,22,c,INK);L(x+8,29,x+8,33,'#c9a56a',1.5)}
+  R(56,86,48,5,'#5a2a2e',INK);L(60,91,60,100,INK);L(100,91,100,100,INK);
+  R(110,118,120,8,'#5a2a2e',INK);R(114,126,6,28,'#3a161a',INK);R(220,126,6,28,'#3a161a',INK);for(const [x,c] of [[118,'#8a3a3e'],[154,'#a5474b'],[190,'#8a3a3e']])P([[x,108],[x+30,108],[x+27,118],[x+3,118]],c,INK);
+  R(246,104,48,10,'#6f7480',INK);R(250,114,40,40,'#3a161a',INK);P([[268,104],[268,92],[278,92],[278,96]],null,'#9aa7b8',1);
+  C(160,14,6,'#ff5a4d',INK);ctx.globalAlpha=.12;C(160,14,60,'#ff5a4d');ctx.globalAlpha=1;
+ },
+ darkDyn(){if(!G.f.cam)camera(79,86)},
+ base(){
+  R(0,0,320,154,'#33222a');for(let j=0;j<8;j++)for(let i=0;i<9;i++)R(i*40-(j%2)*20,j*20,40,20,null,'#24161d');R(0,154,320,46,'#2a2a30');R(0,150,320,5,INK);
+  for(let i=0;i<6;i++)R(0,54+i*17,44-i*7,17,'#5a5560',INK);L(44,54,4,150,'#8a5a2b',2);
+  R(70,124,142,30,'#3d4250',INK);R(78,60,126,64,'#59606f',INK);for(const x of [96,128,160])C(x,82,13,'#2a2f3a',INK);for(const x of [96,128,160])C(x,82,4,'#9aa7b8',INK);
+  R(86,102,104,18,'#23262e',INK);R(190,70,22,40,'#3d4250',INK);C(201,80,4,'#d8483a',INK);C(201,94,4,'#4fbf6a',INK);
+  L(228,128,228,96,'#cfa53a',3);R(220,128,16,10,'#3d4250',INK);
+  R(252,112,54,42,'#8a5a2b',INK);L(252,126,306,126,INK);L(252,140,306,140,INK);T('INK',279,133,7,'#2a1a0c');
+  C(150,10,5,'#ffd24a',INK);ctx.globalAlpha=.1;C(150,10,70,'#ffd24a');ctx.globalAlpha=1;
+ },
+ baseDyn(){
+  R(92,104,40,14,'#e8e2c8',INK);T('MOON MAN',112,108,4,INK);T('LIVES IN',112,113,3,INK);
+  if(G.f.plate){R(140,104,22,14,'#9aa7b8',INK);moonHead(151,112,.45)}else{R(140,104,22,14,'#12141f',INK);L(140,104,162,118,'#59606f');L(162,104,140,118,'#59606f')}
+  C(228,G.f.won?128:96,4,'#ffd24a',INK);
+  if(G.f.won)return;
+  if(!G.f.met){L(270,112,268,102,'#9fe8d0',1.5);L(280,112,283,101,'#9fe8d0',1.5);C(268,101,1.8,'#ffd24a');C(283,100,1.8,'#ffd24a')}
+  else moonMan(272,FLOOR-4,G.f.freed&&!G.f.shot||G.f.shot);
+ },
+ roof(){
+  R(0,0,320,200,'#101733');for(const [x,y] of [[20,14],[48,62],[84,20],[120,8],[150,30],[196,12],[214,60],[300,70],[310,22],[262,92],[100,96],[40,104]])R(x,y,1.5,1.5,'#fff');
+  C(50,30,15,'#f3efc9');C(45,26,3,'#d9d2b0');C(56,35,2,'#d9d2b0');
+  for(const [x,w,h] of [[0,30,40],[34,24,62],[62,34,30],[100,22,50],[126,40,36],[170,28,66],[202,36,42],[242,26,56],[272,48,34]]){R(x,154-h,w,h,'#0a0e22');for(let j=0;j<h-8;j+=9)for(let i=4;i<w-4;i+=8)if((x+i*3+j)%5<2)R(x+i,154-h+6+j,3,4,'#ffd24a')}
+  R(0,154,320,46,'#3a3d48');R(0,150,320,5,'#23262e');
+  R(8,116,44,38,'#5a5560',INK);R(14,122,32,32,'#12141f',INK);T('DOWN',30,112,5,'#e8e2c8');
+  L(84,94,84,150,'#59606f',3);L(216,94,216,150,'#59606f',3);R(70,44,160,50,'#12141f','#59606f');
+  T('THE WEEKLY',150,60,13,'#ff5a8a');T('ECULIAR',160,80,15,'#3fe0ff');T('P',108,80,15,Math.floor(Date.now()/450)%3?'#3fe0ff':'#1c5560');
+  R(292,120,18,34,'#5a3a30',INK);R(289,116,24,6,'#6b4a3e',INK);
+ },
+ roofDyn(){
+  if(!G.f.freed){
+    P([[230,44],[250,30],[270,26],[290,34],[300,120]],null,'#e8e2c8',1);for(const [x,y,c] of [[238,38,'#d8483a'],[252,30,'#f4f4f4'],[266,27,'#4f8dff'],[282,30,'#d8483a'],[295,60,'#f4f4f4'],[297,88,'#4f8dff']])P([[x-3,y],[x+3,y],[x,y+7]],c,INK);
+    saucer(266,36);L(246,34,286,40,'#e8e2c8');L(250,42,284,30,'#e8e2c8');
+  }else{const b=Math.sin(Date.now()/400)*2;ctx.globalAlpha=.18;E(272,70+b,34,10,'#3fe0ff');ctx.globalAlpha=1;saucer(272,62+b);P([[292,118],[296,104],[300,120]],null,'#e8e2c8',1)}
+ }
+};
+function camera(x,y){R(x-11,y-14,22,14,'#23262e',INK);C(x,y-7,4.5,'#9aa7b8',INK);C(x,y-7,2,'#12141f');R(x+3,y-20,7,6,'#cfd6e0',INK)}
+function saucer(x,y){E(x,y,30,8,'#cfd6e0',INK);E(x,y-6,13,8,'#9fe8d0',INK);for(const a of [-20,-8,8,20])C(x+a,y+1,1.6,'#ffd24a')}
+function moonHead(x,y,k,shades){E(x,y,9*k,8*k,'#cfeee4',INK);if(shades)R(x-7*k,y-3*k,14*k,4*k,'#12141f',INK);else{E(x-3.5*k,y-1*k,2.2*k,3*k,INK);E(x+3.5*k,y-1*k,2.2*k,3*k,INK)}L(x-2*k,y+4*k,x+2*k,y+4*k,INK,.6)}
+function moonMan(x,y,shades){
+  L(x-3,y-14,x-4,y,'#9fb8b0',2);L(x+3,y-14,x+4,y,'#9fb8b0',2);R(x-6,y-28,12,15,'#8fd6c0',INK);
+  L(x-6,y-25,x-11,y-17,'#8fd6c0',2);if(G.f.shot)L(x+6,y-25,x+12,y-33,'#8fd6c0',2);else L(x+6,y-25,x+11,y-17,'#8fd6c0',2);
+  L(x-4,y-41,x-7,y-51,'#9fe8d0',1.5);L(x+4,y-41,x+7,y-51,'#9fe8d0',1.5);C(x-7,y-52,1.8,'#ffd24a');C(x+7,y-52,1.8,'#ffd24a');moonHead(x,y-36,1,shades);
+}
+function hero(x,y,face,moving){
+  const s=moving?Math.sin(Date.now()/70)*5:0;
+  L(x-2,y-18,x-2-s,y,'#23262e',3);L(x+2,y-18,x+2+s,y,'#23262e',3);
+  P([[x-7,y-16],[x+7,y-16],[x+5,y-40],[x-5,y-40]],'#b08d57',INK);L(x,y-38,x,y-17,'#8a6c3e');L(x-5,y-30,x+5,y-30,'#6b4f28',1.5);
+  L(x+face*5,y-37,x+face*9,y-24,'#b08d57',3);
+  C(x,y-45,5,'#e7b98a',INK);C(x+face*2,y-45.5,.8,INK);
+  R(x-8,y-50,16,2.5,'#3a2a18',INK);R(x-5,y-56,10,6.5,'#3a2a18',INK);R(x-5,y-52,10,1.5,'#d8483a');
+  if(held==='camera')camera(x+face*11,y-24);
+}
+function draw(){
+  const w=Math.max(160,Math.floor($('view').clientWidth)||358),dpr=Math.min(3,(typeof devicePixelRatio==='number'&&devicePixelRatio)||1),pw=Math.round(w*dpr),ph=Math.round(w*200/320*dpr);
+  if(cv.width!==pw||cv.height!==ph){cv.width=pw;cv.height=ph}
+  SC=pw/320;ctx.setTransform(SC,0,0,SC,0,0);ctx.lineJoin='round';ctx.lineCap='round';
+  if(!G){R(0,0,320,200,'#101733');T('THE WEEKLY PECULIAR',160,70,16,'#ff5a8a');T('"All the news that fits, we print."',160,92,7,'#e8e2c8');moonHead(160,130,1.6,1);return}
+  const img=PIC[G.room];
+  if(img&&img.ok){ctx.imageSmoothingEnabled=false;ctx.drawImage(img,0,0,320,200)}else SCENE[G.room]();
+  SCENE[G.room+'Dyn']&&SCENE[G.room+'Dyn']();
+  if(!(G.f.won&&G.room!=='base'))hero(G.x,FLOOR,G.face,!!walk);
+  if(G.room==='dark'){ctx.globalAlpha=.16;R(0,0,320,200,'#ff2a2a');ctx.globalAlpha=1}
+  const fl=Date.now()-flashT;if(fl<260){ctx.globalAlpha=1-fl/260;R(0,0,320,200,'#fff');ctx.globalAlpha=1;requestAnimationFrame(draw)}
+  if(labels)for(const h of hot()){ctx.setLineDash([2,2]);R(h.r[0],h.r[1],h.r[2],h.r[3],null,'#ffd24a');ctx.setLineDash([]);const tw=h.n.length*3.7+6,tx=clamp(h.r[0]+h.r[2]/2,tw/2+1,319-tw/2),ty=clamp(h.r[1]-5,6,194);R(tx-tw/2,ty-4.5,tw,9,'#000','#ffd24a');T(h.n.toUpperCase(),tx,ty,5.5,'#ffd24a')}
+}
+// a scene can be replaced by a picture: put scenes/<room>.png (320x200) beside this page
+const PIC={};
+if(typeof Image==='function'&&typeof location==='object'&&/^https?:$/.test(location.protocol))for(const k of Object.keys(ROOMN)){const im=new Image();im.onload=()=>{im.ok=true;if(G&&G.room===k)draw()};im.onerror=()=>{};im.src='scenes/'+k+'.png';PIC[k]=im}
+let anim=0;
+function ambient(){clearInterval(anim);anim=setInterval(()=>{if(G&&G.room==='roof'&&!walk)draw()},450)}
+function show(rows){
+  const m=$('msg');if(!rows){m.style.display='none';return}
+  m.textContent='';for(const [t,c] of rows){const e=document.createElement('div');e.textContent=t;if(c)e.className=c;m.appendChild(e)}
+  m.style.display='block';
+}
+function render(){
+  draw();
+  const mkB=(t,f,cls)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(cls)e.className=cls;e.onclick=()=>{wake();e.blur();f()};return e};
+  const ln=$('line');ln.textContent='';
+  if(!G){ln.appendChild(document.createTextNode('A point-and-click adventure'))}
+  else{ln.appendChild(document.createTextNode(topics?'Choose what to say':sentence()));const w=document.createElement('span');w.className='w';w.textContent=`${ROOMN[G.room].replace('THE ','')} · ${clock()}`;ln.appendChild(w)}
+  const vb=$('verbs');vb.textContent='';vb.className=topics?'topics':'';
+  if(!G){vb.appendChild(mkB('NEW GAME',newGame));const c=mkB('CONTINUE',loadGame);if(!hasSave())c.disabled=true,c.style.opacity=.35;vb.appendChild(c)}
+  else if(topics){for(const t of topics)vb.appendChild(mkB(t.t,()=>{sfx('talk');say('You ask '+t.t.toLowerCase()+'.');quote(t.say);G.moves++;render()}));vb.appendChild(mkB('THAT IS ALL',()=>{topics=null;save();render()}))}
+  else for(const v of ['look','take','use','talk'])vb.appendChild(mkB(v.toUpperCase(),()=>{held=null;verb=verb===v?null:v;render()},verb===v&&!held?'on':''));
+  const iv=$('inv');iv.textContent='';
+  if(G){const g=document.createElement('span');g.className='gl';g.textContent='POCKETS';iv.appendChild(g);
+    if(!G.inv.length)iv.appendChild(document.createTextNode('empty'));
+    for(const i of G.inv)iv.appendChild(mkB(itemName(i),()=>tapInv(i),(held===i?'on':'')+(newItem===i?' new':'')));newItem=null}
+  const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
+  if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new'+(lines[logN].q?' q':'');e.textContent=lines[logN].t;lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
+  const mo=$('more');mo.textContent='';
+  if(G){mo.appendChild(mkB('HINT',hint));mo.appendChild(mkB(labels?'LABELS: ON':'LABELS: OFF',()=>{labels=!labels;render()}));
+    mo.appendChild(mkB(G.f.won?'NEW GAME':Date.now()<sure?'SURE?':'NEW GAME',()=>{if(G.f.won||Date.now()<sure){sure=0;newGame()}else{sure=Date.now()+3000;render();setTimeout(render,3100)}}))}
+}
+cv.addEventListener('pointerdown',e=>{
+  wake();if(!G||G.f.won||topics)return;
+  const b=cv.getBoundingClientRect(),x=(e.clientX-b.left)*320/b.width,y=(e.clientY-b.top)*200/b.height,hs=hot();
+  let h=null;for(let i=hs.length-1;i>=0;i--){const r=hs[i].r;if(x>=r[0]&&x<=r[0]+r[2]&&y>=r[1]&&y<=r[1]+r[3]){h=hs[i];break}}
+  if(h)tapHot(h);else{verb=null;held=null;render();walkTo(clamp(x,14,306),null)}
+});
+let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(draw,120)});
+try{const v=localStorage.getItem('stoppress.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
+setTone();setSnd();ambient();
+lines=[{t:'STOP PRESS. A short adventure for one reporter and one deadline.'}];
+render();
+</script>
+</body>
+</html>

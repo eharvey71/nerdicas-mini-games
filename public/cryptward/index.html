@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cryptward</title>
+<meta name="description" content="A dungeon board game for one to four heroes. Dice, doors, a random crypt and a deck of cards that runs the monsters.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
+<style>
+/* layout: one phone-width column — the board with a dice strip, one status row per hero, log, buttons */
+:root{
+  --fg:#33ff66;          /* phosphor, set by the TONE key for the whole site */
+  --bg:#000000;
+  --hp:#ff6b6b; --shd:#6fb1ff; --fuel:#8fd9a0; --gold:#ffd24a; --goal:#c58bff; --you:#5ff;
+  --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+body{display:flex;justify-content:center;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+#app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:6px;padding:8px 16px 12px}
+#app>*{flex-shrink:0}
+[hidden]{display:none!important}
+header{display:flex;align-items:center;gap:8px}
+h1{font-family:var(--font-display);font-size:15px;letter-spacing:.2em;margin:0;font-weight:700;flex:1}
+.mini{font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:4px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.mini:active{background:var(--fg);color:var(--bg)}
+#view{position:relative;border:2px solid var(--fg);width:100%;background:var(--bg);line-height:0;touch-action:manipulation}
+canvas{display:block;width:100%}
+#msg{position:absolute;left:0;right:0;margin:0 auto;top:50%;transform:translateY(-50%);width:max-content;max-width:92%;display:none;text-align:center;background:var(--bg);border:2px solid var(--fg);box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--fg);padding:10px 18px;font-size:13px;line-height:1.5}
+#msg .big{font-family:var(--font-display);font-size:24px;font-weight:700;letter-spacing:.14em;line-height:1.3}
+#stat{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.4;display:grid;gap:3px;font-variant-numeric:tabular-nums}
+#stat .grp{display:flex;flex-wrap:wrap;align-items:center;gap:1px 10px;padding-top:3px;border-top:1px dotted var(--fg)}
+#stat .grp:first-child{border-top:0;padding-top:0}
+#stat .gl{font-size:10px;letter-spacing:.06em;opacity:.55;width:44px;flex:none}
+#stat .it{--c:var(--fg);color:var(--c);padding:0 3px;white-space:nowrap}
+#stat .lab{opacity:.65;font-size:11px;margin-right:5px}
+#stat .val{font-weight:700}
+#stat .dl{font-size:11px;font-weight:700;margin-left:5px}
+#stat .bar{display:inline-block;width:30px;height:7px;border:1px solid var(--c);margin-left:6px;vertical-align:middle}
+#stat .bar i{display:block;height:100%;background:var(--c)}
+#stat .hp{--c:var(--hp)}#stat .shd{--c:var(--shd)}#stat .fuel{--c:var(--fuel)}#stat .gold{--c:var(--gold)}#stat .goal{--c:var(--goal)}
+#stat .low{outline:1px solid var(--c)}
+#stat .flash,#log div.new{animation:blink .6s steps(1) 1}
+@keyframes blink{0%,24%{background:var(--c,var(--fg));color:var(--bg)}25%,49%{background:transparent;color:var(--c,var(--fg))}50%,74%{background:var(--c,var(--fg));color:var(--bg)}75%,100%{background:transparent;color:var(--c,var(--fg))}}
+@media (prefers-reduced-motion:reduce){#stat .flash,#log div.new{animation:none}}
+#log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:6em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+#log .good{color:var(--fuel)}#log .bad{color:var(--hp)}#log .gold{color:var(--gold)}
+#pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#pad button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:46px;cursor:pointer}
+#pad button:active{background:var(--fg);color:var(--bg)}
+#pad button:disabled{border-style:dotted;opacity:.35;cursor:default}
+#pad button.hot{background:var(--fg);color:var(--bg)}
+#pad .s2{grid-column:span 2}#pad .s3{grid-column:span 3}
+#pad .note{grid-column:span 3;font-size:12px;line-height:1.35;border-bottom:1px dotted var(--fg);padding:0 0 4px}
+#pad .row{grid-column:span 3;display:grid;grid-template-columns:1fr 62px 62px;gap:6px;align-items:stretch}
+#pad .row.one{grid-template-columns:1fr 130px}
+#pad .row .rn{font-size:12px;line-height:1.35;align-self:center;font-variant-numeric:tabular-nums}
+#pad .row b{font-size:13px}
+#pad .row .pr{color:var(--gold);font-weight:700}
+#pad .row .up{color:var(--fuel)}#pad .row .dn{color:var(--hp)}
+#pad .row small{font-size:11px;opacity:.75}
+#pad .row button{padding:6px 2px;min-height:44px}
+#fly{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;touch-action:none}
+#stick{width:140px;height:140px;border:2px solid var(--fg);border-radius:50%;position:relative;touch-action:none;cursor:pointer}
+#stick::before{content:"";position:absolute;inset:38%;border:1px dotted var(--fg);border-radius:50%}
+#nub{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px;border-radius:50%;background:var(--fg);opacity:.85;pointer-events:none}
+#fbtn{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#fbtn button{font:inherit;font-size:14px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;min-height:88px;cursor:pointer;touch-action:none}
+#fbtn button.on{background:var(--fg);color:var(--bg)}
+#fbtn button:disabled{border-style:dotted;opacity:.35}
+#fbtn #inv,#fbtn #pace{min-height:40px;font-size:11px;touch-action:manipulation}
+button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+#quick{margin:0;padding:0 0 0 1.3em;font-size:12px;line-height:1.45}
+#quick li{margin-bottom:2px}
+#how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#how summary::-webkit-details-marker{display:none}
+#how summary::after{content:"  +"}
+#how[open] summary::after{content:"  \2212"}
+#how[open] summary{border-bottom:2px solid var(--fg)}
+#how h2{font-size:12px;letter-spacing:.1em;margin:10px 10px 2px;border-bottom:1px dotted var(--fg)}
+#how p,#how ul{margin:4px 10px 6px}
+#how ul{padding-left:1.3em}
+#how li{margin-bottom:2px}
+#stat .grp.on{outline:2px solid var(--fg);outline-offset:1px}
+#stat .gl{width:54px}
+#log .deck{color:var(--goal)}
+#log{height:7.2em}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>CRYPTWARD</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <div id="view"><canvas id="cv"></canvas><div id="msg"></div></div>
+  <div id="stat"></div>
+  <div id="log"></div>
+  <div id="pad"></div>
+  <ul id="quick">
+    <li>Pick one to four heroes. Each quest is a new dungeon with a new goal.</li>
+    <li>Each hero rolls two dice to move, and gets one action: attack, cast, or search.</li>
+    <li>Tap a lit square to walk there. Tap a monster beside you to attack it. Tap through an amber door to open it.</li>
+    <li>Attackers count skulls; defenders cancel them with shields. Heroes use white shields, monsters black.</li>
+    <li>After the heroes, the Deck turns a card and the monsters act.</li>
+    <li>Heroes are cyan, monsters red, the quest target magenta or yellow, the stairs pale blue.</li>
+  </ul>
+  <details id="how">
+    <summary>ALL THE RULES</summary>
+    <h2>QUESTS</h2>
+    <ul>
+      <li>SLAY: kill the Warlock in the deepest room.</li>
+      <li>RESCUE: reach the captive in the deepest room, then bring them back to the stairs.</li>
+      <li>RELIC: search the deepest room to find the relic, then carry it back to the stairs.</li>
+      <li>The quest is lost when every hero is dead.</li>
+    </ul>
+    <h2>HEROES</h2>
+    <ul>
+      <li>REAVER: 3 attack dice, 2 defend, 8 body.</li>
+      <li>DELVER: 2 attack, 2 defend, 7 body. Spots hidden traps within two squares.</li>
+      <li>STRIDER: 2 attack, 2 defend, 6 body. Spells: MEND, SWIFT.</li>
+      <li>MAGUS: 1 attack, 2 defend, 4 body. Spells: FIREBOLT twice, MEND, SLUMBER, STONE SKIN.</li>
+    </ul>
+    <h2>A HERO'S TURN</h2>
+    <ul>
+      <li>Movement is rolled for you: two dice. Squares you can reach are lit. No diagonal steps.</li>
+      <li>You may pass through other heroes but not through monsters, and may not stop on an occupied square.</li>
+      <li>One action per turn. Act before you move or after, not in the middle: acting after you have moved ends your movement.</li>
+      <li>Opening a door and drinking a potion are free.</li>
+      <li>A lone hero gets two actions each turn.</li>
+    </ul>
+    <h2>FIGHTING</h2>
+    <ul>
+      <li>You can only attack a monster directly beside you, not diagonally and not through a wall.</li>
+      <li>Each die has three skulls, two white shields and one black shield.</li>
+      <li>The attacker rolls its attack dice and counts skulls. The defender rolls its defend dice: heroes count white shields, monsters count black. Each shield cancels a skull; the rest come off body.</li>
+      <li>The dice are shown under the board and written in the log.</li>
+      <li>A hero about to die drinks a potion automatically if carrying one.</li>
+    </ul>
+    <h2>SEARCHING</h2>
+    <ul>
+      <li>SEARCH is an action and needs the room or corridor around you to be free of monsters.</li>
+      <li>It finds and disarms every trap in the room, or within five squares in a corridor.</li>
+      <li>The first search of each room also turns up treasure: gold, a potion, a better weapon or shield, nothing, a trap, or a wandering monster that attacks at once.</li>
+      <li>Stepping on a hidden trap costs 1 body and ends the move.</li>
+    </ul>
+    <h2>SPELLS</h2>
+    <ul>
+      <li>Casting is an action. Each spell is used once per quest.</li>
+      <li>FIREBOLT: 2 damage to a monster in sight. It rolls one die to block.</li>
+      <li>MEND: restores 4 body to any hero.</li>
+      <li>SWIFT: roll your movement again and add it.</li>
+      <li>SLUMBER: a monster in sight sleeps. It cannot act or defend, and each Deck turn has an even chance to wake. The Warlock is immune.</li>
+      <li>STONE SKIN: a hero gets 2 extra defend dice until next wounded.</li>
+    </ul>
+    <h2>THE DECK</h2>
+    <ul>
+      <li>After the last hero, one card is turned from a deck of playing cards.</li>
+      <li>2 to 10: a normal turn. A monster beside a hero attacks the weakest one. A monster that can reach a hero moves and attacks the nearest. Others hold their room. Monsters never open doors.</li>
+      <li>Face card: a cunning turn. Every monster that can goes for the hero with the least body. Those that cannot reach fall back to guard the quest room.</li>
+      <li>Ace: a wandering monster appears at the open door farthest from the heroes, then a normal turn follows. Wanderers hunt you.</li>
+      <li>The deck is built for the party: 36 number cards always, with 12 face cards and 2 aces for four heroes, 8 and 2 for three, 4 and 1 for two, 2 and 1 for one.</li>
+      <li>Fewer heroes also means fewer monsters, a potion each for parties of two or one, and two actions a turn for a lone hero.</li>
+    </ul>
+    <h2>SAVING</h2>
+    <p>The quest saves itself at the end of every round, on this device.</p>
+  </details>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const ri=n=>Math.floor(Math.random()*n),rnd=(a,b)=>a+ri(b-a+1),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),hyp=Math.hypot;
+const shuf=a=>{for(let i=a.length-1;i>0;i--){const j=ri(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+/* ---------- tone and sound ---------- */
+const HUES=[[51,255,102],[255,176,0],[255,255,255]];let hueI=0,FG='rgb(51,255,102)';
+const setTone=()=>{const c=HUES[hueI];FG=`rgb(${c[0]},${c[1]},${c[2]})`;document.documentElement.style.setProperty('--fg',FG)};
+$('tone').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setTone();render()};
+const SFX={step:[[200,.015]],dice:[['n',.03],[500,.03],['n',.03],[700,.03]],hurt:[['n',.07],[160,.1,80]],boom:[['n',.1],[200,.1,60]],get:[[659,.05],[880,.08]],key:[[523,.08],[659,.08],[784,.08],[1047,.16]],no:[[120,.07]],door:[[160,.1,320]],warn:[[330,.1],[262,.16]],spell:[[400,.2,1600]],win:[[523,.12],[659,.12],[784,.12],[1047,.12],[1319,.12],[1568,.4]],die:[[440,.25,220],[220,.3,110],[110,.5,50]],sel:[[700,.03]],buy:[[659,.05],[880,.08]]};
+let actx=null,vol=1,nbuf=null,unl=null,sq=0;const VM=[0,.15,.45];
+function silentWav(){
+  const n=2000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  let t='';for(const x of b)t+=String.fromCharCode(x);return 'data:audio/wav;base64,'+btoa(t);
+}
+function wake(){
+  if(!vol)return;
+  try{
+    if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A){$('snd').textContent='NO SOUND HERE';return}actx=new A();
+      nbuf=actx.createBuffer(1,actx.sampleRate,actx.sampleRate);const c=nbuf.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()<.5?-1:1;
+      setTimeout(()=>{if(vol&&actx.state!=='running')$('snd').textContent='SOUND BLOCKED'},800)}
+    if(actx.state!=='running'){actx.resume().then(setSnd,()=>{});const u=actx.createBufferSource();u.buffer=actx.createBuffer(1,1,22050);u.connect(actx.destination);u.start(0)}
+  }catch(e){}
+  try{if(!unl){unl=new Audio(silentWav());unl.loop=true;unl.setAttribute('playsinline','')}if(unl.paused){const q=unl.play();if(q&&q.catch)q.catch(()=>{})}}catch(e){}
+}
+function hush(){try{if(unl)unl.pause()}catch(e){}}
+function sfx(n){
+  if(!vol||!actx||!SFX[n])return;
+  try{
+    let t=Math.max(actx.currentTime,sq);if(t-actx.currentTime>.25)return;
+    for(const [f,dur,f2] of SFX[n]){
+      const gn=actx.createGain();gn.gain.setValueAtTime((f==='n'?.05:.07)*VM[vol],t);gn.gain.setValueAtTime(0,t+dur);gn.connect(actx.destination);
+      let src;
+      if(f==='n'){src=actx.createBufferSource();src.buffer=nbuf}
+      else{src=actx.createOscillator();src.type='square';src.frequency.setValueAtTime(f,t);if(f2)src.frequency.linearRampToValueAtTime(f2,t+dur)}
+      src.connect(gn);src.start(t);src.stop(t+dur+.01);t+=dur;
+    }
+    sq=t+.01;
+  }catch(e){}
+}
+function setSnd(){$('snd').textContent=['SOUND OFF','SOUND LOW','SOUND HIGH'][vol]}
+$('snd').onclick=()=>{vol=(vol+1)%3;try{localStorage.setItem('cryptward.vol',vol)}catch(e){}setSnd();if(!vol)hush();else{wake();sfx('buy')}};
+if(document.addEventListener)document.addEventListener('visibilitychange',()=>{if(document.hidden)hush()});
+
+
+/* ---------- rules data ---------- */
+const BW=19,BH=15,NC=BW*BH,D4=[1,-1,BW,-BW];
+const HEROES=[
+  {k:'R',n:'REAVER',a:3,d:2,b:8,sp:[]},
+  {k:'D',n:'DELVER',a:2,d:2,b:7,sp:[],sense:true},
+  {k:'S',n:'STRIDER',a:2,d:2,b:6,sp:['heal','swift']},
+  {k:'M',n:'MAGUS',a:1,d:2,b:4,sp:['bolt','bolt','heal','sleep','stone']}
+];
+const MON={
+  G:{n:'GNAWER',mv:10,a:2,d:1,b:1},B:{n:'BRAWLER',mv:8,a:3,d:2,b:1},N:{n:'BONEMAN',mv:6,a:2,d:2,b:1},H:{n:'HUSK',mv:5,a:2,d:3,b:1},
+  W:{n:'WIGHT',mv:4,a:3,d:4,b:2},I:{n:'IRONHELM',mv:7,a:4,d:4,b:3},S:{n:'STONEWING',mv:6,a:4,d:5,b:3},L:{n:'WARLOCK',mv:6,a:4,d:4,b:5,boss:true}
+};
+const SPELLS={bolt:{n:'FIREBOLT',t:'mon'},heal:{n:'MEND',t:'hero'},swift:{n:'SWIFT',t:'self'},sleep:{n:'SLUMBER',t:'mon'},stone:{n:'STONE SKIN',t:'hero'}};
+const BUD={4:108,3:88,2:78,1:62},FACES={4:12,3:8,2:4,1:2},ACES={4:2,3:2,2:1,1:1};
+const QUEST={slay:'KILL THE WARLOCK',rescue:'FREE THE CAPTIVE AND REACH THE STAIRS',relic:'FIND THE RELIC AND REACH THE STAIRS'};
+let S=null,mode='title',pick=[1,1,1,1],busy=false,FAST=false,menu='',aim=null,lines=[],logN=-1,sure=0,dice=null,flash=null;
+const pause=ms=>FAST?Promise.resolve():new Promise(r=>setTimeout(r,ms));
+const X=c=>c%BW,Y=c=>(c/BW)|0,ek=(a,b)=>a<b?a*1000+b:b*1000+a;
+const adj=(a,b)=>{const d=Math.abs(a-b);return d===BW||(d===1&&Y(a)===Y(b))};
+const open=(a,b)=>S.reg[a]===S.reg[b]||!!(S.doors[ek(a,b)]&&S.doors[ek(a,b)].open);
+const inb=(c,d)=>{const n=c+d;return n>=0&&n<NC&&(Math.abs(d)===BW||Y(n)===Y(c))};
+const liveH=()=>S.heroes.filter(h=>!h.dead),heroAt=c=>S.heroes.find(h=>!h.dead&&h.cell===c),monAt=c=>S.mons.find(m=>m.cell===c);
+const H=()=>S.heroes[S.turn];
+const seenCell=c=>S.reg[c]===0?S.vis[c]:S.rev[S.reg[c]];
+const awake=m=>m.wander||S.rev[S.reg[m.cell]]||S.reg[m.cell]===0;
+function say(t,c){lines.push([t,c||'']);if(lines.length>160){lines.splice(0,60);logN=-1}}
+function los(a,b){
+  let x0=X(a),y0=Y(a),c=a;const x1=X(b),y1=Y(b),dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let err=dx-dy;
+  while(x0!==x1||y0!==y1){const e2=2*err;let nx=x0,ny=y0;if(e2>-dy){err-=dy;nx+=sx}if(e2<dx){err+=dx;ny+=sy}const n=ny*BW+nx;
+    if(nx!==x0&&ny!==y0){const p=y0*BW+nx,q=ny*BW+x0;if(!((open(c,p)&&open(p,n))||(open(c,q)&&open(q,n))))return false}else if(!open(c,n))return false;
+    x0=nx;y0=ny;c=n}
+  return true;
+}
+/* steps from a cell; block(c) cells cannot be entered, thru(c) cells can be crossed but not stopped on */
+function flood(from,max,block,allDoors){
+  const d=new Int16Array(NC).fill(-1),prev=new Int16Array(NC).fill(-1),q=[from];d[from]=0;
+  for(let h=0;h<q.length;h++){const c=q[h];if(d[c]>=max)continue;for(const s of D4){if(!inb(c,s))continue;const n=c+s;if(d[n]>=0||block(n))continue;if(!(allDoors?(S.reg[c]===S.reg[n]||S.doors[ek(c,n)]):open(c,n)))continue;d[n]=d[c]+1;prev[n]=c;q.push(n)}}
+  return {d,prev};
+}
+const pathTo=(f,c)=>{const p=[];while(c>=0&&f.prev[c]>=0){p.unshift(c);c=f.prev[c]}return p};
+function look(){
+  for(const h of liveH()){if(S.reg[h.cell])S.rev[S.reg[h.cell]]=true;for(let c=0;c<NC;c++)if(S.reg[c]===0&&!S.vis[c]&&los(h.cell,c))S.vis[c]=1;
+    if(h.sense)for(const k in S.traps){const t=S.traps[k];if(!t.found&&Math.abs(X(+k)-X(h.cell))+Math.abs(Y(+k)-Y(h.cell))<=2&&los(h.cell,+k)){t.found=true;say(`${h.n} SPOTS A TRAP AND DISARMS IT.`,'good')}}}
+}
+/* ---------- a new dungeon ---------- */
+function gen(sel){
+  const nh=sel.length,reg=new Uint8Array(NC);let nr=0;
+  for(const bx of [1,10])for(const by of [1,8]){
+    const vs=Math.random()<.85?rnd(3,5):8,parts=vs<8?[[bx,vs],[bx+vs,8-vs]]:[[bx,8]];
+    for(const [x0,w] of parts){const hs=Math.random()<.5?3:6;for(const [y0,h] of hs<6?[[by,3],[by+3,3]]:[[by,6]]){nr++;for(let y=y0;y<y0+h;y++)for(let x=x0;x<x0+w;x++)reg[y*BW+x]=nr}}
+  }
+  const pairs={};for(let c=0;c<NC;c++)for(const s of [1,BW]){if(!inb(c,s))continue;const n=c+s;if(reg[c]!==reg[n]){const k=Math.min(reg[c],reg[n])*100+Math.max(reg[c],reg[n]);(pairs[k]=pairs[k]||[]).push([c,n])}}
+  const uf=[...Array(nr+1).keys()],find=a=>uf[a]===a?a:(uf[a]=find(uf[a])),doors={},keys=shuf(Object.keys(pairs));let extra=2;
+  const addDoor=k=>{const [a,b]=pairs[k][ri(pairs[k].length)];doors[ek(a,b)]={a,b,open:false}};
+  for(const k of keys){const a=find(Math.floor(k/100)),b=find(k%100);if(a!==b){uf[a]=b;addDoor(k)}}
+  for(const k of keys){if(extra&&!pairs[k].some(([a,b])=>doors[ek(a,b)])){addDoor(k);extra--}}
+  S={nh,reg,nr,doors,rev:Array(nr+1).fill(false),vis:new Uint8Array(NC),traps:{},searched:Array(nr+1).fill(false),heroes:[],mons:[],deck:[],card:'',turn:0,mv:0,moved:false,acts:1,round:1,gold:0,kills:0};
+  const cellsOf=r=>{const a=[];for(let c=0;c<NC;c++)if(reg[c]===r)a.push(c);return a};
+  /* start room touches a corridor; the quest room is the one farthest from it by walking */
+  const starts=[];for(const k in doors){const {a,b}=doors[k];if(reg[a]===0)starts.push(reg[b]);else if(reg[b]===0)starts.push(reg[a])}
+  const sr=starts[ri(starts.length)],sc=cellsOf(sr).filter(c=>!Object.values(doors).some(d=>d.a===c||d.b===c));S.stairs=sc[ri(sc.length)];S.start=sr;
+  const f=flood(S.stairs,999,()=>false,true);let far=1,fv=-1;const depth=[0];
+  for(let r=1;r<=nr;r++){const v=Math.min(...cellsOf(r).map(c=>f.d[c]<0?999:f.d[c]));depth[r]=v;if(r!==sr&&v>fv&&v<999){fv=v;far=r}}
+  S.goalRoom=far;const type=['slay','rescue','relic'][ri(3)];S.q={type,holder:-1,at:-1,found:false};
+  /* heroes round the stairs */
+  const near=flood(S.stairs,6,c=>reg[c]!==sr,true),spots=[S.stairs,...cellsOf(sr).filter(c=>c!==S.stairs).sort((a,b)=>near.d[a]-near.d[b])];
+  sel.forEach((hi,i)=>{const T=HEROES[hi];S.heroes.push({k:T.k,n:T.n,a:T.a,d:T.d,b:T.b,mb:T.b,sp:T.sp.slice(),pot:nh<=2?1:0,cell:spots[i],dead:false,stone:false,sense:!!T.sense})});
+  /* monsters to a budget */
+  const free=r=>cellsOf(r).filter(c=>!monAt(c)&&c!==S.q.at&&!Object.values(doors).some(d=>d.a===c||d.b===c)),cap=nh<=3?3:4,count=r=>S.mons.filter(m=>S.reg[m.cell]===r).length;
+  const put=(t,r)=>{const fc=free(r);if(!fc.length)return 0;const T=MON[t];S.mons.push({t,cell:fc[ri(fc.length)],b:T.b,home:r,asleep:false,wander:false,last:-1});return T.a+T.d+T.b};
+  let bud=BUD[nh];
+  if(type==='slay')put('L',far);else{const fc=free(far);S.q.at=fc[ri(fc.length)];bud-=put(type==='rescue'?'I':'W',far)}
+  for(let gb=BUD[nh]*.4,n=0;gb>3&&n<5;n++){const opts=['S','I','W','H','B','N','G'].filter(t=>MON[t].a+MON[t].d+MON[t].b<=gb),t=opts[ri(Math.min(3,opts.length))];if(!t)break;const v=put(t,far);if(!v)break;gb-=v;bud-=v}
+  const rooms=[];for(let r=1;r<=nr;r++)if(r!==sr&&r!==far)rooms.push(r);
+  for(let guard=0;bud>3&&guard<400;guard++){const r=rooms[ri(rooms.length)];if(count(r)>=Math.min(cap,Math.floor(cellsOf(r).length/4)))continue;
+    const fr=clamp(depth[r]/Math.max(1,fv),0,1),w={G:3*(1-fr)+1,N:2,B:2+fr,H:1+fr,W:fr*2.5,I:fr>.4?fr*2.5:0,S:fr>.7?1:0},bag=[];
+    for(const t in w){const T=MON[t];if(T.a+T.d+T.b<=bud)for(let i=0;i<Math.round(w[t]*4);i++)bag.push(t)}if(!bag.length)break;bud-=put(bag[ri(bag.length)],r)}
+  /* hidden traps */
+  const tc=[];for(let c=0;c<NC;c++)if(c!==S.stairs&&reg[c]!==sr&&!monAt(c)&&c!==S.q.at&&f.d[c]>4)tc.push(c);shuf(tc);for(let i=0;i<rnd(3,5);i++)S.traps[tc[i]]={found:false};
+  S.wtype=nh>=3?'B':'G';S.deck=[];S.rev[sr]=true;look();
+}
+function newQuest(){
+  const sel=[];pick.forEach((v,i)=>{if(v)sel.push(i)});if(!sel.length)return;
+  gen(sel);lines=[];logN=-1;menu='';aim=null;dice=null;busy=false;mode='play';show(null);
+  say(`QUEST: ${QUEST[S.q.type]}.`,'gold');say(S.q.type==='slay'?'THE WARLOCK KEEPS THE DEEPEST ROOM.':'WHAT YOU SEEK IS IN THE DEEPEST ROOM.');
+  S.turn=-1;nextHero();
+}
+function save(){try{localStorage.setItem('cryptward.save',JSON.stringify(S,(k,v)=>v instanceof Uint8Array?Array.from(v):v))}catch(e){}}
+function hasSave(){try{return !!localStorage.getItem('cryptward.save')}catch(e){return false}}
+function wipe(){try{localStorage.removeItem('cryptward.save')}catch(e){}}
+function load(){try{S=JSON.parse(localStorage.getItem('cryptward.save'))}catch(e){S=null}if(!S)return;S.reg=Uint8Array.from(S.reg);S.vis=Uint8Array.from(S.vis);lines=[];logN=-1;menu='';aim=null;dice=null;busy=false;mode='play';show(null);say(`QUEST: ${QUEST[S.q.type]}. ROUND ${S.round}.`,'gold');render()}
+/* ---------- dice ---------- */
+const roll=n=>{const a=[];for(let i=0;i<n;i++)a.push(ri(6));return a};
+const skulls=a=>a.filter(v=>v<3).length,whites=a=>a.filter(v=>v===3||v===4).length,blacks=a=>a.filter(v=>v===5).length;
+async function clash(an,dn,na,nd,heroDef){
+  const A=roll(na),D=roll(nd),sk=skulls(A),sh=heroDef?whites(D):blacks(D),dmg=Math.max(0,sk-sh);
+  dice={t:`${an} > ${dn}`,A,D,heroDef,dmg};sfx('dice');render();await pause(950);
+  say(`${an} ATTACKS ${dn}: ${sk} SKULL${sk===1?'':'S'}, ${sh} SHIELD${sh===1?'':'S'}. ${dmg?dmg+' DAMAGE':'NO DAMAGE'}.`,heroDef?(dmg?'bad':''):(dmg?'good':''));
+  return dmg;
+}
+/* ---------- heroes ---------- */
+function nextHero(){
+  let i=S.turn;for(;;){i++;if(i>=S.heroes.length)return deckTurn();if(!S.heroes[i].dead)break}
+  S.turn=i;const a=rnd(1,6),b=rnd(1,6);S.mv=a+b;S.moved=false;S.acts=S.nh===1?2:1;menu='';aim=null;dice=null;
+  say(`${H().n}: MOVE ${a}+${b} = ${S.mv}.`);sfx('sel');render();
+}
+function endTurn(){if(busy||mode!=='play')return;nextHero()}
+function spend(){S.acts--;if(S.moved)S.mv=0}
+function reachH(){const h=H();return flood(h.cell,S.mv,c=>!!monAt(c)||!seenCell(c)&&S.reg[c]!==0)}
+function wound(h,dmg,by){
+  if(dmg<=0)return;h.b-=dmg;if(h.stone){h.stone=false;say(`${h.n}'S STONE SKIN CRACKS.`)}sfx('hurt');flash={c:h.cell,t:Date.now()+500};
+  if(h.b<=0&&h.pot>0){h.pot--;h.b=Math.min(h.mb,4);say(`${h.n} FALLS, DRINKS A POTION, AND RISES WITH ${h.b} BODY.`,'gold')}
+  if(h.b<=0){h.b=0;h.dead=true;say(`${h.n} IS DEAD.`,'bad');sfx('die');const i=S.heroes.indexOf(h);if(S.q.holder===i){S.q.holder=-1;S.q.at=h.cell;say(S.q.type==='rescue'?'THE CAPTIVE WAITS WHERE THE HERO FELL.':'THE RELIC LIES WHERE THE HERO FELL.','bad')}}
+}
+function slain(m){S.mons.splice(S.mons.indexOf(m),1);S.kills++;sfx('boom');say(`${MON[m.t].n} IS DESTROYED.`,'good');if(MON[m.t].boss&&S.q.type==='slay')win()}
+function checkGoal(h){
+  const i=S.heroes.indexOf(h),q=S.q;
+  if(q.type!=='slay'&&q.holder<0&&q.at>=0&&(q.found||q.type==='rescue')&&(h.cell===q.at||(q.type==='rescue'&&adj(h.cell,q.at)&&open(h.cell,q.at)))){q.holder=i;q.at=-1;sfx('key');say(q.type==='rescue'?`THE CAPTIVE FOLLOWS ${h.n}. BACK TO THE STAIRS.`:`${h.n} TAKES THE RELIC. BACK TO THE STAIRS.`,'gold')}
+  if(q.type!=='slay'&&q.holder===i&&h.cell===S.stairs)win();
+}
+async function walk(h,path){
+  busy=true;menu='';
+  for(const c of path){h.cell=c;S.mv--;S.moved=true;sfx('step');look();render();await pause(70);
+    const t=S.traps[c];if(t&&!t.found){t.found=true;S.mv=0;say(`${h.n} SPRINGS A TRAP: 1 DAMAGE.`,'bad');wound(h,1);break}
+    checkGoal(h);if(mode!=='play')break}
+  busy=false;if(mode==='play'){if(liveH().length===0)return lose();if(h.dead)return nextHero();render()}
+}
+async function attack(m){
+  const h=H();busy=true;spend();const dmg=await clash(h.n,MON[m.t].n,h.a,m.asleep?0:MON[m.t].d,false);m.last=S.turn;
+  if(dmg){m.b-=dmg;if(m.asleep)m.asleep=false;if(m.b<=0)slain(m)}
+  busy=false;dice=mode==='play'?dice:null;if(mode==='play')render();
+}
+function openDoor(k){const d=S.doors[k];d.open=true;sfx('door');for(const c of [d.a,d.b])if(S.reg[c])S.rev[S.reg[c]]=true;look();
+  const r=[S.reg[d.a],S.reg[d.b]],ms=S.mons.filter(m=>r.includes(S.reg[m.cell])&&S.reg[m.cell]!==0&&!m.seen);ms.forEach(m=>m.seen=true);
+  say(ms.length?`THE DOOR OPENS: ${ms.map(m=>MON[m.t].n).join(', ')}.`:'THE DOOR OPENS.',ms.length?'bad':'');render()}
+async function search(){
+  const h=H(),r=S.reg[h.cell];if(busy||S.acts<=0)return;
+  if(S.mons.some(m=>r?S.reg[m.cell]===r:(S.reg[m.cell]===0&&S.vis[m.cell]&&los(h.cell,m.cell)))){sfx('no');say('NO SEARCHING WITH MONSTERS ABOUT.','bad');return render()}
+  spend();let n=0;for(const k in S.traps){const t=S.traps[k];if(!t.found&&(r?S.reg[+k]===r:(S.reg[+k]===0&&Math.abs(X(+k)-X(h.cell))+Math.abs(Y(+k)-Y(h.cell))<=5))){t.found=true;n++}}
+  if(n)say(`${h.n} FINDS AND DISARMS ${n} TRAP${n>1?'S':''}.`,'good');
+  if(r&&r===S.goalRoom&&S.q.type==='relic'&&!S.q.found){S.q.found=true;S.q.holder=S.turn;S.q.at=-1;sfx('key');say(`${h.n} FINDS THE RELIC. BACK TO THE STAIRS.`,'gold')}
+  if(r&&!S.searched[r]){S.searched[r]=true;const v=Math.random();
+    if(v<.34){const g=rnd(2,10)*10;S.gold+=g;sfx('get');say(`${h.n} FINDS ${g} GOLD.`,'gold')}
+    else if(v<.5){h.pot++;sfx('get');say(`${h.n} FINDS A HEALING POTION.`,'gold')}
+    else if(v<.62){if(Math.random()<.5){h.a++;say(`${h.n} FINDS A BETTER BLADE: ATTACK ${h.a}.`,'gold')}else{h.d++;say(`${h.n} FINDS A SHIELD: DEFEND ${h.d}.`,'gold')}sfx('get')}
+    else if(v<.76)say(`${h.n} FINDS NOTHING OF USE.`);
+    else if(v<.88){say(`${h.n} TRIPS A HIDDEN NEEDLE: 1 DAMAGE.`,'bad');wound(h,1)}
+    else{const fc=D4.filter(s=>inb(h.cell,s)&&open(h.cell,h.cell+s)&&!monAt(h.cell+s)&&!heroAt(h.cell+s)).map(s=>h.cell+s);
+      if(fc.length){const m={t:S.wtype,cell:fc[ri(fc.length)],b:MON[S.wtype].b,home:0,asleep:false,wander:true,last:-1,seen:true};S.mons.push(m);say(`A WANDERING ${MON[m.t].n} LEAPS OUT.`,'bad');busy=true;render();await pause(350);wound(h,await clash(MON[m.t].n,h.n,MON[m.t].a,h.d+(h.stone?2:0),true));busy=false}
+      else say(`${h.n} FINDS NOTHING OF USE.`)}
+  }else if(!n&&!(r===S.goalRoom&&S.q.found))say(r?'NOTHING MORE HERE.':'NOTHING IN THE CORRIDOR.');
+  if(liveH().length===0)return lose();if(h.dead)return nextHero();render();
+}
+function potion(){const h=H();if(busy||!h.pot||h.b>=h.mb){sfx('no');return}h.pot--;h.b=Math.min(h.mb,h.b+4);sfx('get');say(`${h.n} DRINKS A POTION: BODY ${h.b}.`,'good');render()}
+async function cast(k,target){
+  const h=H();h.sp.splice(h.sp.indexOf(k),1);spend();aim=null;menu='';sfx('spell');
+  if(k==='swift'){const a=rnd(1,6),b=rnd(1,6);S.mv+=a+b;S.moved=false;say(`${h.n} CASTS SWIFT: ${a}+${b} MORE MOVEMENT.`,'good')}
+  else if(k==='heal'){target.b=Math.min(target.mb,target.b+4);say(`${h.n} CASTS MEND ON ${target.n}: BODY ${target.b}.`,'good')}
+  else if(k==='stone'){target.stone=true;say(`${h.n} CASTS STONE SKIN ON ${target.n}: +2 DEFEND DICE.`,'good')}
+  else if(k==='sleep'){if(MON[target.t].boss)say('THE WARLOCK SHRUGS OFF THE SLUMBER.','bad');else{target.asleep=true;say(`${MON[target.t].n} FALLS ASLEEP.`,'good')}}
+  else if(k==='bolt'){busy=true;const D=target.asleep?[]:roll(1),dmg=Math.max(0,2-blacks(D));dice={t:`FIREBOLT > ${MON[target.t].n}`,A:[0,0],D,heroDef:false,dmg};render();await pause(900);
+    say(`${h.n}'S FIREBOLT HITS ${MON[target.t].n} FOR ${dmg}.`,dmg?'good':'');target.b-=dmg;target.last=S.turn;if(target.b<=0)slain(target);busy=false}
+  if(mode==='play')render();
+}
+/* ---------- the Deck and the monsters ---------- */
+function draw1(){if(!S.deck.length){for(let i=0;i<36;i++)S.deck.push('N');for(let i=0;i<FACES[S.nh];i++)S.deck.push('F');for(let i=0;i<ACES[S.nh];i++)S.deck.push('A');shuf(S.deck)}return S.deck.pop()}
+async function deckTurn(){
+  busy=true;S.turn=-1;dice=null;const card=draw1(),names={N:String(rnd(2,10)),F:['JACK','QUEEN','KING'][ri(3)],A:'ACE'};S.card=names[card];
+  say(card==='N'?`THE DECK: ${S.card}. THE MONSTERS ACT.`:card==='F'?`THE DECK: ${S.card}. A CUNNING TURN: THEY GO FOR THE WEAKEST.`:'THE DECK: ACE. A WANDERER COMES.',card==='N'?'deck':'bad');sfx(card==='N'?'sel':'warn');render();await pause(650);
+  if(card==='A'){
+    const hs=liveH(),far=c=>Math.min(...hs.map(h=>Math.abs(X(c)-X(h.cell))+Math.abs(Y(c)-Y(h.cell))));let cand=[];
+    for(const k in S.doors){const d=S.doors[k];if(d.open)for(const c of [d.a,d.b])if(!monAt(c)&&!heroAt(c))cand.push(c)}
+    if(!cand.length)for(let c=0;c<NC;c++)if(S.reg[c]===0&&S.vis[c]&&!monAt(c)&&!heroAt(c))cand.push(c);
+    if(cand.length){cand.sort((a,b)=>far(b)-far(a));const m={t:S.wtype,cell:cand[0],b:MON[S.wtype].b,home:0,asleep:false,wander:true,last:-1,seen:true};S.mons.push(m);say(`A WANDERING ${MON[m.t].n} APPEARS.`,'bad');render();await pause(450)}
+  }
+  const cunning=card==='F';
+  for(const m of S.mons.slice()){
+    if(mode!=='play')break;if(!S.mons.includes(m)||!awake(m))continue;const T=MON[m.t],hs=liveH();if(!hs.length)break;
+    if(m.asleep){if(ri(2)){m.asleep=false;say(`${T.n} WAKES.`)}continue}
+    const low=a=>a.slice().sort((p,q)=>p.b-q.b||(S.heroes.indexOf(q)===m.last)-(S.heroes.indexOf(p)===m.last))[0];
+    const adjH=hs.filter(h=>adj(h.cell,m.cell)&&open(h.cell,m.cell)),f=flood(m.cell,T.mv,c=>!!monAt(c)||!!heroAt(c)),reach=[];
+    for(const h of hs){if(adjH.includes(h)){reach.push({h,c:m.cell,n:0});continue}let bc=-1,bn=99;for(const s of D4){if(!inb(h.cell,s))continue;const c=h.cell+s;if(f.d[c]>=0&&f.d[c]<bn&&open(c,h.cell)){bn=f.d[c];bc=c}}if(bc>=0)reach.push({h,c:bc,n:bn})}
+    let tgt=null;
+    if(cunning&&reach.length){const h=low(reach.map(r=>r.h));tgt=reach.find(r=>r.h===h)}
+    else if(adjH.length){const h=low(adjH);tgt={h,c:m.cell,n:0}}
+    else if(reach.length)tgt=reach.sort((a,b)=>a.n-b.n)[0];
+    const go=async path=>{for(const c of path){m.cell=c;render();await pause(60)}};
+    if(tgt){await go(pathTo(f,tgt.c));m.seen=true;wound(tgt.h,await clash(T.n,tgt.h.n,T.a,tgt.h.d+(tgt.h.stone?2:0),true));continue}
+    if(T.boss){const v=hs.filter(h=>los(m.cell,h.cell));if(v.length){const h=v.sort((a,b)=>Math.abs(X(a.cell)-X(m.cell))+Math.abs(Y(a.cell)-Y(m.cell))-Math.abs(X(b.cell)-X(m.cell))-Math.abs(Y(b.cell)-Y(m.cell)))[0];say('THE WARLOCK HURLS A DREAD BOLT.','bad');wound(h,await clash('DREAD BOLT',h.n,2,h.d+(h.stone?2:0),true));continue}}
+    /* no one in reach: wanderers and strays hunt, the rest hold; on a cunning turn they fall back to the quest room */
+    let dest=-1;
+    if(cunning&&S.reg[m.cell]!==S.goalRoom&&!m.wander){const g=flood(m.cell,99,c=>!!monAt(c)||!!heroAt(c));let bn=999;for(let c=0;c<NC;c++)if(S.reg[c]===S.goalRoom&&g.d[c]>0&&g.d[c]<bn){bn=g.d[c];dest=c}if(dest>=0){const p=pathTo(g,dest).slice(0,T.mv);await go(p)}}
+    else if(m.wander||S.reg[m.cell]!==m.home){const g=flood(m.cell,99,c=>!!monAt(c)||!!heroAt(c));let bn=999;for(const h of hs)for(const s of D4){if(!inb(h.cell,s))continue;const c=h.cell+s;if(g.d[c]>0&&g.d[c]<bn&&open(c,h.cell)){bn=g.d[c];dest=c}}if(dest>=0)await go(pathTo(g,dest).slice(0,T.mv))}
+  }
+  busy=false;if(mode!=='play')return;if(!liveH().length)return lose();
+  S.round++;dice=null;save();S.turn=-1;nextHero();
+}
+function win(){mode='won';wipe();sfx('win');show([['QUEST WON','big'],[S.q.type==='slay'?'The Warlock is dead.':S.q.type==='rescue'?'The captive is safe.':'The relic is yours.'],[`${S.round} rounds. ${liveH().length} of ${S.nh} alive. ${S.gold} gold. ${S.kills} kills.`]]);render()}
+function lose(){mode='dead';wipe();sfx('die');show([['QUEST LOST','big'],['The last hero has fallen.'],[`Round ${S.round}. ${S.gold} gold. ${S.kills} kills.`]]);render()}
+/* ---------- taps ---------- */
+function tap(c){
+  if(busy||mode!=='play'||S.turn<0)return;const h=H(),m=monAt(c),hh=heroAt(c);
+  if(aim){const sp=SPELLS[aim];if(sp.t==='mon'&&m&&seenCell(c)&&los(h.cell,c))return cast(aim,m);if(sp.t==='hero'&&hh)return cast(aim,hh);sfx('no');return}
+  if(m&&seenCell(c)){if(S.acts>0&&adj(h.cell,c)&&open(h.cell,c))return attack(m);sfx('no');say(S.acts<=0?'NO ACTION LEFT THIS TURN.':'YOU MUST STAND RIGHT BESIDE IT TO ATTACK.','bad');return render()}
+  const k=ek(h.cell,c);if(adj(h.cell,c)&&S.doors[k]&&!S.doors[k].open)return openDoor(k);
+  if(hh)return;
+  const f=reachH();
+  if(f.d[c]>0&&S.mv>0&&!heroAt(c))return walk(h,pathTo(f,c));
+  /* a square behind a closed door: walk up to the door and open it */
+  let bn=99,bc=-1;for(const s of D4){if(!inb(c,s))continue;const n=c+s,d=S.doors[ek(c,n)];if(d&&!d.open&&f.d[n]>=0&&f.d[n]<bn&&(n===h.cell||!heroAt(n))){bn=f.d[n];bc=n}}
+  if(bc>=0){const kk=ek(c,bc);if(bc===h.cell)return openDoor(kk);return walk(h,pathTo(f,bc)).then(()=>{if(mode==='play'&&!h.dead&&h.cell===bc&&H()===h)openDoor(kk)})}
+  sfx('no');
+}
+/* ---------- drawing ---------- */
+const cv=$('cv'),ctx=cv.getContext('2d');let W=320,Hh=300,DPR=1,cs=16,ox=0,STRIP=40;
+function resize(){const w=$('view').clientWidth||320;W=Math.max(240,w-4);cs=Math.floor(W/BW);ox=Math.floor((W-cs*BW)/2);Hh=cs*BH+STRIP+4;DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(Hh*DPR);cv.style.height=Hh+'px'}
+function text(t,x,y,col,al,sz){ctx.font=`bold ${sz||11}px "Courier New",monospace`;ctx.textAlign=al||'left';ctx.fillStyle=col||FG;ctx.fillText(t,x,y)}
+const SKULL=".#####.|#######|#.###.#|#.###.#|.#####.|..#.#..|..###..",SHIELD="#######|#######|#######|#######|.#####.|..###..|...#...";
+function icon(art,x,y,p,col){ctx.fillStyle=col;art.split('|').forEach((r,j)=>{for(let i=0;i<r.length;i++)if(r[i]==='#')ctx.fillRect(x+i*p,y+j*p,p,p)})}
+function die(x,y,s,v,counts){
+  ctx.fillStyle='#000';ctx.fillRect(x,y,s,s);ctx.strokeStyle=counts?'#fff':FG;ctx.globalAlpha=counts?1:.45;ctx.lineWidth=counts?2:1;ctx.strokeRect(x+.5,y+.5,s-1,s-1);
+  const p=Math.max(1,Math.floor((s-6)/7)),o=(s-p*7)/2;if(v<3)icon(SKULL,x+o,y+o,p,'#fff');else if(v<5)icon(SHIELD,x+o,y+o,p,'#fff');else{icon(SHIELD,x+o,y+o,p,'#666');ctx.fillStyle='#000';ctx.fillRect(x+o+p*2,y+o+p,p*3,p*2)}
+  ctx.globalAlpha=1;
+}
+function token(c,ch,col,fill,ring){
+  const x=ox+X(c)*cs,y=Y(c)*cs,p=Math.max(2,Math.round(cs*.14));
+  if(fill){ctx.fillStyle=col;ctx.fillRect(x+p,y+p,cs-p*2,cs-p*2);text(ch,x+cs/2,y+cs/2+Math.round(cs*.24),'#000','center',Math.round(cs*.62))}
+  else{ctx.fillStyle='#000';ctx.fillRect(x+p,y+p,cs-p*2,cs-p*2);ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.strokeRect(x+p+.5,y+p+.5,cs-p*2-1,cs-p*2-1);text(ch,x+cs/2,y+cs/2+Math.round(cs*.24),col,'center',Math.round(cs*.62))}
+  if(ring){ctx.strokeStyle=ring;ctx.lineWidth=2;ctx.strokeRect(x+1,y+1,cs-2,cs-2)}
+}
+function draw(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#000';ctx.fillRect(0,0,W,Hh);ctx.textBaseline='alphabetic';
+  if(!S||mode==='title'||mode==='pick'){ctx.strokeStyle=FG;ctx.lineWidth=1;for(let i=0;i<6;i++){const k=i*14;ctx.strokeRect(ox+k+.5,k+.5,cs*BW-k*2,cs*BH-k*2)}return}
+  const h=S.turn>=0&&mode==='play'?H():null,f=h&&!busy&&S.mv>0&&!aim?reachH():null,now=Date.now();
+  for(let c=0;c<NC;c++){
+    const x=ox+X(c)*cs,y=Y(c)*cs,r=S.reg[c],sn=seenCell(c);
+    if(!sn){if(r){ctx.fillStyle=FG;ctx.globalAlpha=.16;ctx.fillRect(x+cs/2-1,y+cs/2-1,2,2);ctx.globalAlpha=1}continue}
+    ctx.fillStyle=FG;ctx.globalAlpha=r?.1:.2;ctx.fillRect(x,y,cs,cs);ctx.globalAlpha=1;
+    if(c===S.stairs){ctx.strokeStyle='#9fd0ff';ctx.lineWidth=1.5;ctx.beginPath();for(let i=1;i<=3;i++){ctx.moveTo(x+2,y+i*cs/4);ctx.lineTo(x+cs-2,y+i*cs/4)}ctx.stroke();ctx.strokeRect(x+1.5,y+1.5,cs-3,cs-3)}
+    const t=S.traps[c];if(t&&t.found){ctx.strokeStyle=FG;ctx.globalAlpha=.6;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x+4,y+4);ctx.lineTo(x+cs-4,y+cs-4);ctx.moveTo(x+cs-4,y+4);ctx.lineTo(x+4,y+cs-4);ctx.stroke();ctx.globalAlpha=1}
+    if(f&&f.d[c]>0&&!heroAt(c)){ctx.fillStyle=FG;ctx.globalAlpha=.55;ctx.fillRect(x+cs/2-2,y+cs/2-2,4,4);ctx.globalAlpha=1}
+  }
+  /* walls and doors */
+  for(let c=0;c<NC;c++)for(const s of [1,BW]){
+    if(!inb(c,s))continue;const n=c+s;if(S.reg[c]===S.reg[n])continue;if(!seenCell(c)&&!seenCell(n))continue;
+    const x=ox+X(n)*cs,y=Y(n)*cs,d=S.doors[ek(c,n)];
+    ctx.strokeStyle=FG;ctx.lineWidth=2;ctx.beginPath();if(s===1){ctx.moveTo(x,y);ctx.lineTo(x,y+cs)}else{ctx.moveTo(x,y);ctx.lineTo(x+cs,y)}ctx.stroke();
+    if(d){ctx.fillStyle='#000';const g=cs*.2;if(s===1)ctx.fillRect(x-2,y+g,4,cs-g*2);else ctx.fillRect(x+g,y-2,cs-g*2,4);ctx.fillStyle='#ffb347';
+      if(!d.open){if(s===1)ctx.fillRect(x-2.5,y+g,5,cs-g*2);else ctx.fillRect(x+g,y-2.5,cs-g*2,5)}else{if(s===1){ctx.fillRect(x-2,y+g,4,3);ctx.fillRect(x-2,y+cs-g-3,4,3)}else{ctx.fillRect(x+g,y-2,3,4);ctx.fillRect(x+cs-g-3,y-2,3,4)}}}
+  }
+  ctx.strokeStyle=FG;ctx.lineWidth=2;ctx.strokeRect(ox+1,1,cs*BW-2,cs*BH-2);
+  /* things */
+  const q=S.q;if(q.at>=0&&seenCell(q.at)&&(q.type==='rescue'||q.found))token(q.at,q.type==='rescue'?'C':'*','#ffd24a',true);
+  if(q.type==='relic'&&!q.found&&S.rev[S.goalRoom]&&q.at>=0)token(q.at,'?','#ffd24a',false);
+  for(const m of S.mons)if(seenCell(m.cell)||m.wander){const T=MON[m.t],can=h&&!busy&&!aim&&S.acts>0&&adj(h.cell,m.cell)&&open(h.cell,m.cell),tg=aim&&SPELLS[aim].t==='mon'&&h&&los(h.cell,m.cell);token(m.cell,m.asleep?'z':m.t,T.boss?'#ff5cff':'#ff5a5a',!m.asleep,can||tg?'#ffe650':null);
+    if(T.b>1){const x=ox+X(m.cell)*cs,y=Y(m.cell)*cs;ctx.fillStyle='#000';ctx.fillRect(x+2,y+cs-4,cs-4,3);ctx.fillStyle='#fff';ctx.fillRect(x+2,y+cs-4,(cs-4)*m.b/T.b,3)}}
+  S.heroes.forEach((o,i)=>{if(o.dead)return;const on=i===S.turn&&mode==='play',fl=flash&&flash.c===o.cell&&now<flash.t;token(o.cell,o.k,fl?'#ff5a5a':'#5ff',true,on&&Math.floor(now/350)%2?'#fff':aim&&SPELLS[aim].t==='hero'?'#ffe650':null);if(S.q.holder===i){const x=ox+X(o.cell)*cs,y=Y(o.cell)*cs;ctx.fillStyle='#ffd24a';ctx.fillRect(x+cs-6,y+1,5,5)}});
+  /* dice strip */
+  const sy=cs*BH+4;
+  if(dice){const s=Math.min(26,STRIP-10);text(dice.t,ox+2,sy+12,FG,'left',10);let x=ox+2;dice.A.forEach(v=>{die(x,sy+15,s-4,v,v<3);x+=s});text('VS',x+2,sy+30,FG,'left',9);x+=20;dice.D.forEach(v=>{die(x,sy+15,s-4,v,dice.heroDef?(v===3||v===4):v===5);x+=s});text(dice.dmg?`${dice.dmg} DAMAGE`:'BLOCKED',W-ox-2,sy+30,dice.dmg?'#ff6b6b':'#8fd9a0','right',12)}
+  else if(mode==='play')text(busy?'...':aim?`${SPELLS[aim].n}: TAP A ${SPELLS[aim].t==='mon'?'MONSTER IN SIGHT':'HERO'}`:h?`${h.n}: MOVE ${S.mv} · ACTION${S.nh===1?'S':''} ${S.acts}`:'',ox+2,sy+22,aim?'#ffe650':FG,'left',12);
+}
+function render(){draw();drawStatus();ui();if(mode==='play'&&!blinkT)blinkT=setInterval(()=>{if(mode==='play'&&!busy)draw();else if(mode!=='play'){clearInterval(blinkT);blinkT=0}},350)}
+let blinkT=0;
+function show(rows){const m=$('msg');if(!rows){m.style.display='none';return}m.textContent='';for(const [t,c] of rows){if(!t)continue;const e=document.createElement('div');e.textContent=t;if(c)e.className=c;m.appendChild(e)}m.style.display='block'}
+const mkE=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
+let prevS={},flashT={},stT=0;
+function drawStatus(){
+  const st=$('stat');st.textContent='';const grp=(name,on)=>{const e=mkE('div','grp'+(on?' on':''));if(name)e.appendChild(mkE('span','gl',name));st.appendChild(e);return e};
+  if(!S||mode==='title'||mode==='pick'){grp().appendChild(mkE('span','it',mode==='pick'?'TAP A HERO TO ADD OR DROP. ONE TO FOUR.':'FOUR HEROES, ONE DECK, A NEW CRYPT EVERY TIME'));return}
+  const now=Date.now();let again=false;
+  const it=(g,k,label,val,num,cls,bar)=>{val=String(val);const p=prevS[k];if(p&&p.val!==val)flashT[k]={until:now+700,dUntil:now+1900,d:typeof num==='number'&&typeof p.num==='number'?num-p.num:0};prevS[k]={val,num};
+    const f=flashT[k],e=mkE('span','it'+(cls?' '+cls:'')+(f&&now<f.until?' flash':''));if(label)e.appendChild(mkE('span','lab',label));e.appendChild(mkE('span','val',val));
+    if(bar){const b=mkE('span','bar'),i=mkE('i');i.style.width=clamp(Math.round(bar[0]/Math.max(1,bar[1])*100),0,100)+'%';b.appendChild(i);e.appendChild(b)}
+    if(f&&now<f.dUntil&&f.d)e.appendChild(mkE('span','dl',(f.d>0?'+':'−')+Math.abs(f.d)));if(f&&now<f.dUntil)again=true;g.appendChild(e)};
+  S.heroes.forEach((h,i)=>{const g=grp(h.n,i===S.turn&&mode==='play');if(h.dead){g.appendChild(mkE('span','it hp','DEAD'));return}
+    it(g,'b'+i,'BODY',`${h.b}/${h.mb}`,h.b,'hp'+(h.b<=2?' low':''),[h.b,h.mb]);it(g,'a'+i,'ATK',h.a,h.a);it(g,'d'+i,'DEF',h.d+(h.stone?'+2':''),h.d,h.stone?'shd':'');
+    if(h.pot)it(g,'p'+i,'POTION',h.pot,h.pot,'fuel');if(h.sp.length)it(g,'s'+i,'SPELLS',h.sp.length,h.sp.length,'goal');if(S.q.holder===i)g.appendChild(mkE('span','it gold',S.q.type==='rescue'?'CAPTIVE':'RELIC'))});
+  const g=grp('QUEST');g.appendChild(mkE('span','it goal',QUEST[S.q.type]));it(g,'rd','ROUND',S.round,S.round);it(g,'gold','GOLD',S.gold,S.gold,'gold');if(S.card)it(g,'card','LAST CARD',S.card,0);
+  clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
+}
+let pads=[];
+function ui(){
+  const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
+  if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];e.textContent=lines[logN][0];lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
+  const pad=$('pad');pad.textContent='';pads=[];
+  const btn=(t,f,keys,dis,hot,span)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(span)e.classList.add('s'+span);if(dis||!f)e.disabled=true;else{e.onclick=()=>{wake();e.blur();f()};if(keys)pads.push({keys,f})}pad.appendChild(e)};
+  const toPick=()=>{mode='pick';show([['PICK YOUR HEROES','big'],['Fewer heroes means fewer monsters and a kinder Deck.']]);render()};
+  if(mode==='title'){btn('NEW QUEST',toPick,['n','Enter'],false,true);btn('CONTINUE',hasSave()?load:null,['c']);btn('·',null);return}
+  if(mode==='pick'){HEROES.forEach((T,i)=>btn((pick[i]?'■ ':'□ ')+T.n,()=>{pick[i]=pick[i]?0:1;sfx('sel');render()},[String(i+1)],false,!!pick[i]));btn(`START WITH ${pick.filter(v=>v).length}`,newQuest,['Enter'],!pick.some(v=>v),false,2);return}
+  if(mode!=='play'){btn('NEW QUEST',toPick,['n','Enter'],false,true,3);return}
+  if(busy||S.turn<0){btn('THE DECK IS PLAYING',null,null,true,false,3);return}
+  const h=H();
+  if(aim){btn('CANCEL',()=>{aim=null;render()},['Escape'],false,true,3);return}
+  if(menu==='spell'){[...new Set(h.sp)].forEach((k,i)=>{const n=h.sp.filter(v=>v===k).length;btn(SPELLS[k].n+(n>1?' x'+n:''),()=>{if(SPELLS[k].t==='self')cast(k,h);else{aim=k;render()}},[String(i+1)])});btn('BACK',()=>{menu='';render()},['Escape'],false,true);return}
+  const fresh=()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;toPick()}};
+  btn('SEARCH',search,['s'],S.acts<=0);btn('SPELL',()=>{menu='spell';render()},['c'],S.acts<=0||!h.sp.length);btn(`POTION ${h.pot}`,potion,['p'],!h.pot||h.b>=h.mb);
+  btn('END TURN',endTurn,['e','Enter',' '],false,S.acts<=0&&S.mv<=0,2);btn(Date.now()<sure?'SURE?':'NEW QUEST',fresh,[]);
+}
+cv.addEventListener('pointerdown',e=>{if(!S||mode!=='play')return;const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)*W/r.width-ox,y=(e.clientY-r.top)*Hh/r.height;const cx=Math.floor(x/cs),cy=Math.floor(y/cs);if(cx<0||cy<0||cx>=BW||cy>=BH)return;wake();tap(cy*BW+cx)});
+addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key.length===1?e.key.toLowerCase():e.key,b=pads.find(p=>p.keys.includes(k));if(b){e.preventDefault();wake();b.f()}});
+let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
+try{const v=localStorage.getItem('cryptward.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
+setTone();setSnd();resize();
+show([['CRYPTWARD','big'],['Four heroes. One deck of cards.'],['A new crypt every quest.']]);
+render();
+</script>
+</body>
+</html>

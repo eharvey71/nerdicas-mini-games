@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nerdica's mini-games</title>
-<meta name="description" content="Small browser games by Nerdica: Hollowdeep, a wireframe dungeon crawl; Regolith, a vector moon lander; Marchlands, a turn-based territory war; Skerry, a tiny island quest; Farlane, a space trading run; Underdeck, a first-person maze shooter.">
+<meta name="description" content="Small browser games by Nerdica: Hollowdeep, a wireframe dungeon crawl; Regolith, a vector moon lander; Marchlands, a turn-based territory war; Skerry, a tiny island quest; Farlane, a space trading run. Work in progress: Underdeck, Cryptward, Stop Press.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
 <style>
 /* layout: one column on phones, a grid of game cabinets on wider screens; 1-bit phosphor on black */
@@ -24,7 +24,9 @@ h1{font-family:var(--font-display);font-size:clamp(18px,5vw,28px);letter-spacing
 #tone:active{background:var(--fg);color:var(--bg)}
 #tone:focus-visible{outline:2px dashed var(--fg);outline-offset:3px}
 .lead{margin:0;font-size:14px;line-height:1.5;max-width:60ch}
-#games{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;list-style:none;margin:0;padding:0}
+.games{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;list-style:none;margin:0;padding:0}
+.sec{font-family:var(--font-display);font-size:16px;letter-spacing:.2em;margin:12px 0 0;text-transform:uppercase;border-top:2px solid var(--fg);padding-top:16px}
+.cab.wip{border-style:dashed}
 .cab{border:2px solid var(--fg);display:flex;flex-direction:column}
 .cab canvas{width:100%;aspect-ratio:280/192;display:block;image-rendering:pixelated;image-rendering:crisp-edges;border-bottom:2px solid var(--fg)}
 .cab .body{padding:12px;display:flex;flex-direction:column;gap:8px;flex:1}
@@ -41,7 +43,10 @@ footer{font-size:12px;line-height:1.5;border-top:2px solid var(--fg);padding-top
 <main>
   <header><h1>Nerdica's mini-games</h1><button id="tone" type="button">TONE</button></header>
   <p class="lead">Small games that run in the browser. No accounts, no downloads. Progress is kept on the device you play on. TONE sets the screen colour for the whole site.</p>
-  <ul id="games"></ul>
+  <ul id="games" class="games"></ul>
+  <h2 class="sec">Work in progress</h2>
+  <p class="lead">Playable, but unfinished and still changing. Saves in these may not carry over between updates.</p>
+  <ul id="wip" class="games"></ul>
   <footer>More cabinets will be wheeled in as they are built.</footer>
 </main>
 <script>
@@ -117,7 +122,7 @@ const GAMES=[
      for(const [x,y] of [[14,18],[60,12],[110,30],[250,20],[262,150],[20,150],[90,170],[130,8],[236,176],[8,100]])g.line(x,y,x,y);
      g.line(128,150,136,150);g.line(144,150,152,150);g.line(140,138,140,146);g.line(140,154,140,162);
    }},
-  {slug:'underdeck',title:'UNDERDECK',
+  {slug:'underdeck',title:'UNDERDECK',wip:true,
    blurb:'A first-person maze shooter. Five random floors of doors, rooms and wireframe guards. Find the keycard, reach the lift, and kill the Warden at the bottom.',
    tags:'SHOOTER · 1 PLAYER · TWIN STICK OR KEYS',
    art:g=>{
@@ -130,6 +135,33 @@ const GAMES=[
      P([[196,112],[208,100],[220,112],[208,124]],1);g.line(208,100,208,124);g.line(196,112,220,112);
      g.line(132,96,136,96);g.line(144,96,148,96);g.line(140,88,140,92);g.line(140,100,140,104);
      P([[130,191],[134,166],[146,166],[150,191]]);
+   }},
+  {slug:'cryptward',title:'CRYPTWARD',wip:true,
+   blurb:'A dungeon board game for one to four heroes. Roll to move, fight with skull-and-shield dice, and open doors into a new crypt every quest. A deck of cards runs the monsters.',
+   tags:'BOARD GAME · 1 TO 4 HEROES · TOUCH OR MOUSE',
+   art:g=>{
+     const R=(x0,y0,x1,y1)=>{g.line(x0,y0,x1,y0);g.line(x1,y0,x1,y1);g.line(x1,y1,x0,y1);g.line(x0,y1,x0,y0)};
+     const F=(x0,y0,x1,y1)=>{for(let y=y0;y<=y1;y++)g.line(x0,y,x1,y)};
+     R(8,8,271,183);R(28,26,120,84);R(28,84,74,160);R(74,84,120,160);R(150,26,252,100);R(150,100,200,160);R(200,100,252,160);
+     for(const [x,y] of [[40,40],[60,60],[96,48],[170,44],[226,70],[168,128]]){R(x,y,x+12,y+12);g.line(x+3,y+3,x+9,y+9);g.line(x+9,y+3,x+3,y+9)}
+     for(const [x,y] of [[44,112],[44,128],[58,120]])F(x,y,x+11,y+11);
+     F(118,50,122,60);F(90,82,100,86);F(148,56,152,66);F(170,98,180,102);F(72,120,76,130);
+     for(let i=0;i<4;i++){const x=214+i*0,y=118;}
+     R(212,114,236,138);F(218,120,222,124);F(226,120,230,124);F(220,128,228,130);
+     for(let x=14;x<266;x+=12)g.line(x,172,x+1,172);for(let x=134;x<140;x+=12)for(let y=14;y<180;y+=12)g.line(x,y,x,y+1);
+   }},
+  {slug:'stoppress',title:'STOP PRESS',wip:true,
+   blurb:'A short point-and-click adventure at a small-town newspaper. Look, take, use and talk your way to the front page before the presses roll. Some things hide in a new place each time.',
+   tags:'ADVENTURE · 1 PLAYER · TOUCH OR MOUSE',
+   art:g=>{
+     const R=(x0,y0,x1,y1)=>{g.line(x0,y0,x1,y0);g.line(x1,y0,x1,y1);g.line(x1,y1,x0,y1);g.line(x0,y1,x0,y0)};
+     g.line(0,150,279,150);R(20,40,90,100);g.line(55,40,55,100);g.line(20,70,90,70);
+     R(120,96,220,150);R(132,70,184,96);g.line(140,78,176,78);g.line(140,84,170,84);g.line(140,90,176,90);
+     R(196,84,214,96);g.line(214,88,220,88);g.line(220,88,220,94);g.line(214,94,220,94);
+     R(236,60,264,150);g.line(258,104,258,108);
+     R(130,160,150,180);R(156,160,176,180);R(182,160,202,180);R(208,160,228,180);
+     g.line(40,150,40,120);g.line(40,120,70,120);g.line(70,120,70,150);g.line(46,120,46,108);g.line(46,108,64,108);g.line(64,108,64,120);
+     for(let x=24;x<88;x+=8)g.line(x,24,x+4,24);
    }}
 ];
 const HUES=[[51,255,102],[255,176,0],[255,255,255]];
@@ -148,9 +180,8 @@ function preview(cv,art){
   for(let i=0;i<W*H;i++){const o=i*4,v=buf[i];img.data[o]=v?C[0]:0;img.data[o+1]=v?C[1]:0;img.data[o+2]=v?C[2]:0;img.data[o+3]=255}
   ctx.putImageData(img,0,0);
 }
-const list=document.getElementById('games');
 for(const gm of GAMES){
-  const li=document.createElement('li');li.className='cab';
+  const li=document.createElement('li');li.className='cab'+(gm.wip?' wip':'');const list=document.getElementById(gm.wip?'wip':'games');
   const cv=document.createElement('canvas');cv.width=280;cv.height=192;cv.setAttribute('role','img');cv.setAttribute('aria-label',gm.title+' preview');
   const body=document.createElement('div');body.className='body';
   const h=document.createElement('h2');h.textContent=gm.title;
