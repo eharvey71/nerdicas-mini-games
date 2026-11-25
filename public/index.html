@@ -53,7 +53,8 @@ footer{font-size:12px;line-height:1.5;border-top:2px solid var(--fg);padding-top
 "use strict";
 /* To add a game: put it in its own folder beside this file (its page named index.html),
    then add an entry here. `art` draws the 280x192 1-bit preview; leave it out for a blank screen.
-   `art` gets a second argument, seconds since the pointer arrived (0 when still), so the picture can move on hover. */
+   `art` gets a second argument, seconds since the pointer arrived (0 when still), so the picture can move on hover.
+   While it moves, g.ink(n) colours the lines that follow (see INKS below). */
 const GAMES=[
   {slug:'hollowdeep',title:'HOLLOWDEEP',
    blurb:'A wireframe dungeon crawl. Twenty levels down, a dead king wears a crown. Pick fighter, mage or thief, haul gold back to the Inn, and bring the crown home. Death is permanent.',
@@ -66,7 +67,7 @@ const GAMES=[
      }
      L(P(-1,0,6),P(1,0,6));L(P(1,0,6),P(1,2,6));L(P(1,2,6),P(-1,2,6));L(P(-1,2,6),P(-1,0,6));
      const sk="8,17 8,20 12,20 12,17 11,16 9,16 8,17;9,18 9,19;11,18 11,19;10,16 10,8;7,14 13,14;7,12 13,12;8,10 12,10;6,15 14,15;6,15 4,10 5,7;14,15 16,10 17,13;17,13 19,19;8,8 12,8;8,8 7,4 8,0 6,0;12,8 13,4 12,0 14,0";
-     for(const pl of sk.split(';')){const q=pl.split(' ').map(c=>{const[x,y]=c.split(',').map(Number);return P((x-10)/10*.75+Math.sin(s*3)*.06,y/10*.85,1.4-.45*(.5-.5*Math.cos(s*1.6)))});for(let i=0;i<q.length-1;i++)L(q[i],q[i+1])}
+     sk.split(';').forEach((pl,pi)=>{g.ink(pi===1||pi===2?3:7);const q=pl.split(' ').map(c=>{const[x,y]=c.split(',').map(Number);return P((x-10)/10*.75+Math.sin(s*3)*.06,y/10*.85,1.4-.45*(.5-.5*Math.cos(s*1.6)))});for(let i=0;i<q.length-1;i++)L(q[i],q[i+1])});
    }},
   {slug:'regolith',title:'REGOLITH',
    blurb:'A vector moon lander. Feather the thrust, cancel the drift and set down on a pad before the fuel runs out. Narrow pads pay more.',
@@ -74,11 +75,11 @@ const GAMES=[
    art:(g,s)=>{
      const ys=[150,142,128,133,118,118,118,118,131,146,158,151,163,170,170,170,159,141,124,112,121,137,149,149,149,149,149,140,127,135,148,156,144,139,147,150];
      for(let i=0;i<35;i++)g.line(i*8,ys[i],i*8+8,ys[i+1]);
-     for(const [a,b,y] of [[32,56,119],[104,120,171],[176,208,150]])g.line(a,y,b,y);
-     for(const [x,y] of [[20,18],[61,40],[96,12],[133,55],[171,24],[214,47],[247,15],[262,70],[38,77],[228,96]])g.line(x,y,x,y);
-     const ph=(s*.2)%1,cx=112,cy=s?(ph<.82?34+ph/.82*122:156):96,fl=s&&ph>=.82?0:1,k=2.4,P=(x,y)=>[cx+x*k,cy+y*k],L=(p,q)=>g.line(p[0],p[1],q[0],q[1]);
+     g.ink(2);for(const [a,b,y] of [[32,56,119],[104,120,171],[176,208,150]])g.line(a,y,b,y);
+     g.ink(4);for(const [x,y] of [[20,18],[61,40],[96,12],[133,55],[171,24],[214,47],[247,15],[262,70],[38,77],[228,96]])g.line(x,y,x,y);
+     g.ink(7);const ph=(s*.2)%1,cx=112,cy=s?(ph<.82?34+ph/.82*122:156):96,fl=s&&ph>=.82?0:1,k=2.4,P=(x,y)=>[cx+x*k,cy+y*k],L=(p,q)=>g.line(p[0],p[1],q[0],q[1]);
      const body=[[-3,-5],[3,-5],[5,-1],[5,2],[-5,2],[-5,-1]];body.forEach((p,i)=>L(P(p[0],p[1]),P(body[(i+1)%6][0],body[(i+1)%6][1])));
-     for(const [p,q] of [[[-4,2],[-6,6]],[[4,2],[6,6]],[[-7,6],[-5,6]],[[5,6],[7,6]],[[-2,2],[-1,4]],[[2,2],[1,4]],[[-1.5,4],[0,4+6*fl*(s?.6+.4*Math.abs(Math.sin(s*23)):1)]],[[0,4+6*fl*(s?.6+.4*Math.abs(Math.sin(s*23)):1)],[1.5,4]]])L(P(p[0],p[1]),P(q[0],q[1]));
+     [[[-4,2],[-6,6]],[[4,2],[6,6]],[[-7,6],[-5,6]],[[5,6],[7,6]],[[-2,2],[-1,4]],[[2,2],[1,4]],[[-1.5,4],[0,4+6*fl*(s?.6+.4*Math.abs(Math.sin(s*23)):1)]],[[0,4+6*fl*(s?.6+.4*Math.abs(Math.sin(s*23)):1)],[1.5,4]]].forEach(([p,q],i)=>{g.ink(i>5?9:7);L(P(p[0],p[1]),P(q[0],q[1]))});
    }},
   {slug:'marchlands',title:'MARCHLANDS',
    blurb:'A turn-based war over a random map. Place armies, attack your neighbours with dice, shift your forces, and take every country from one to three computer rivals.',
@@ -90,10 +91,10 @@ const GAMES=[
      for(let r=0;r<R;r++)for(let c=0;c<Cn;c++){
        const t=at(r,c);if(t==='.')continue;const x0=X(c,r),x1=X(c+1,r),y0=Y(r),y1=Y(r+1);
        if(at(r,c-1)!==t)g.line(x0,y0,x0,y1);if(at(r,c+1)!==t)g.line(x1,y0,x1,y1);if(at(r-1,c)!==t)g.line(x0,y0,x1,y0);
-       if(at(r+1,c)!==t){g.line(x0,y1,x1,y1);if(at(r+1,c)==='.')for(let x=x0;x<=x1;x+=2)g.line(x,y1,x,y1+4)}
+       if(at(r+1,c)!==t){g.line(x0,y1,x1,y1);if(at(r+1,c)==='.'){g.ink(4);for(let x=x0;x<=x1;x+=2)g.line(x,y1,x,y1+4);g.ink(1)}}
      }
      [[1,4,3],[2,8,2],[3,2,1],[3,5,4],[4,9,2],[5,11,3],[6,4,2],[6,8,1],[2,11,1]].forEach(([r,c,n],gi)=>{
-       const mv=s&&gi===3?(.5-.5*Math.cos(s*1.5))*52:0,hop=s&&Math.floor(s*3)%9===gi?3:0,x=(X(c,r)+X(c+1,r))/2-n*3+mv,y=(Y(r)+Y(r+1))/2-hop-mv*.25;for(let i=0;i<n;i++)for(let k=0;k<4;k++)g.line(x+i*6,y-2+k,x+i*6+3,y-2+k);
+       g.ink([3,4,2,7,8,2,4,3,8][gi]);const mv=s&&gi===3?(.5-.5*Math.cos(s*1.5))*52:0,hop=s&&Math.floor(s*3)%9===gi?3:0,x=(X(c,r)+X(c+1,r))/2-n*3+mv,y=(Y(r)+Y(r+1))/2-hop-mv*.25;for(let i=0;i<n;i++)for(let k=0;k<4;k++)g.line(x+i*6,y-2+k,x+i*6+3,y-2+k);
      });
    }},
   {slug:'skerry',title:'SKERRY',
@@ -102,13 +103,13 @@ const GAMES=[
    art:(g,s)=>{
      const P=(pts,close)=>{for(let i=0;i<pts.length-1;i++)g.line(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1]);if(close)g.line(pts[pts.length-1][0],pts[pts.length-1][1],pts[0][0],pts[0][1])};
      P([[52,96],[66,70],[92,58],[118,44],[150,40],[184,48],[212,62],[232,86],[236,112],[222,136],[196,150],[160,156],[124,150],[96,154],[70,140],[56,120]],1);
-     for(const [x,y] of [[20,40],[34,150],[60,24],[246,40],[254,140],[220,168],[130,176],[18,96],[262,96],[176,20]]){const w=Math.round(Math.sin(s*2.5+x)*3),u=Math.sin(s*2.5+x)>0?2:-2;P([[x+w,y],[x+4+w,y-u],[x+8+w,y],[x+12+w,y-u],[x+16+w,y]])}
-     for(const [x,y] of [[130,70],[146,64],[160,74],[176,68]])P([[x-9,y+12],[x,y-6],[x+9,y+12]]);
-     for(const [x,y] of [[84,92],[98,84],[92,106],[110,100]]){P([[x,y+8],[x,y-2]]);P([[x-5,y+2],[x,y-8],[x+5,y+2]],1)}
-     P([[200,110],[200,84],[196,84],[204,74],[212,84],[208,84],[208,110]],1);{const fk=s?1.1+.5*Math.abs(Math.sin(s*5)):1.5;for(const [a,b] of [[-10,-6],[0,-12],[10,-6],[-13,4],[13,4]])g.line(204+a*.6,76+b*.6,204+a*fk,76+b*fk)}
-     P([[108,128],[108,120],[114,116],[120,120],[120,128]],1);P([[124,128],[124,122],[128,118],[132,122],[132,128]],1);
-     {const wx=152+Math.round(Math.sin(s*1.2)*16),lg=s?Math.round(Math.sin(s*9)*3):3;P([[wx,118],[wx,126]]);P([[wx-3,121],[wx+3,121]]);P([[wx,126],[wx-lg,132]]);P([[wx,126],[wx+lg,132]]);g.line(wx-1,115,wx+1,115);g.line(wx-1,116,wx+1,116)}
-     P([[160,134],[172,134],[176,140],[156,140]],1);P([[166,134],[166,128]]);
+     g.ink(4);for(const [x,y] of [[20,40],[34,150],[60,24],[246,40],[254,140],[220,168],[130,176],[18,96],[262,96],[176,20]]){const w=Math.round(Math.sin(s*2.5+x)*3),u=Math.sin(s*2.5+x)>0?2:-2;P([[x+w,y],[x+4+w,y-u],[x+8+w,y],[x+12+w,y-u],[x+16+w,y]])}
+     g.ink(6);for(const [x,y] of [[130,70],[146,64],[160,74],[176,68]])P([[x-9,y+12],[x,y-6],[x+9,y+12]]);
+     g.ink(1);for(const [x,y] of [[84,92],[98,84],[92,106],[110,100]]){P([[x,y+8],[x,y-2]]);P([[x-5,y+2],[x,y-8],[x+5,y+2]],1)}
+     g.ink(7);P([[200,110],[200,84],[196,84],[204,74],[212,84],[208,84],[208,110]],1);{g.ink(2);const fk=s?1.1+.5*Math.abs(Math.sin(s*5)):1.5;for(const [a,b] of [[-10,-6],[0,-12],[10,-6],[-13,4],[13,4]])g.line(204+a*.6,76+b*.6,204+a*fk,76+b*fk)}
+     g.ink(9);P([[108,128],[108,120],[114,116],[120,120],[120,128]],1);P([[124,128],[124,122],[128,118],[132,122],[132,128]],1);
+     {g.ink(8);const wx=152+Math.round(Math.sin(s*1.2)*16),lg=s?Math.round(Math.sin(s*9)*3):3;P([[wx,118],[wx,126]]);P([[wx-3,121],[wx+3,121]]);P([[wx,126],[wx-lg,132]]);P([[wx,126],[wx+lg,132]]);g.line(wx-1,115,wx+1,115);g.line(wx-1,116,wx+1,116)}
+     g.ink(7);P([[160,134],[172,134],[176,140],[156,140]],1);P([[166,134],[166,128]]);
    }},
   {slug:'farlane',title:'FARLANE',
    blurb:'A short space trading run across ten random stars. Buy low, sell high, fight raiders from a wireframe cockpit and dock by hand. Clear a debt, kill the raider flagship, or win renown.',
@@ -119,9 +120,9 @@ const GAMES=[
      const f=oc(176,92,52),b=oc(196,84,40);P(f,1);P(b,1);for(let i=0;i<8;i++)g.line(f[i][0],f[i][1],b[i][0],b[i][1]);
      P([[156,84],[196,84],[196,100],[156,100]],1);P([[166,86],[194,86],[194,96],[166,96]],1);g.line(156,84,166,86);g.line(196,100,194,96);g.line(156,100,166,96);g.line(196,84,194,86);
      for(const k of [1.5,2.3])P([[176-20*k*1.4,92-8*k*1.4],[176+20*k*1.4,92-8*k*1.4],[176+20*k*1.4,92+8*k*1.4],[176-20*k*1.4,92+8*k*1.4]].map(([x,y])=>[x-18*k,y+10*k]),1);
-     {const dx=s?((s*26)%150)-20:0,dy=s?Math.sin(s*1.3)*14+dx*.35:0,M=a=>a.map(([x,y])=>[x+dx,y+dy]);P(M([[40,60],[78,52],[58,44],[40,60],[20,48],[58,44]]));P(M([[20,48],[52,54],[78,52]]));P(M([[52,54],[40,60]]))}
-     for(const [x,y] of [[14,18],[60,12],[110,30],[250,20],[262,150],[20,150],[90,170],[130,8],[236,176],[8,100]])if(!s||Math.sin(s*4+x)>-.6)g.line(x,y,x,y);
-     {const q=s&&Math.floor(s*2)%2?2:0;g.line(128-q,150,136-q,150);g.line(144+q,150,152+q,150);g.line(140,138-q,140,146-q);g.line(140,154+q,140,162+q)}
+     {g.ink(3);const dx=s?((s*26)%150)-20:0,dy=s?Math.sin(s*1.3)*14+dx*.35:0,M=a=>a.map(([x,y])=>[x+dx,y+dy]);P(M([[40,60],[78,52],[58,44],[40,60],[20,48],[58,44]]));P(M([[20,48],[52,54],[78,52]]));P(M([[52,54],[40,60]]))}
+     g.ink(7);for(const [x,y] of [[14,18],[60,12],[110,30],[250,20],[262,150],[20,150],[90,170],[130,8],[236,176],[8,100]])if(!s||Math.sin(s*4+x)>-.6)g.line(x,y,x,y);
+     {g.ink(2);const q=s&&Math.floor(s*2)%2?2:0;g.line(128-q,150,136-q,150);g.line(144+q,150,152+q,150);g.line(140,138-q,140,146-q);g.line(140,154+q,140,162+q)}
    }},
   {slug:'cryptward',title:'CRYPTWARD',
    blurb:'A dungeon board game for one to four heroes. Roll to move, fight with skull-and-shield dice, search the furniture, find keys and clues, and take the same party through quest after quest.',
@@ -135,19 +136,19 @@ const GAMES=[
      L(up(P(3,0),14),up(P(3,0),10));L(up(P(4,0),14),up(P(4,0),10));
      const box=(c,r,h,hatch)=>{const l=[c[0]-r,c[1]],rr=[c[0]+r,c[1]],b=[c[0],c[1]+r/2],tp=[c[0],c[1]-r/2];L(l,b);L(b,rr);L(l,up(l,h));L(b,up(b,h));L(rr,up(rr,h));L(up(l,h),up(b,h));L(up(b,h),up(rr,h));L(up(rr,h),up(tp,h));L(up(tp,h),up(l,h));
        if(hatch)for(let k=2;k<r;k+=2){const q=[l[0]+k,l[1]+k/2];L(q,up(q,h))}};
-     const pawn=(x,y,hero,bob)=>{const c=P(x+.5,y+.5);c[1]-=bob||0;box(c,8,13,hero);box(up(c,13),4.5,5,hero);if(!hero){const t2=up(c,18);g.line(t2[0]-4,t2[1],t2[0]-7,t2[1]-5);g.line(t2[0]+4,t2[1],t2[0]+7,t2[1]-5)}};
-     const mark=(x,y)=>{const c=P(x+.5,y+.5);g.line(c[0]-4,c[1],c[0],c[1]-2);g.line(c[0],c[1]-2,c[0]+4,c[1]);g.line(c[0]+4,c[1],c[0],c[1]+2);g.line(c[0],c[1]+2,c[0]-4,c[1])};
+     const pawn=(x,y,hero,bob)=>{g.ink(hero?2:3);const c=P(x+.5,y+.5);c[1]-=bob||0;box(c,8,13,hero);box(up(c,13),4.5,5,hero);if(!hero){const t2=up(c,18);g.line(t2[0]-4,t2[1],t2[0]-7,t2[1]-5);g.line(t2[0]+4,t2[1],t2[0]+7,t2[1]-5)}};
+     const mark=(x,y)=>{g.ink(8);const c=P(x+.5,y+.5);g.line(c[0]-4,c[1],c[0],c[1]-2);g.line(c[0],c[1]-2,c[0]+4,c[1]);g.line(c[0]+4,c[1],c[0],c[1]+2);g.line(c[0],c[1]+2,c[0]-4,c[1])};
      /* a hero walks to a monster, they clash, the hero walks back: one loop every six seconds */
      const path=[[1,3],[2,3],[3,3],[3,2],[3,1],[4,1]],t=sec%6,n=path.length-1;
      let k=t<2.1?t/.42:t<2.9?n:t<5?n-(t-2.9)/.42:0;k=Math.max(0,Math.min(n,k));
      const i=Math.min(n-1,Math.floor(k)),f=k-i,hx=path[i][0]+(path[i+1][0]-path[i][0])*f,hy=path[i][1]+(path[i+1][1]-path[i][1])*f;
      if(t<2.1)for(let j=Math.ceil(k)+(k%1?0:1);j<=n;j++)mark(path[j][0],path[j][1]);
-     const alive=t<2.9||t>5.3,things=[[1,0.2,()=>{const c=P(1.5,.7);box(c,9,7);g.line(c[0]-9,c[1]-4,c[0],c[1]+1);g.line(c[0],c[1]+1,c[0]+9,c[1]-4)}],[hx,hy,()=>pawn(hx,hy,true,(k%1)>.1&&(k%1)<.9?2:0)]];
+     const alive=t<2.9||t>5.3,things=[[1,0.2,()=>{g.ink(9);const c=P(1.5,.7);box(c,9,7);g.line(c[0]-9,c[1]-4,c[0],c[1]+1);g.line(c[0],c[1]+1,c[0]+9,c[1]-4)}],[hx,hy,()=>pawn(hx,hy,true,(k%1)>.1&&(k%1)<.9?2:0)]];
      if(alive)things.push([5,1,()=>pawn(5,1,false,Math.sin(sec*4)>0?1:0)]);
      things.sort((a,b)=>(a[0]+a[1])-(b[0]+b[1]));for(const th of things)th[2]();
-     if(t>2.1&&t<2.9){const c=P(5,1.5);c[1]-=12;for(let a=0;a<8;a++){const r=8+((sec*14|0)%2)*6;g.line(c[0]+Math.cos(a*.785)*3,c[1]+Math.sin(a*.785)*3,c[0]+Math.cos(a*.785)*r,c[1]+Math.sin(a*.785)*r)}}
+     if(t>2.1&&t<2.9){g.ink(7);const c=P(5,1.5);c[1]-=12;for(let a=0;a<8;a++){const r=8+((sec*14|0)%2)*6;g.line(c[0]+Math.cos(a*.785)*3,c[1]+Math.sin(a*.785)*3,c[0]+Math.cos(a*.785)*r,c[1]+Math.sin(a*.785)*r)}}
      /* the two movement dice, re-rolled each loop */
-     const roll=Math.floor(sec/6),pips=[[],[[2,2]],[[1,1],[3,3]],[[1,1],[2,2],[3,3]],[[1,1],[3,1],[1,3],[3,3]],[[1,1],[3,1],[2,2],[1,3],[3,3]],[[1,1],[3,1],[1,2],[3,2],[1,3],[3,3]]];
+     g.ink(7);const roll=Math.floor(sec/6),pips=[[],[[2,2]],[[1,1],[3,3]],[[1,1],[2,2],[3,3]],[[1,1],[3,1],[1,3],[3,3]],[[1,1],[3,1],[2,2],[1,3],[3,3]],[[1,1],[3,1],[1,2],[3,2],[1,3],[3,3]]];
      [[10,(roll*7+3)%6+1],[36,(roll*5+1)%6+1]].forEach(([x0,v])=>{const y0=164;g.line(x0,y0,x0+20,y0);g.line(x0+20,y0,x0+20,y0+20);g.line(x0+20,y0+20,x0,y0+20);g.line(x0,y0+20,x0,y0);for(const [px,py] of pips[v]){g.line(x0+px*5-1,y0+py*5-1,x0+px*5+1,y0+py*5-1);g.line(x0+px*5-1,y0+py*5,x0+px*5+1,y0+py*5);g.line(x0+px*5-1,y0+py*5+1,x0+px*5+1,y0+py*5+1)}});
    }},
   {slug:'longshot',title:'LONGSHOT',
@@ -158,13 +159,13 @@ const GAMES=[
      for(let x=0;x<279;x++)g.line(x,h(x),x+1,h(x+1));
      for(let y=150;y<192;y+=6)for(let x=(y%12?3:0);x<280;x+=6)if(y>h(x)+4)g.line(x,y,x,y);
      const tank=(x,d)=>{const y=h(x);g.line(x-8,y-1,x+8,y-1);g.line(x-8,y-1,x-6,y-5);g.line(x+8,y-1,x+6,y-5);g.line(x-6,y-5,x+6,y-5);g.line(x-3,y-5,x-2,y-9);g.line(x+3,y-5,x+2,y-9);g.line(x-2,y-9,x+2,y-9);g.line(x,y-9,x+d*10,y-18)};
-     tank(34,1);tank(246,-1);
-     {const pr=s?Math.min(1,(s%3.2)/2.2):1,at=t=>[44+t*196,h(34)-18-150*t*(1-t)*1.6];for(let i=0;i<=40*pr;i++){const [x,y]=at(i/40);if(i%2)g.line(x,y,x,y)}
+     g.ink(8);tank(34,1);g.ink(3);tank(246,-1);
+     {g.ink(7);const pr=s?Math.min(1,(s%3.2)/2.2):1,at=t=>[44+t*196,h(34)-18-150*t*(1-t)*1.6];for(let i=0;i<=40*pr;i++){const [x,y]=at(i/40);if(i%2)g.line(x,y,x,y)}
       if(s&&pr<1){const [x,y]=at(pr);g.line(x-1,y-1,x+1,y-1);g.line(x-1,y,x+1,y);g.line(x-1,y+1,x+1,y+1)}
-      if(s&&pr>=1){const [x,y]=at(1),r=4+((s%3.2)-2.2)*16;for(let a=0;a<10;a++)g.line(x+Math.cos(a*.63)*r*.5,y+Math.sin(a*.63)*r*.5,x+Math.cos(a*.63)*r,y+Math.sin(a*.63)*r)}}
-     for(const [cx0,cy,w] of [[70,26,22],[190,40,28]]){const cx=s?((cx0+s*9+40)%360)-40:cx0;g.line(cx-w,cy,cx+w,cy);g.line(cx-w+5,cy-3,cx+w-5,cy-3);g.line(cx-w+4,cy+3,cx+w-6,cy+3)}
-     g.line(128,10,152,10);g.line(152,10,147,6);g.line(152,10,147,14);
-     for(const x of [100,128,184,206]){const y=h(x);g.line(x,y,x,y-6);g.line(x-3,y-8,x+3,y-8);g.line(x-2,y-10,x+2,y-10);g.line(x-2,y-6,x+2,y-6)}
+      if(s&&pr>=1){g.ink(9);const [x,y]=at(1),r=4+((s%3.2)-2.2)*16;for(let a=0;a<10;a++)g.line(x+Math.cos(a*.63)*r*.5,y+Math.sin(a*.63)*r*.5,x+Math.cos(a*.63)*r,y+Math.sin(a*.63)*r)}}
+     g.ink(4);for(const [cx0,cy,w] of [[70,26,22],[190,40,28]]){const cx=s?((cx0+s*9+40)%360)-40:cx0;g.line(cx-w,cy,cx+w,cy);g.line(cx-w+5,cy-3,cx+w-5,cy-3);g.line(cx-w+4,cy+3,cx+w-6,cy+3)}
+     g.ink(2);g.line(128,10,152,10);g.line(152,10,147,6);g.line(152,10,147,14);
+     g.ink(1);for(const x of [100,128,184,206]){const y=h(x);g.line(x,y,x,y-6);g.line(x-3,y-8,x+3,y-8);g.line(x-2,y-10,x+2,y-10);g.line(x-2,y-6,x+2,y-6)}
    }},
   {slug:'underdeck',title:'UNDERDECK',wip:true,
    blurb:'A first-person maze shooter. Five random floors of doors, rooms and wireframe guards. Find the keycard, reach the lift, and kill the Warden at the bottom.',
@@ -175,10 +176,10 @@ const GAMES=[
      R(0,0,279,191);R(50,34,230,158);R(96,66,184,126);R(120,82,160,110);
      g.line(0,0,120,82);g.line(279,0,160,82);g.line(0,191,120,110);g.line(279,191,160,110);
      g.line(140,82,140,110);g.line(120,92,160,92);
-     {const o=Math.round(Math.sin(s*1.8)*14),w=s?Math.round(Math.sin(s*8)*4):0;R(128+o,96,152+o,128);R(134+o,84,146+o,96);g.line(132+o,128,130+o-w,156);g.line(148+o,128,150+o+w,156);g.line(128+o,100,120+o,124);g.line(152+o,100,160+o,112);g.line(160+o,112,176+o,112)}
-     {const hw=s?Math.max(1,Math.round(12*Math.abs(Math.cos(s*3)))):12,by=112+Math.round(Math.sin(s*4)*3);P([[208-hw,by],[208,by-12],[208+hw,by],[208,by+12]],1);g.line(208,by-12,208,by+12);g.line(208-hw,by,208+hw,by)}
-     g.line(132,96,136,96);g.line(144,96,148,96);g.line(140,88,140,92);g.line(140,100,140,104);
-     {const k=s&&(s%1.2)<.15?6:0;P([[130,191],[134,166+k],[146,166+k],[150,191]]);if(k)for(let a=0;a<6;a++)g.line(140,160,140+Math.cos(a*1.05)*9,160+Math.sin(a*1.05)*9)}
+     {g.ink(3);const o=Math.round(Math.sin(s*1.8)*14),w=s?Math.round(Math.sin(s*8)*4):0;R(128+o,96,152+o,128);R(134+o,84,146+o,96);g.line(132+o,128,130+o-w,156);g.line(148+o,128,150+o+w,156);g.line(128+o,100,120+o,124);g.line(152+o,100,160+o,112);g.line(160+o,112,176+o,112)}
+     {g.ink(2);const hw=s?Math.max(1,Math.round(12*Math.abs(Math.cos(s*3)))):12,by=112+Math.round(Math.sin(s*4)*3);P([[208-hw,by],[208,by-12],[208+hw,by],[208,by+12]],1);g.line(208,by-12,208,by+12);g.line(208-hw,by,208+hw,by)}
+     g.ink(7);g.line(132,96,136,96);g.line(144,96,148,96);g.line(140,88,140,92);g.line(140,100,140,104);
+     {g.ink(6);const k=s&&(s%1.2)<.15?6:0;P([[130,191],[134,166+k],[146,166+k],[150,191]]);if(k){g.ink(9);for(let a=0;a<6;a++)g.line(140,160,140+Math.cos(a*1.05)*9,160+Math.sin(a*1.05)*9)}}
    }},
   {slug:'stoppress',title:'STOP THE PRESS',wip:true,
    blurb:'A short point-and-click adventure at a small-town newspaper. Look, take, use and talk your way to the front page before the presses roll. Some things hide in a new place each time.',
@@ -192,8 +193,8 @@ const GAMES=[
      R(130,160,150,180);R(156,160,176,180);R(182,160,202,180);R(208,160,228,180);
      g.line(40,150,40,120);g.line(40,120,70,120);g.line(70,120,70,150);g.line(46,120,46,108);g.line(46,108,64,108);g.line(64,108,64,120);
      for(let x=24;x<88;x+=8)g.line(x,24,x+4,24);
-     if(s){const v=Math.floor(s*.8)%4,x0=130+v*26;for(let y=163;y<180;y+=3)g.line(x0+3,y,x0+17,y);
-       const spots=[[55,70],[158,84],[205,90],[250,104]],a=spots[v],b=spots[(v+1)%4],f=Math.min(1,((s*.8)%1)*1.6),cx=a[0]+(b[0]-a[0])*f,cy=a[1]+(b[1]-a[1])*f;g.line(cx-6,cy,cx-2,cy);g.line(cx+2,cy,cx+6,cy);g.line(cx,cy-6,cx,cy-2);g.line(cx,cy+2,cx,cy+6)}
+     if(s){g.ink(8);const v=Math.floor(s*.8)%4,x0=130+v*26;for(let y=163;y<180;y+=3)g.line(x0+3,y,x0+17,y);
+       g.ink(2);const spots=[[55,70],[158,84],[205,90],[250,104]],a=spots[v],b=spots[(v+1)%4],f=Math.min(1,((s*.8)%1)*1.6),cx=a[0]+(b[0]-a[0])*f,cy=a[1]+(b[1]-a[1])*f;g.line(cx-6,cy,cx-2,cy);g.line(cx+2,cy,cx+6,cy);g.line(cx,cy-6,cx,cy-2);g.line(cx,cy+2,cx,cy+6)}
    }},
   {slug:'dusthaven',title:'DUSTHAVEN',wip:true,
    blurb:'Build an outpost on a dusty world, one month at a time. Keep power, air, water and food ahead of the colonists, link it all with tubes, and ride out the storms. New ground every run.',
@@ -206,9 +207,9 @@ const GAMES=[
      const T=(x0,y0,x1,y1)=>L(P(x0+.5,y0+.5),P(x1+.5,y1+.5));
      T(1,2,2,2);T(3,2,4,2);T(2,3,2,4);
      const n=s?Math.floor(s*1.2)%5:4;
-     B(1,2,12);B(2,2,30);B(4,2,10);B(2,4,16);
-     if(n>=1){T(4,2,4,3);B(4,3,14)}if(n>=2){T(2,4,3,4);B(3,4,10)}if(n>=3){T(1,2,1,3);B(1,3,18)}if(n>=4){T(4,3,5,3);B(5,3,8)}
-     if(s)for(let i=0;i<14;i++){const x=(i*47+s*60*(1+i%3))%300-10,y=14+(i*29)%160;g.line(x,y,x+5,y)}
+     g.ink(4);B(1,2,12);g.ink(5);B(2,2,30);g.ink(2);B(4,2,10);g.ink(7);B(2,4,16);
+     if(n>=1){g.ink(1);T(4,2,4,3);g.ink(8);B(4,3,14)}if(n>=2){g.ink(1);T(2,4,3,4);g.ink(2);B(3,4,10)}if(n>=3){g.ink(1);T(1,2,1,3);g.ink(7);B(1,3,18)}if(n>=4){g.ink(1);T(4,3,5,3);g.ink(4);B(5,3,8)}
+     g.ink(9);if(s)for(let i=0;i<14;i++){const x=(i*47+s*60*(1+i%3))%300-10,y=14+(i*29)%160;g.line(x,y,x+5,y)}
    }}
 ];
 const HUES=[[51,255,102],[255,176,0],[255,255,255]];
@@ -216,15 +217,18 @@ let hue=0;try{const tv=localStorage.getItem('nmg.tone');hue=(+(tv!==null?tv:loca
 let C=HUES[hue];const shots=[];
 function setTone(){C=HUES[hue];document.documentElement.style.setProperty('--fg',`rgb(${C[0]},${C[1]},${C[2]})`);for(const [cv,art] of shots)preview(cv,art,0)}
 document.getElementById('tone').onclick=()=>{hue=(hue+1)%HUES.length;try{localStorage.setItem('nmg.tone',hue)}catch(e){}setTone()};
+/* g.ink(n) picks a colour for the lines that follow. It only takes effect while the picture is moving; the still is all in the tone colour.
+   1 tone, 2 gold, 3 red, 4 blue, 5 magenta, 6 grey, 7 white, 8 cyan, 9 orange */
+const INKS=[0,0,[255,210,74],[255,90,90],[130,190,255],[255,90,255],[140,140,140],[255,255,255],[74,224,224],[255,154,60]];
 function preview(cv,art,sec){
   const W=280,H=192,ctx=cv.getContext('2d'),img=ctx.createImageData(W,H),buf=new Uint8Array(W*H);
-  const g={line(x0,y0,x1,y1){
+  let ink=1;const g={ink(n){ink=sec?n:1},line(x0,y0,x1,y1){
     x0=Math.round(x0);y0=Math.round(y0);x1=Math.round(x1);y1=Math.round(y1);
     const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let e=dx-dy,n=0;
-    while(n++<3000){if(x0>=0&&x0<W&&y0>=0&&y0<H)buf[y0*W+x0]=1;if(x0===x1&&y0===y1)break;const e2=2*e;if(e2>-dy){e-=dy;x0+=sx}if(e2<dx){e+=dx;y0+=sy}}
+    while(n++<3000){if(x0>=0&&x0<W&&y0>=0&&y0<H)buf[y0*W+x0]=ink;if(x0===x1&&y0===y1)break;const e2=2*e;if(e2>-dy){e-=dy;x0+=sx}if(e2<dx){e+=dx;y0+=sy}}
   }};
   if(art)art(g,sec||0);
-  for(let i=0;i<W*H;i++){const o=i*4,v=buf[i];img.data[o]=v?C[0]:0;img.data[o+1]=v?C[1]:0;img.data[o+2]=v?C[2]:0;img.data[o+3]=255}
+  for(let i=0;i<W*H;i++){const o=i*4,v=buf[i],q=v>1?INKS[v]:C;img.data[o]=v?q[0]:0;img.data[o+1]=v?q[1]:0;img.data[o+2]=v?q[2]:0;img.data[o+3]=255}
   ctx.putImageData(img,0,0);
 }
 for(const gm of GAMES){
