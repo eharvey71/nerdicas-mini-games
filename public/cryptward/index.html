@@ -91,7 +91,8 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 #how p,#how ul{margin:4px 10px 6px}
 #how ul{padding-left:1.3em}
 #how li{margin-bottom:2px}
-#zoom{position:absolute;right:6px;top:6px;line-height:1.2;background:#000}
+#vbtn{position:absolute;right:6px;top:6px;display:flex;gap:4px;line-height:1.2}
+#vbtn .mini{background:#000;padding:4px 6px}
 #stat .grp.on{outline:2px solid var(--fg);outline-offset:1px}
 #stat .gl{width:54px}
 #log .deck{color:var(--goal)}
@@ -101,7 +102,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 <body>
 <div id="app">
   <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>CRYPTWARD</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
-  <div id="view"><canvas id="cv"></canvas><button class="mini" id="zoom" type="button">ZOOM OUT</button><div id="msg"></div></div>
+  <div id="view"><canvas id="cv"></canvas><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="tilt" type="button">TILT LOW</button><button class="mini" id="zoom" type="button">ZOOM OUT</button></div><div id="msg"></div></div>
   <div id="stat"></div>
   <div id="log"></div>
   <div id="pad"></div>
@@ -111,7 +112,8 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
     <li>Pick one to four heroes. Each quest is a new dungeon with a new goal.</li>
     <li>Each hero rolls two dice to move, and gets one action: attack, cast, or search.</li>
     <li>Tap a lit square to walk there. Tap a monster beside you to attack it. Tap the square behind an amber door to open it.</li>
-    <li>Drag the board to look around. ZOOM switches between a close view and the whole board.</li>
+    <li>Drag the board to look around. TURN VIEW spins it a quarter turn, TILT changes the angle, ZOOM switches between close and the whole board.</li>
+    <li>UNDO MOVE takes back your last walk.</li>
     <li>Attackers count skulls; defenders cancel them with shields. Heroes use white shields, monsters black.</li>
     <li>After the heroes, the Deck turns a card and the monsters act.</li>
     <li>Heroes are cyan, monsters red, the quest target magenta or yellow, the stairs pale blue.</li>
@@ -139,6 +141,8 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>You may pass through other heroes but not through monsters, and may not stop on an occupied square.</li>
       <li>One action per turn. Act before you move or after, not in the middle: acting after you have moved ends your movement.</li>
       <li>Opening a door and drinking a potion are free.</li>
+      <li>Your two movement dice and the moves you have left are shown under the board.</li>
+      <li>UNDO MOVE takes back the last walk, as long as it sprang no trap and brought no new monster into view. Dice, doors, searches and spells cannot be undone.</li>
       <li>A lone hero gets two actions each turn.</li>
     </ul>
     <h2>FIGHTING</h2>
@@ -311,7 +315,9 @@ function newQuest(){
   say(`QUEST: ${QUEST[S.q.type]}.`,'gold');say(S.q.type==='slay'?'THE WARLOCK KEEPS THE DEEPEST ROOM.':'WHAT YOU SEEK IS IN THE DEEPEST ROOM.');
   S.turn=-1;nextHero();
 }
-function save(){try{localStorage.setItem('cryptward.save',JSON.stringify(S,(k,v)=>v instanceof Uint8Array?Array.from(v):v))}catch(e){}}
+const snap=()=>JSON.stringify(S,(k,v)=>k==='undo'?undefined:v instanceof Uint8Array?Array.from(v):v);
+function save(){try{localStorage.setItem('cryptward.save',snap())}catch(e){}}
+function undo(){if(busy||!S.undo)return;S=JSON.parse(S.undo);S.reg=Uint8Array.from(S.reg);S.vis=Uint8Array.from(S.vis);S.undo=null;menu='';aim=null;dice=null;sfx('sel');say(`${H().n}'S MOVE IS TAKEN BACK.`);focus(H().cell);render()}
 function hasSave(){try{return !!localStorage.getItem('cryptward.save')}catch(e){return false}}
 function wipe(){try{localStorage.removeItem('cryptward.save')}catch(e){}}
 function load(){try{S=JSON.parse(localStorage.getItem('cryptward.save'))}catch(e){S=null}if(!S)return;S.reg=Uint8Array.from(S.reg);S.vis=Uint8Array.from(S.vis);mode='play';setZoom();lines=[];logN=-1;menu='';aim=null;dice=null;busy=false;mode='play';show(null);say(`QUEST: ${QUEST[S.q.type]}. ROUND ${S.round}.`,'gold');render()}
@@ -327,7 +333,7 @@ async function clash(an,dn,na,nd,heroDef){
 /* ---------- heroes ---------- */
 function nextHero(){
   let i=S.turn;for(;;){i++;if(i>=S.heroes.length)return deckTurn();if(!S.heroes[i].dead)break}
-  S.turn=i;const a=rnd(1,6),b=rnd(1,6);S.mv=a+b;S.moved=false;S.acts=S.nh===1?2:1;menu='';aim=null;dice=null;
+  S.undo=null;S.turn=i;const a=rnd(1,6),b=rnd(1,6);S.mv=a+b;S.md=[a,b];S.moved=false;S.acts=S.nh===1?2:1;menu='';aim=null;dice=null;
   say(`${H().n}: MOVE ${a}+${b} = ${S.mv}.`);sfx('sel');focus(H().cell);render();
 }
 function endTurn(){if(busy||mode!=='play')return;nextHero()}
@@ -345,24 +351,24 @@ function checkGoal(h){
   if(q.type!=='slay'&&q.holder===i&&h.cell===S.stairs)win();
 }
 async function walk(h,path){
-  busy=true;menu='';
+  busy=true;menu='';const before=snap(),seenN=S.mons.filter(m=>seenCell(m.cell)).length,qh=S.q.holder;let clean=true;
   for(const c of path){h.cell=c;S.mv--;S.moved=true;sfx('step');look();focus(c);render();await pause(70);
-    const t=S.traps[c];if(t&&!t.found){t.found=true;S.mv=0;say(`${h.n} SPRINGS A TRAP: 1 DAMAGE.`,'bad');wound(h,1);break}
+    const t=S.traps[c];if(t&&!t.found){clean=false;t.found=true;S.mv=0;say(`${h.n} SPRINGS A TRAP: 1 DAMAGE.`,'bad');wound(h,1);break}
     checkGoal(h);if(mode!=='play')break}
-  busy=false;if(mode==='play'){if(liveH().length===0)return lose();if(h.dead)return nextHero();render()}
+  busy=false;if(mode==='play'){if(liveH().length===0)return lose();if(h.dead)return nextHero();S.undo=clean&&S.q.holder===qh&&S.mons.filter(m=>seenCell(m.cell)).length===seenN?before:null;render()}
 }
 async function attack(m){
-  const h=H();busy=true;spend();const dmg=await clash(h.n,MON[m.t].n,h.a,m.asleep?0:MON[m.t].d,false);m.last=S.turn;
+  const h=H();busy=true;S.undo=null;spend();const dmg=await clash(h.n,MON[m.t].n,h.a,m.asleep?0:MON[m.t].d,false);m.last=S.turn;
   if(dmg){m.b-=dmg;if(m.asleep)m.asleep=false;if(m.b<=0)slain(m)}
   busy=false;dice=mode==='play'?dice:null;if(mode==='play')render();
 }
-function openDoor(k){const d=S.doors[k];d.open=true;sfx('door');for(const c of [d.a,d.b])if(S.reg[c])S.rev[S.reg[c]]=true;look();
+function openDoor(k){S.undo=null;const d=S.doors[k];d.open=true;sfx('door');for(const c of [d.a,d.b])if(S.reg[c])S.rev[S.reg[c]]=true;look();
   const r=[S.reg[d.a],S.reg[d.b]],ms=S.mons.filter(m=>r.includes(S.reg[m.cell])&&S.reg[m.cell]!==0&&!m.seen);ms.forEach(m=>m.seen=true);
   say(ms.length?`THE DOOR OPENS: ${ms.map(m=>MON[m.t].n).join(', ')}.`:'THE DOOR OPENS.',ms.length?'bad':'');render()}
 async function search(){
   const h=H(),r=S.reg[h.cell];if(busy||S.acts<=0)return;
   if(S.mons.some(m=>r?S.reg[m.cell]===r:(S.reg[m.cell]===0&&S.vis[m.cell]&&los(h.cell,m.cell)))){sfx('no');say('NO SEARCHING WITH MONSTERS ABOUT.','bad');return render()}
-  spend();let n=0;for(const k in S.traps){const t=S.traps[k];if(!t.found&&(r?S.reg[+k]===r:(S.reg[+k]===0&&Math.abs(X(+k)-X(h.cell))+Math.abs(Y(+k)-Y(h.cell))<=5))){t.found=true;n++}}
+  S.undo=null;spend();let n=0;for(const k in S.traps){const t=S.traps[k];if(!t.found&&(r?S.reg[+k]===r:(S.reg[+k]===0&&Math.abs(X(+k)-X(h.cell))+Math.abs(Y(+k)-Y(h.cell))<=5))){t.found=true;n++}}
   if(n)say(`${h.n} FINDS AND DISARMS ${n} TRAP${n>1?'S':''}.`,'good');
   if(r&&r===S.goalRoom&&S.q.type==='relic'&&!S.q.found){S.q.found=true;S.q.holder=S.turn;S.q.at=-1;sfx('key');say(`${h.n} FINDS THE RELIC. BACK TO THE STAIRS.`,'gold')}
   if(r&&!S.searched[r]){S.searched[r]=true;const v=Math.random();
@@ -377,10 +383,10 @@ async function search(){
   }else if(!n&&!(r===S.goalRoom&&S.q.found))say(r?'NOTHING MORE HERE.':'NOTHING IN THE CORRIDOR.');
   if(liveH().length===0)return lose();if(h.dead)return nextHero();render();
 }
-function potion(){const h=H();if(busy||!h.pot||h.b>=h.mb){sfx('no');return}h.pot--;h.b=Math.min(h.mb,h.b+4);sfx('get');say(`${h.n} DRINKS A POTION: BODY ${h.b}.`,'good');render()}
+function potion(){const h=H();if(busy||!h.pot||h.b>=h.mb){sfx('no');return}S.undo=null;h.pot--;h.b=Math.min(h.mb,h.b+4);sfx('get');say(`${h.n} DRINKS A POTION: BODY ${h.b}.`,'good');render()}
 async function cast(k,target){
-  const h=H();h.sp.splice(h.sp.indexOf(k),1);spend();aim=null;menu='';sfx('spell');
-  if(k==='swift'){const a=rnd(1,6),b=rnd(1,6);S.mv+=a+b;S.moved=false;say(`${h.n} CASTS SWIFT: ${a}+${b} MORE MOVEMENT.`,'good')}
+  const h=H();S.undo=null;h.sp.splice(h.sp.indexOf(k),1);spend();aim=null;menu='';sfx('spell');
+  if(k==='swift'){const a=rnd(1,6),b=rnd(1,6);S.mv+=a+b;S.md=(S.md||[]).concat([a,b]);S.moved=false;say(`${h.n} CASTS SWIFT: ${a}+${b} MORE MOVEMENT.`,'good')}
   else if(k==='heal'){target.b=Math.min(target.mb,target.b+4);say(`${h.n} CASTS MEND ON ${target.n}: BODY ${target.b}.`,'good')}
   else if(k==='stone'){target.stone=true;say(`${h.n} CASTS STONE SKIN ON ${target.n}: +2 DEFEND DICE.`,'good')}
   else if(k==='sleep'){if(MON[target.t].boss)say('THE WARLOCK SHRUGS OFF THE SLUMBER.','bad');else{target.asleep=true;say(`${MON[target.t].n} FALLS ASLEEP.`,'good')}}
@@ -438,14 +444,18 @@ function tap(c){
   sfx('no');
 }
 /* ---------- drawing: an isometric board ---------- */
-const cv=$('cv'),ctx=cv.getContext('2d');let W=320,Hh=300,VH=240,DPR=1,STRIP=40,tw=40,th=20,zoom=1,cam={x:0,y:0};
-const ORDER=[...Array(NC).keys()].sort((a,b)=>(X(a)+Y(a))-(X(b)+Y(b))||X(a)-X(b));
-const iX=(x,y)=>W/2+(x-y)*tw/2-cam.x,iY=(x,y)=>VH/2+(x+y)*th/2-cam.y;
-function focus(c){if(!zoom)return;cam.x=(X(c)-Y(c))*tw/2;cam.y=(X(c)+Y(c)+1)*th/2}
+const cv=$('cv'),ctx=cv.getContext('2d');let W=320,Hh=300,VH=240,DPR=1,STRIP=44,tw=40,th=20,hu=20,zoom=1,rot=0,tilt=0,cam={x:0,y:0},ORDER=[];
+const TILT=[.5,.72,1],TILTN=['LOW','MID','HIGH'];
+/* board square to view square: the board can be turned in quarter turns */
+const U=(x,y)=>rot===0?x:rot===1?BH-y:rot===2?BW-x:y,V=(x,y)=>rot===0?y:rot===1?x:rot===2?BH-y:BW-x;
+const iX=(x,y)=>W/2+(U(x,y)-V(x,y))*tw/2-cam.x,iY=(x,y)=>VH/2+(U(x,y)+V(x,y))*th/2-cam.y;
+const depth=c=>U(X(c)+.5,Y(c)+.5)+V(X(c)+.5,Y(c)+.5);
+function reorder(){ORDER=[...Array(NC).keys()].sort((a,b)=>depth(a)-depth(b)||a-b)}
+function focus(c){if(!zoom)return;const u=U(X(c)+.5,Y(c)+.5),v=V(X(c)+.5,Y(c)+.5);cam.x=(u-v)*tw/2;cam.y=(u+v)*th/2}
 function setZoom(){
-  const fit=Math.floor(2*(W-10)/(BW+BH));tw=zoom?Math.max(fit,54):fit;tw-=tw%2;th=tw/2;
-  if(!zoom||tw===fit){cam.x=(BW-BH)*tw/4;cam.y=(BW+BH)*th/4-th*.6}else if(S&&mode==='play'){const h=S.turn>=0?H():liveH()[0];if(h)focus(h.cell)}
-  cv.style.touchAction=zoom?'none':'manipulation';$('zoom').textContent=zoom?'ZOOM OUT':'ZOOM IN';
+  const fit=Math.floor(2*(W-10)/(BW+BH));tw=zoom?Math.max(fit,54):fit;tw-=tw%2;th=tw*TILT[tilt];hu=tw*(.75-.5*TILT[tilt]);reorder();
+  if(!zoom||tw===fit){const uu=rot%2?BH:BW,vv=rot%2?BW:BH;cam.x=(uu-vv)*tw/4;cam.y=(uu+vv)*th/4-hu*.6}else if(S&&mode==='play'){const h=S.turn>=0?H():liveH()[0];if(h)focus(h.cell)}
+  cv.style.touchAction=zoom?'none':'manipulation';$('zoom').textContent=zoom?'ZOOM OUT':'ZOOM IN';$('tilt').textContent='TILT '+TILTN[tilt];
 }
 function resize(){const w=$('view').clientWidth||320;W=Math.max(240,w-4);VH=Math.round(clamp(W*.8,220,430));Hh=VH+STRIP+4;DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(Hh*DPR);cv.style.height=Hh+'px';setZoom()}
 function text(t,x,y,col,al,sz){ctx.font=`bold ${sz||11}px "Courier New",monospace`;ctx.textAlign=al||'left';ctx.fillStyle=col||FG;ctx.fillText(t,x,y)}
@@ -456,20 +466,22 @@ function die(x,y,s,v,counts){
   const p=Math.max(1,Math.floor((s-6)/7)),o=(s-p*7)/2;if(v<3)icon(SKULL,x+o,y+o,p,'#fff');else if(v<5)icon(SHIELD,x+o,y+o,p,'#fff');else{icon(SHIELD,x+o,y+o,p,'#666');ctx.fillStyle='#000';ctx.fillRect(x+o+p*2,y+o+p,p*3,p*2)}
   ctx.globalAlpha=1;
 }
+function pips(x,y,s,v){ctx.fillStyle='#000';ctx.fillRect(x,y,s,s);ctx.strokeStyle='#fff';ctx.lineWidth=1.5;ctx.strokeRect(x+.5,y+.5,s-1,s-1);ctx.fillStyle='#fff';const q=s/4,d=Math.max(2,Math.round(s/7)),P=(i,j)=>ctx.fillRect(x+q*i-d/2,y+q*j-d/2,d,d);
+  if(v%2)P(2,2);if(v>1){P(1,1);P(3,3)}if(v>3){P(3,1);P(1,3)}if(v===6){P(1,2);P(3,2)}}
 const poly=(p,fill,stroke,lw)=>{ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke()}};
 const tile=(x,y,k)=>{const cx=iX(x+.5,y+.5),cy=iY(x+.5,y+.5),a=tw/2*k,b=th/2*k;return [[cx,cy-b],[cx+a,cy],[cx,cy+b],[cx-a,cy]]};
 const SHADE={cy:['#5ff','#3cc','#289a9a'],rd:['#ff7a7a','#ff5a5a','#b83a3a'],mg:['#ff8cff','#ff5cff','#b23cb2'],yl:['#ffe27a','#ffd24a','#b8942e'],hit:['#fff','#ff5a5a','#b83a3a'],zz:['#888','#666','#444']};
 const HGT={G:.8,N:1,B:1.1,H:1.1,W:1.3,I:1.45,S:1.55,L:1.8};
 function pawn(c,ch,sh,hk,ring,head){
-  const x=X(c),y=Y(c),cx=iX(x+.5,y+.5),cy=iY(x+.5,y+.5),r=tw*.25,h=th*hk*(head?.72:1),[top,right,left]=SHADE[sh];
+  const x=X(c),y=Y(c),cx=iX(x+.5,y+.5),cy=iY(x+.5,y+.5),r=tw*.25,h=hu*hk*(head?.72:1),[top,right,left]=SHADE[sh];
   if(ring)poly(tile(x,y,.92),null,ring,2);
-  ctx.fillStyle='rgba(0,0,0,.55)';ctx.beginPath();ctx.ellipse(cx,cy,r*1.25,r*.62,0,0,7);ctx.fill();
-  const bx=(cx,cy,r,h)=>{const L=[cx-r,cy],R=[cx+r,cy],B=[cx,cy+r/2],T=[cx,cy-r/2],u=p=>[p[0],p[1]-h];poly([L,B,u(B),u(L)],left,'#000',1);poly([B,R,u(R),u(B)],right,'#000',1);poly([u(L),u(B),u(R),u(T)],top,'#000',1)};
-  bx(cx,cy,r,h);if(head)bx(cx,cy-h,r*.55,th*hk*.28);
+  ctx.fillStyle='rgba(0,0,0,.55)';ctx.beginPath();ctx.ellipse(cx,cy,r*1.25,r*1.25*th/tw,0,0,7);ctx.fill();
+  const bx=(cx,cy,r,h)=>{const q=r*th/tw,L=[cx-r,cy],R=[cx+r,cy],B=[cx,cy+q],T=[cx,cy-q],u=p=>[p[0],p[1]-h];poly([L,B,u(B),u(L)],left,'#000',1);poly([B,R,u(R),u(B)],right,'#000',1);poly([u(L),u(B),u(R),u(T)],top,'#000',1)};
+  bx(cx,cy,r,h);if(head)bx(cx,cy-h,r*.55,hu*hk*.28);
   const fs=Math.max(8,Math.round(r*1.5));ctx.font=`bold ${fs}px "Courier New",monospace`;ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle=right;ctx.strokeText(ch,cx,cy-h/2+fs*.36);ctx.fillStyle='#000';ctx.fillText(ch,cx,cy-h/2+fs*.36);
 }
 function wall(x0,y0,x1,y1,kind,face){
-  const a=[iX(x0,y0),iY(x0,y0)],b=[iX(x1,y1),iY(x1,y1)],h=th*.6,u=p=>[p[0],p[1]-h];
+  const a=[iX(x0,y0),iY(x0,y0)],b=[iX(x1,y1),iY(x1,y1)],h=hu*.6,u=p=>[p[0],p[1]-h];
   if(kind==='open'){ctx.strokeStyle='#ffb347';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(a[0],a[1]-h);ctx.moveTo(b[0],b[1]);ctx.lineTo(b[0],b[1]-h);ctx.moveTo(a[0],a[1]-h);ctx.lineTo(b[0],b[1]-h);ctx.stroke();return}
   if(kind==='shut'){poly([a,b,u(b),u(a)],'#6b4514','#ffb347',1.5);const m=[(a[0]+b[0])/2,(a[1]+b[1])/2];ctx.strokeStyle='#ffb347';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(m[0],m[1]);ctx.lineTo(m[0],m[1]-h);ctx.stroke();return}
   const c=HUES[hueI],k=face?.34:.2;poly([a,b,u(b),u(a)],`rgb(${c[0]*k|0},${c[1]*k|0},${c[2]*k|0})`,FG,1);
@@ -484,11 +496,12 @@ function draw(){
     if(S.reg[c]===S.reg[n]||(!seenCell(c)&&!seenCell(n)))return;const d=S.doors[ek(c,n)];wall(x0,y0,x1,y1,d?(d.open?'open':'shut'):'wall',face);
   };
   for(const c of ORDER){
-    const x=X(c),y=Y(c),sx=iX(x+.5,y+.5),sy=iY(x+.5,y+.5);if(sx<-tw||sx>W+tw||sy<-th*3||sy>VH+th*3)continue;
+    const x=X(c),y=Y(c),sx=iX(x+.5,y+.5),sy=iY(x+.5,y+.5);if(sx<-tw||sx>W+tw||sy<-tw*2||sy>VH+tw*2)continue;
     const r=S.reg[c],sn=seenCell(c);
     if(sn){const k=r?.13:.26;poly(tile(x,y,1),`rgb(${c3[0]*k|0},${c3[1]*k|0},${c3[2]*k|0})`,`rgba(${c3[0]},${c3[1]},${c3[2]},.22)`,1)}
     else if(r){ctx.fillStyle=FG;ctx.globalAlpha=.14;ctx.fillRect(sx-1,sy-1,2,2);ctx.globalAlpha=1}
-    edge(c,y?c-BW:-1,x,y,x+1,y,true);edge(c,x?c-1:-1,x,y,x,y+1,false);
+    if(rot===0||rot===3)edge(c,y?c-BW:-1,x,y,x+1,y,rot===0);else edge(c,y<BH-1?c+BW:-1,x,y+1,x+1,y+1,rot===2);
+    if(rot===0||rot===1)edge(c,x?c-1:-1,x,y,x,y+1,rot===1);else edge(c,x<BW-1?c+1:-1,x+1,y,x+1,y+1,rot===3);
     if(!sn)continue;
     if(c===S.stairs){const t=tile(x,y,.8);poly(t,null,'#9fd0ff',1.5);ctx.strokeStyle='#9fd0ff';ctx.lineWidth=1.2;ctx.beginPath();for(let i=1;i<=3;i++){const k=i/4;ctx.moveTo(t[3][0]+(t[0][0]-t[3][0])*k,t[3][1]+(t[0][1]-t[3][1])*k);ctx.lineTo(t[2][0]+(t[1][0]-t[2][0])*k,t[2][1]+(t[1][1]-t[2][1])*k)}ctx.stroke()}
     const t=S.traps[c];if(t&&t.found){const p=tile(x,y,.5);ctx.strokeStyle=FG;ctx.globalAlpha=.7;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);ctx.lineTo(p[2][0],p[2][1]);ctx.moveTo(p[1][0],p[1][1]);ctx.lineTo(p[3][0],p[3][1]);ctx.stroke();ctx.globalAlpha=1}
@@ -498,19 +511,25 @@ function draw(){
     const m=monAt(c);
     if(m&&(sn||m.wander)){const T=MON[m.t],can=h&&!busy&&!aim&&S.acts>0&&adj(h.cell,c)&&open(h.cell,c),tg=aim&&SPELLS[aim].t==='mon'&&h&&los(h.cell,c);
       pawn(c,m.asleep?'z':m.t,m.asleep?'zz':T.boss?'mg':'rd',HGT[m.t],can||tg?'#ffe650':null,m.t!=='G'&&m.t!=='S');
-      if(T.b>1){const bw=tw*.5,by=sy-th*HGT[m.t]-7;ctx.fillStyle='#000';ctx.fillRect(sx-bw/2-1,by-1,bw+2,5);ctx.fillStyle='#fff';ctx.fillRect(sx-bw/2,by,bw*m.b/T.b,3)}}
+      if(T.b>1){const bw=tw*.5,by=sy-hu*HGT[m.t]-7;ctx.fillStyle='#000';ctx.fillRect(sx-bw/2-1,by-1,bw+2,5);ctx.fillStyle='#fff';ctx.fillRect(sx-bw/2,by,bw*m.b/T.b,3)}}
     const o=heroAt(c);
     if(o){const i=S.heroes.indexOf(o),on=i===S.turn&&mode==='play',fl=flash&&flash.c===c&&now<flash.t;
       pawn(c,o.k,fl?'hit':'cy',1.3,on&&bl?'#fff':aim&&SPELLS[aim].t==='hero'?'#ffe650':on?FG:null,true);
-      if(q.holder===i){ctx.fillStyle='#ffd24a';ctx.fillRect(sx-3,sy-th*1.3-10,6,6)}}
+      if(q.holder===i){ctx.fillStyle='#ffd24a';ctx.fillRect(sx-3,sy-hu*1.3-10,6,6)}}
   }
   /* near edges of the board */
-  ctx.strokeStyle=FG;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(iX(0,BH),iY(0,BH));ctx.lineTo(iX(BW,BH),iY(BW,BH));ctx.lineTo(iX(BW,0),iY(BW,0));ctx.stroke();
+  ctx.strokeStyle=FG;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(iX(0,0),iY(0,0));ctx.lineTo(iX(BW,0),iY(BW,0));ctx.lineTo(iX(BW,BH),iY(BW,BH));ctx.lineTo(iX(0,BH),iY(0,BH));ctx.closePath();ctx.stroke();
   ctx.restore();
   ctx.fillStyle='#000';ctx.fillRect(0,VH,W,Hh-VH);ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,VH+.5);ctx.lineTo(W,VH+.5);ctx.stroke();
   const sy=VH+4;
   if(dice){const s=Math.min(26,STRIP-10);text(dice.t,4,sy+12,FG,'left',10);let x=4;dice.A.forEach(v=>{die(x,sy+15,s-4,v,v<3);x+=s});text('VS',x+2,sy+30,FG,'left',9);x+=20;dice.D.forEach(v=>{die(x,sy+15,s-4,v,dice.heroDef?(v===3||v===4):v===5);x+=s});text(dice.dmg?`${dice.dmg} DAMAGE`:'BLOCKED',W-4,sy+30,dice.dmg?'#ff6b6b':'#8fd9a0','right',12)}
-  else if(mode==='play')text(busy?'...':aim?`${SPELLS[aim].n}: TAP A ${SPELLS[aim].t==='mon'?'MONSTER IN SIGHT':'HERO'}`:h?`${h.n}: MOVE ${S.mv} · ACTION${S.nh===1?'S':''} ${S.acts}`:'',4,sy+22,aim?'#ffe650':FG,'left',12);
+  else if(mode==='play'){
+    if(aim)text(`${SPELLS[aim].n}: TAP A ${SPELLS[aim].t==='mon'?'MONSTER IN SIGHT':'HERO'}`,4,sy+24,'#ffe650','left',12);
+    else if(h){text(`${h.n} ROLLED`,4,sy+12,FG,'left',10);let x=4;for(const v of S.md||[]){pips(x,sy+16,22,v);x+=26}
+      x=Math.max(x+10,118);text('MOVES LEFT',x,sy+12,FG,'left',10);text(String(S.mv),x,sy+36,S.mv?'#fff':'#ff6b6b','left',24);
+      text(S.nh===1?'ACTIONS':'ACTION',W-4,sy+12,FG,'right',10);text(S.acts>0?(S.nh===1?String(S.acts):'READY'):'USED',W-4,sy+34,S.acts>0?'#8fd9a0':'#ff6b6b','right',16)}
+    else text('THE DECK IS PLAYING',4,sy+24,FG,'left',12);
+  }
 }
 function render(){draw();drawStatus();ui();if(mode==='play'&&!blinkT)blinkT=setInterval(()=>{if(mode==='play'&&!busy)draw();else if(mode!=='play'){clearInterval(blinkT);blinkT=0}},350)}
 let blinkT=0;
@@ -547,18 +566,20 @@ function ui(){
   if(menu==='spell'){[...new Set(h.sp)].forEach((k,i)=>{const n=h.sp.filter(v=>v===k).length;btn(SPELLS[k].n+(n>1?' x'+n:''),()=>{if(SPELLS[k].t==='self')cast(k,h);else{aim=k;render()}},[String(i+1)])});btn('BACK',()=>{menu='';render()},['Escape'],false,true);return}
   const fresh=()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;toPick()}};
   btn('SEARCH',search,['s'],S.acts<=0);btn('SPELL',()=>{menu='spell';render()},['c'],S.acts<=0||!h.sp.length);btn(`POTION ${h.pot}`,potion,['p'],!h.pot||h.b>=h.mb);
-  btn('END TURN',endTurn,['e','Enter',' '],false,S.acts<=0&&S.mv<=0,2);btn(Date.now()<sure?'SURE?':'NEW QUEST',fresh,[]);
+  btn('END TURN',endTurn,['e','Enter',' '],false,S.acts<=0&&S.mv<=0);btn('UNDO MOVE',undo,['u','z'],!S.undo);btn(Date.now()<sure?'SURE?':'NEW QUEST',fresh,[]);
 }
 let drag=null;
-const cellAt=e=>{const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,py=(e.clientY-r.top)*Hh/r.height;if(py>VH)return -1;const dx=(px-W/2+cam.x)/(tw/2),dy=(py-VH/2+cam.y)/(th/2),x=Math.floor((dx+dy)/2),y=Math.floor((dy-dx)/2);return x<0||y<0||x>=BW||y>=BH?-1:y*BW+x};
+const cellAt=e=>{const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,py=(e.clientY-r.top)*Hh/r.height;if(py>VH)return -1;const dx=(px-W/2+cam.x)/(tw/2),dy=(py-VH/2+cam.y)/(th/2),u=(dx+dy)/2,v=(dy-dx)/2,x=Math.floor(rot===0?u:rot===1?v:rot===2?BW-u:BW-v),y=Math.floor(rot===0?v:rot===1?BH-u:rot===2?BH-v:u);return x<0||y<0||x>=BW||y>=BH?-1:y*BW+x};
 cv.addEventListener('pointerdown',e=>{if(!S||mode!=='play')return;wake();drag={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y,pan:false,id:e.pointerId};try{cv.setPointerCapture(e.pointerId)}catch(x){}});
-cv.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||!zoom)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.pan&&Math.hypot(dx,dy)<8)return;drag.pan=true;cam.x=clamp(drag.cx-dx,-BH*tw/2,BW*tw/2);cam.y=clamp(drag.cy-dy,0,(BW+BH)*th/2);draw()});
+cv.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||!zoom)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.pan&&Math.hypot(dx,dy)<8)return;drag.pan=true;cam.x=clamp(drag.cx-dx,-BW*tw/2,BW*tw/2);cam.y=clamp(drag.cy-dy,0,(BW+BH)*th/2);draw()});
 cv.addEventListener('pointerup',e=>{if(!drag||e.pointerId!==drag.id)return;const d=drag;drag=null;if(d.pan)return;const c=cellAt(e);if(c>=0)tap(c)});
 cv.addEventListener('pointercancel',()=>{drag=null});
 $('zoom').onclick=()=>{zoom=zoom?0:1;try{localStorage.setItem('cryptward.zoom',zoom)}catch(e){}setZoom();draw()};
+$('turn').onclick=()=>{rot=(rot+1)%4;setZoom();draw()};
+$('tilt').onclick=()=>{tilt=(tilt+1)%3;try{localStorage.setItem('cryptward.tilt',tilt)}catch(e){}setZoom();draw()};
 addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key.length===1?e.key.toLowerCase():e.key,b=pads.find(p=>p.keys.includes(k));if(b){e.preventDefault();wake();b.f()}});
 let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
-try{const v=localStorage.getItem('cryptward.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length;const zv=localStorage.getItem('cryptward.zoom');if(zv!==null)zoom=+zv?1:0}catch(e){}
+try{const v=localStorage.getItem('cryptward.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length;const zv=localStorage.getItem('cryptward.zoom');if(zv!==null)zoom=+zv?1:0;const tv2=localStorage.getItem('cryptward.tilt');if(tv2!==null)tilt=clamp(+tv2||0,0,2)}catch(e){}
 setTone();setSnd();resize();
 show([['CRYPTWARD','big'],['Four heroes. One deck of cards.'],['A new crypt every quest.']]);
 render();
