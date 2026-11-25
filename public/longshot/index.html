@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Longshot</title>
+<meta name="description" content="An artillery duel for one or two players. Set the barrel and the powder, read the wind, and fire across the ridge.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
+<style>
+/* layout: one phone-width column — a 320x200 field, one status row per gun, then the gun controls */
+:root{
+  --fg:#33ff66;          /* phosphor, set by the TONE key for the whole site */
+  --bg:#000000;
+  --hp:#ff6b6b; --shd:#6fb1ff; --fuel:#8fd9a0; --gold:#ffd24a; --goal:#c58bff; --you:#5ff;
+  --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+body{display:flex;justify-content:center;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+#app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:6px;padding:8px 16px 12px}
+#app>*{flex-shrink:0}
+[hidden]{display:none!important}
+header{display:flex;align-items:center;gap:8px}
+h1{font-family:var(--font-display);font-size:15px;letter-spacing:.2em;margin:0;font-weight:700;flex:1}
+.mini{font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:4px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.mini:active{background:var(--fg);color:var(--bg)}
+#view{position:relative;border:2px solid var(--fg);width:100%;background:var(--bg);line-height:0;touch-action:manipulation}
+canvas{display:block;width:100%;image-rendering:pixelated;image-rendering:crisp-edges}
+#msg{position:absolute;left:0;right:0;margin:0 auto;top:50%;transform:translateY(-50%);width:max-content;max-width:92%;display:none;text-align:center;background:var(--bg);border:2px solid var(--fg);box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--fg);padding:10px 18px;font-size:13px;line-height:1.5}
+#msg .big{font-family:var(--font-display);font-size:24px;font-weight:700;letter-spacing:.14em;line-height:1.3}
+#stat{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.4;display:grid;gap:3px;font-variant-numeric:tabular-nums}
+#stat .grp{display:flex;flex-wrap:wrap;align-items:center;gap:1px 10px;padding-top:3px;border-top:1px dotted var(--fg)}
+#stat .grp:first-child{border-top:0;padding-top:0}
+#stat .gl{font-size:10px;letter-spacing:.06em;opacity:.55;width:44px;flex:none}
+#stat .it{--c:var(--fg);color:var(--c);padding:0 3px;white-space:nowrap}
+#stat .lab{opacity:.65;font-size:11px;margin-right:5px}
+#stat .val{font-weight:700}
+#stat .dl{font-size:11px;font-weight:700;margin-left:5px}
+#stat .bar{display:inline-block;width:30px;height:7px;border:1px solid var(--c);margin-left:6px;vertical-align:middle}
+#stat .bar i{display:block;height:100%;background:var(--c)}
+#stat .hp{--c:var(--hp)}#stat .shd{--c:var(--shd)}#stat .fuel{--c:var(--fuel)}#stat .gold{--c:var(--gold)}#stat .goal{--c:var(--goal)}
+#stat .low{outline:1px solid var(--c)}
+#stat .flash,#log div.new{animation:blink .6s steps(1) 1}
+@keyframes blink{0%,24%{background:var(--c,var(--fg));color:var(--bg)}25%,49%{background:transparent;color:var(--c,var(--fg))}50%,74%{background:var(--c,var(--fg));color:var(--bg)}75%,100%{background:transparent;color:var(--c,var(--fg))}}
+@media (prefers-reduced-motion:reduce){#stat .flash,#log div.new{animation:none}}
+#log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:6em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+#log .good{color:var(--fuel)}#log .bad{color:var(--hp)}#log .gold{color:var(--gold)}
+#pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#pad button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:46px;cursor:pointer}
+#pad button:active{background:var(--fg);color:var(--bg)}
+#pad button:disabled{border-style:dotted;opacity:.35;cursor:default}
+#pad button.hot{background:var(--fg);color:var(--bg)}
+#pad .s2{grid-column:span 2}#pad .s3{grid-column:span 3}
+#pad .note{grid-column:span 3;font-size:12px;line-height:1.35;border-bottom:1px dotted var(--fg);padding:0 0 4px}
+#pad .row{grid-column:span 3;display:grid;grid-template-columns:1fr 62px 62px;gap:6px;align-items:stretch}
+#pad .row.one{grid-template-columns:1fr 130px}
+#pad .row .rn{font-size:12px;line-height:1.35;align-self:center;font-variant-numeric:tabular-nums}
+#pad .row b{font-size:13px}
+#pad .row .pr{color:var(--gold);font-weight:700}
+#pad .row .up{color:var(--fuel)}#pad .row .dn{color:var(--hp)}
+#pad .row small{font-size:11px;opacity:.75}
+#pad .row button{padding:6px 2px;min-height:44px}
+#fly{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;touch-action:none}
+#stick{width:140px;height:140px;border:2px solid var(--fg);border-radius:50%;position:relative;touch-action:none;cursor:pointer}
+#stick::before{content:"";position:absolute;inset:38%;border:1px dotted var(--fg);border-radius:50%}
+#nub{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px;border-radius:50%;background:var(--fg);opacity:.85;pointer-events:none}
+#fbtn{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#fbtn button{font:inherit;font-size:14px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;min-height:88px;cursor:pointer;touch-action:none}
+#fbtn button.on{background:var(--fg);color:var(--bg)}
+#fbtn button:disabled{border-style:dotted;opacity:.35}
+#fbtn #inv,#fbtn #pace{min-height:40px;font-size:11px;touch-action:manipulation}
+button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+#quick{margin:0;padding:0 0 0 1.3em;font-size:12px;line-height:1.45}
+#quick li{margin-bottom:2px}
+#help{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#help summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#help summary::-webkit-details-marker{display:none}
+#help summary::after{content:"  +"}
+#help[open] summary::after{content:"  \2212"}
+#help[open] summary{border-bottom:2px solid var(--fg)}
+#help #quick{margin:8px 10px}
+#how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#how summary::-webkit-details-marker{display:none}
+#how summary::after{content:"  +"}
+#how[open] summary::after{content:"  \2212"}
+#how[open] summary{border-bottom:2px solid var(--fg)}
+#how h2{font-size:12px;letter-spacing:.1em;margin:10px 10px 2px;border-bottom:1px dotted var(--fg)}
+#how p,#how ul{margin:4px 10px 6px}
+#how ul{padding-left:1.3em}
+#how li{margin-bottom:2px}
+#pad{min-height:150px;align-content:start}
+#quit{padding:10px;font-size:12px}
+#pad.g4{grid-template-columns:repeat(4,1fr)}
+#pad.g4 .s4{grid-column:span 4}
+#pad.g4 button{font-size:12px;touch-action:none}
+#stat .grp.on{outline:2px solid var(--fg);outline-offset:1px}
+#stat .gl{width:64px;letter-spacing:0}
+#stat .grp{gap:1px 6px}
+#stat .you{--c:var(--you)}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>LONGSHOT</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <div id="view"><canvas id="cv" width="320" height="200"></canvas><div id="msg"></div></div>
+  <div id="stat"></div>
+  <div id="pad"></div>
+  <button class="mini" id="quit" type="button" hidden>RESTART MATCH</button>
+  <details id="help">
+    <summary>HELP</summary>
+    <ul id="quick">
+      <li>Two guns on a ridge. Take turns firing until one is destroyed. First to three rounds wins the match.</li>
+      <li>Set BARREL (the angle) and POWDER (the force), then FIRE.</li>
+      <li>The wind pushes the shell. The arrow at the top and the drifting clouds show which way and how hard.</li>
+      <li>The bar at the top is your time. When it runs out the gun fires as it is set.</li>
+      <li>The closer the shell lands, the more damage. A direct hit destroys a gun outright.</li>
+      <li>Your last shot leaves a dotted trail, so you can correct from it.</li>
+    </ul>
+  </details>
+  <details id="how">
+    <summary>ALL THE RULES</summary>
+    <h2>SETTING UP</h2>
+    <ul>
+      <li>ONE PLAYER: you are the cyan gun on the left, against the computer's red gun.</li>
+      <li>TWO PLAYERS: share the device. Cyan is player one, red is player two.</li>
+      <li>RANK sets the time you get for each shot: PRIVATE 60 seconds, CAPTAIN 30, GENERAL 15. In a one-player game it also sets how well the computer shoots.</li>
+    </ul>
+    <h2>YOUR SHOT</h2>
+    <ul>
+      <li>BARREL runs from 0 (flat) to 90 (straight up), always measured toward the enemy.</li>
+      <li>POWDER runs from 1 to 99.</li>
+      <li>Buttons change either by 1 or by 5. Hold a button to keep going. Keys: left and right for barrel, up and down for powder, Shift for steps of 5, Space to fire.</li>
+      <li>Both settings stay where you left them for your next shot.</li>
+    </ul>
+    <h2>WIND</h2>
+    <ul>
+      <li>The wind is shown as a number and an arrow. It pushes the shell sideways the whole time it is in the air, so high, slow shots drift most.</li>
+      <li>It shifts a little after every shot and is set fresh each round.</li>
+    </ul>
+    <h2>THE SHELL</h2>
+    <ul>
+      <li>A shell that goes off the top keeps flying and comes back down; a mark at the top edge follows it.</li>
+      <li>A shell that goes off either side is gone.</li>
+      <li>A shell that lands blows a crater out of the hill. Trees stop shells and are blown away too. A gun with the ground blown out from under it drops.</li>
+    </ul>
+    <h2>DAMAGE</h2>
+    <ul>
+      <li>Each gun has 100 hull. A direct hit takes all of it.</li>
+      <li>A near miss takes up to 75, falling off to nothing about a gun's length away.</li>
+      <li>You can damage your own gun.</li>
+    </ul>
+    <h2>THE MATCH</h2>
+    <ul>
+      <li>Each round has new hills, trees, gun positions and wind. The first shot alternates between rounds.</li>
+      <li>The first gun to win three rounds wins the match.</li>
+      <li>RESTART MATCH, under the controls, drops the match and goes back to the start screen. It asks you to tap twice.</li>
+    </ul>
+    <h2>SAVING</h2>
+    <p>Nothing is saved. A match takes a few minutes.</p>
+  </details>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const ri=n=>Math.floor(Math.random()*n),rnd=(a,b)=>a+ri(b-a+1),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),hyp=Math.hypot;
+/* ---------- tone and sound ---------- */
+const HUES=[[51,255,102],[255,176,0],[255,255,255]];let hueI=0,FG='rgb(51,255,102)';
+const setTone=()=>{const c=HUES[hueI];FG=`rgb(${c[0]},${c[1]},${c[2]})`;document.documentElement.style.setProperty('--fg',FG)};
+$('tone').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setTone();render()};
+const SFX={fire:[['n',.06],[160,.12,60]],boom:[['n',.14],[120,.14,50]],big:[['n',.2],[200,.2,40],['n',.2]],tick:[[1000,.03]],no:[[120,.07]],key:[[523,.08],[659,.08],[784,.16]],win:[[523,.12],[659,.12],[784,.12],[1047,.12],[1319,.3]],die:[[440,.25,220],[220,.3,110],[110,.5,50]],sel:[[700,.02]],buy:[[659,.05],[880,.08]]};
+let actx=null,vol=1,nbuf=null,unl=null,sq=0;const VM=[0,.15,.45];
+function silentWav(){
+  const n=2000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  let t='';for(const x of b)t+=String.fromCharCode(x);return 'data:audio/wav;base64,'+btoa(t);
+}
+function wake(){
+  if(!vol)return;
+  try{
+    if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A){$('snd').textContent='NO SOUND HERE';return}actx=new A();
+      nbuf=actx.createBuffer(1,actx.sampleRate,actx.sampleRate);const c=nbuf.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()<.5?-1:1;
+      setTimeout(()=>{if(vol&&actx.state!=='running')$('snd').textContent='SOUND BLOCKED'},800)}
+    if(actx.state!=='running'){actx.resume().then(setSnd,()=>{});const u=actx.createBufferSource();u.buffer=actx.createBuffer(1,1,22050);u.connect(actx.destination);u.start(0)}
+  }catch(e){}
+  try{if(!unl){unl=new Audio(silentWav());unl.loop=true;unl.setAttribute('playsinline','')}if(unl.paused){const q=unl.play();if(q&&q.catch)q.catch(()=>{})}}catch(e){}
+}
+function hush(){try{if(unl)unl.pause()}catch(e){}}
+function sfx(n){
+  if(!vol||!actx||!SFX[n])return;
+  try{
+    let t=Math.max(actx.currentTime,sq);if(t-actx.currentTime>.25)return;
+    for(const [f,dur,f2] of SFX[n]){
+      const gn=actx.createGain();gn.gain.setValueAtTime((f==='n'?.05:.07)*VM[vol],t);gn.gain.setValueAtTime(0,t+dur);gn.connect(actx.destination);
+      let src;
+      if(f==='n'){src=actx.createBufferSource();src.buffer=nbuf}
+      else{src=actx.createOscillator();src.type='square';src.frequency.setValueAtTime(f,t);if(f2)src.frequency.linearRampToValueAtTime(f2,t+dur)}
+      src.connect(gn);src.start(t);src.stop(t+dur+.01);t+=dur;
+    }
+    sq=t+.01;
+  }catch(e){}
+}
+function setSnd(){$('snd').textContent=['SOUND OFF','SOUND LOW','SOUND HIGH'][vol]}
+$('snd').onclick=()=>{vol=(vol+1)%3;try{localStorage.setItem('longshot.vol',vol)}catch(e){}setSnd();if(!vol)hush();else{wake();sfx('buy')}};
+
+
+/* ---------- the field ---------- */
+const FW=320,FH=200,G=62,WK=1.15,PK=2.05,RANKS=[['PRIVATE',60,20],['CAPTAIN',30,13],['GENERAL',15,8]],WINS=3;
+let sol=new Uint8Array(FW*FH),T=[],wind=0,cur=0,state='title',timer=0,shell=null,booms=[],clouds=[],trail=[[],[]],mark=[null,null],score=[0,0],round=0,players=1,rank=0,botPlan=null,first=0,shots=[0,0],edge=0,roundWin=-1;
+const names=()=>players===1?['YOU','COMPUTER']:['PLAYER 1','PLAYER 2'];
+function genField(){
+  sol.fill(0);const p=[Math.random()*6,Math.random()*6,Math.random()*6],a=[rnd(8,20),rnd(4,10),rnd(2,5)],mid=rnd(10,46),mx=rnd(120,200),hh=[];
+  for(let x=0;x<FW;x++){let h=138-mid*Math.exp(-((x-mx)*(x-mx))/(2*55*55))-a[0]*Math.sin(x/61+p[0])-a[1]*Math.sin(x/23+p[1])-a[2]*Math.sin(x/9+p[2]);hh.push(clamp(Math.round(h),62,172))}
+  const tx=[rnd(20,50),FW-1-rnd(20,50)];
+  for(const x0 of tx){const h=hh[x0];for(let x=x0-10;x<=x0+10;x++)if(x>=0&&x<FW){const k=clamp((Math.abs(x-x0)-7)/3,0,1);hh[x]=Math.round(h*(1-k)+hh[x]*k)}}
+  for(let x=0;x<FW;x++)for(let y=hh[x];y<FH;y++)sol[y*FW+x]=1;
+  for(let i=0,n=rnd(7,11);i<n;i++){const x=rnd(8,FW-9);if(tx.some(t=>Math.abs(t-x)<18))continue;const y=hh[x];for(let k=1;k<=4;k++)sol[(y-k)*FW+x]=2;for(let dy=-3;dy<=2;dy++)for(let dx=-3;dx<=3;dx++)if(Math.abs(dx)+Math.abs(dy)<=4)sol[(y-7+dy)*FW+x+dx]=2}
+  T=tx.map((x,i)=>({x,y:hh[x]-1,hp:100,ang:T[i]?T[i].ang:45,pow:T[i]?T[i].pow:55,dir:i?-1:1,dead:0}));
+  wind=rnd(-14,14);clouds=[];for(let i=0;i<3;i++)clouds.push({x:rnd(0,FW),y:rnd(8,44),w:rnd(12,22)});trail=[[],[]];mark=[null,null];shots=[0,0];booms=[];shell=null;
+}
+const muzzle=t=>{const a=t.ang*Math.PI/180;return [t.x+t.dir*Math.cos(a)*9,t.y-6-Math.sin(a)*9]};
+function launch(i){const t=T[i],a=t.ang*Math.PI/180,m=muzzle(t),v=t.pow*PK;return {x:m[0],y:m[1],vx:t.dir*Math.cos(a)*v,vy:-Math.sin(a)*v,by:i,age:0}}
+/* one small step of flight; returns what it hit, if anything */
+function fly(s,dt,w){
+  s.vx+=w*WK*dt;s.vy+=G*dt;s.x+=s.vx*dt;s.y+=s.vy*dt;s.age+=dt;
+  if(s.x<0||s.x>=FW)return {k:'side',x:clamp(s.x,0,FW-1),y:s.y};
+  if(s.y>=FH)return {k:'ground',x:s.x,y:FH-1};
+  if(s.y<0)return null;
+  const xi=s.x|0,yi=s.y|0;
+  for(let i=0;i<2;i++){const t=T[i];if(t.hp<=0||(i===s.by&&s.age<.25))continue;if(Math.abs(xi-t.x)<=6&&yi<=t.y&&yi>=t.y-6)return {k:'tank',x:t.x,y:t.y-3,t:i}}
+  if(sol[yi*FW+xi])return {k:'ground',x:s.x,y:s.y};
+  return null;
+}
+function blast(x,y){
+  const R=10;for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++)if(dx*dx+dy*dy<=R*R){const px=(x|0)+dx,py=(y|0)+dy;if(px>=0&&px<FW&&py>=0&&py<FH)sol[py*FW+px]=0}
+  booms.push({x,y,t:0,big:false});const out=[];
+  T.forEach((t,i)=>{if(t.hp<=0)return;const d=hyp(x-t.x,y-(t.y-3)),dmg=d<=4?100:d<24?Math.round(75*(1-(d-4)/20)):0;if(dmg){t.hp=Math.max(0,t.hp-dmg);out.push([i,dmg]);if(t.hp<=0){t.dead=.01;booms.push({x:t.x,y:t.y-3,t:0,big:true})}}});
+  return out;
+}
+const settle=()=>{let moved=false;for(const t of T)if(t.y<FH-2&&!sol[(t.y+1)*FW+t.x]){t.y++;moved=true}return moved};
+/* the computer: try many shots in its head, then miss by a margin that shrinks as it finds the range */
+function solve(i){
+  const t=T[i],e=T[1-i],keep=[t.ang,t.pow];let best=null;
+  const tryIt=(ang,pow)=>{t.ang=ang;t.pow=pow;const s=launch(i);let ev=null;for(let n=0;n<4000&&!ev;n++)ev=fly(s,1/120,wind);const d=!ev?999:ev.k==='tank'?(ev.t===i?500:0):ev.k==='side'?400:hyp(ev.x-e.x,ev.y-(e.y-3));if(!best||d<best.d)best={ang,pow,d}};
+  for(let ang=25;ang<=80;ang+=5)for(let pow=10;pow<=99;pow+=3)tryIt(ang,pow);
+  const b0=best;for(let pow=Math.max(1,b0.pow-3);pow<=Math.min(99,b0.pow+3);pow++)tryIt(b0.ang,pow);
+  t.ang=keep[0];t.pow=keep[1];
+  const err=RANKS[rank][2]*Math.pow(.78,shots[i]),g=(Math.random()+Math.random()+Math.random()-1.5)*1.6;
+  return {ang:best.ang,pow:clamp(Math.round(best.pow+g*err),1,99)};
+}
+/* ---------- turns ---------- */
+function newMatch(){score=[0,0];round=0;first=ri(2);T=[];newRound()}
+function newRound(){round++;genField();cur=(first+round)%2;roundWin=-1;show(null);beginTurn()}
+function beginTurn(){
+  if(players===1&&cur===1){state='think';timer=1.1+Math.random()*.8;botPlan=solve(1)}
+  else{state='aim';timer=RANKS[rank][1]}
+  render();
+}
+function fire(){if(state!=='aim'&&state!=='think')return;const i=cur;shell=launch(i);trail[i]=[];mark[i]=null;shots[i]++;state='fly';sfx('fire');render()}
+function landed(ev){
+  const i=shell.by;shell=null;
+  if(ev.k==='side'){edge=.5;sfx('no');mark[i]=null}else{mark[i]=[ev.x|0,ev.y|0];const hit=blast(ev.x,ev.y);sfx(hit.some(h=>T[h[0]].hp<=0)?'big':'boom');last=hit.map(h=>`${names()[h[0]]} -${h[1]}`).join('  ')}
+  state='boom';timer=.9;
+}
+let last='';
+function afterBoom(){
+  if(settle()){timer=.03;return}
+  const dead=T.map(t=>t.hp<=0);
+  if(dead[0]||dead[1]){roundWin=dead[0]&&dead[1]?1-cur:dead[0]?1:0;score[roundWin]++;state=score[roundWin]>=WINS?'matchEnd':'roundEnd';const n=names();sfx(state==='matchEnd'?(players===1&&roundWin===1?'die':'win'):'key');
+    show(state==='matchEnd'?[[players===1?(roundWin===0?'MATCH WON':'MATCH LOST'):n[roundWin]+' WINS','big'],[`${score[0]} to ${score[1]} after ${round} rounds.`]]:[[players===1?(roundWin===0?'ROUND TO YOU':'ROUND LOST'):'ROUND TO '+n[roundWin],'big'],[`${n[0]} ${score[0]}  ·  ${n[1]} ${score[1]}`]]);return render()}
+  wind=clamp(wind+rnd(-3,3),-20,20);cur=1-cur;last='';beginTurn();
+}
+function step(dt){
+  for(const c of clouds){c.x+=wind*.55*dt;if(c.x<-30)c.x+=FW+60;if(c.x>FW+30)c.x-=FW+60}
+  for(const b of booms)b.t+=dt;booms=booms.filter(b=>b.t<(b.big?1.1:.5));edge=Math.max(0,edge-dt);
+  if(state==='aim'){const was=Math.ceil(timer);timer-=dt;if(Math.ceil(timer)!==was&&timer<5&&timer>0)sfx('tick');if(timer<=0)fire()}
+  else if(state==='think'){timer-=dt;const t=T[1],k=clamp(dt*6,0,1);t.ang+=Math.sign(botPlan.ang-t.ang)*Math.min(Math.abs(botPlan.ang-t.ang),Math.max(1,Math.round(60*dt)));t.pow+=Math.sign(botPlan.pow-t.pow)*Math.min(Math.abs(botPlan.pow-t.pow),Math.max(1,Math.round(60*dt)));if(timer<=0&&t.ang===botPlan.ang&&t.pow===botPlan.pow)fire()}
+  else if(state==='fly'){for(let n=0;n<4&&shell;n++){const s=shell,ev=fly(s,dt/4,wind);if(n===0&&s.y>=0)trail[s.by].push([s.x|0,s.y|0]);if(ev)landed(ev)}}
+  else if(state==='boom'){timer-=dt;if(timer<=0)afterBoom()}
+}
+/* ---------- drawing: a 320x200 screen ---------- */
+const cv=$('cv'),ctx=cv.getContext('2d');let img=null,px=null;
+const TANK=[".....###.....","....#####....","..#########..",".###########.","#############","#.#.#.#.#.#.#",".###########."];
+function draw(){
+  if(!img){img=ctx.createImageData(FW,FH);px=new Uint32Array(img.data.buffer)}
+  const c=HUES[hueI],P=(r,g,b)=>(255<<24)|(b<<16)|(g<<8)|r,BK=P(0,0,0),FGc=P(c[0],c[1],c[2]),DIM=P(c[0]*.45|0,c[1]*.45|0,c[2]*.45|0),TREE=P(143,217,160),CY=P(85,255,255),RD=P(255,90,90),WH=P(255,255,255),YL=P(255,230,80),OR=P(255,150,60);
+  const set=(x,y,v)=>{x|=0;y|=0;if(x>=0&&x<FW&&y>=0&&y<FH)px[y*FW+x]=v};
+  for(let y=0;y<FH;y++)for(let x=0;x<FW;x++){const s=sol[y*FW+x];px[y*FW+x]=s===2?TREE:s===1?((y===0||!sol[(y-1)*FW+x]||(y>1&&!sol[(y-2)*FW+x]))?FGc:((x+y)&1?DIM:BK)):BK}
+  if(state==='title'){for(let i=0;i<40;i++)set((i*73)%FW,(i*37)%90,WH)}
+  for(const cl of clouds)for(let dy=-3;dy<=3;dy++){const w=cl.w*Math.sqrt(1-dy*dy/12);for(let dx=-w;dx<=w;dx++)if(!sol[clamp(cl.y+dy|0,0,FH-1)*FW+clamp(cl.x+dx|0,0,FW-1)])set(cl.x+dx,cl.y+dy,(dy+Math.round(dx))&1||dy<0?WH:DIM)}
+  /* last shot of whoever is aiming */
+  if(state==='aim'||state==='think'){const tr=trail[cur];for(let i=0;i<tr.length;i+=5)set(tr[i][0],tr[i][1],cur?RD:CY);const m=mark[cur];if(m)for(let k=-2;k<=2;k++){set(m[0]+k,m[1]+k,YL);set(m[0]+k,m[1]-k,YL)}}
+  T.forEach((t,i)=>{if(!t)return;const col=i?RD:CY;if(t.hp<=0)return;
+    TANK.forEach((r,j)=>{for(let k=0;k<13;k++)if(r[k]==='#')set(t.x-6+k,t.y-6+j,col)});
+    const a=t.ang*Math.PI/180;for(let k=0;k<=9;k++)set(t.x+t.dir*Math.cos(a)*k,t.y-6-Math.sin(a)*k,col);
+    if((state==='aim'||state==='think')&&i===cur&&Math.floor(performance.now()/300)%2){for(let k=-2;k<=2;k++)set(t.x+k,t.y-22+Math.abs(k),YL);set(t.x,t.y-19,YL)}});
+  if(shell){const s=shell;if(s.y>=0){set(s.x,s.y,WH);set(s.x+1,s.y,WH);set(s.x,s.y+1,WH);set(s.x+1,s.y+1,WH)}else{for(let k=-2;k<=2;k++)set(s.x+k,1+Math.abs(k),YL)}
+    const tr=trail[s.by];for(let i=Math.max(0,tr.length-24);i<tr.length;i+=3)set(tr[i][0],tr[i][1],DIM)}
+  for(const b of booms){const R=(b.big?26:13)*Math.min(1,b.t/(b.big?.5:.25)),n=b.big?40:22;for(let i=0;i<n;i++){const a=i*6.283/n+b.t*3,r=R*(i%3?1:.6);set(b.x+Math.cos(a)*r,b.y+Math.sin(a)*r,i%2?YL:OR);if(b.big)set(b.x+Math.cos(a)*r*.5,b.y+Math.sin(a)*r*.5,WH)}}
+  /* top line: time bar, wind arrow */
+  if(state==='aim'){const w=Math.round(100*timer/RANKS[rank][1]),v=timer<5?RD:WH;for(let x=0;x<w;x++){set(4+x,3,v);set(4+x,4,v)}for(let x=0;x<=100;x+=25)set(4+x,6,DIM)}
+  if(state!=='title'){const L=Math.abs(wind)*2,d=Math.sign(wind),x0=FW/2-d*L/2;for(let k=0;k<=L;k++){set(x0+d*k,4,WH)}if(wind){for(let k=1;k<=3;k++){set(x0+d*L-d*k,4-k,WH);set(x0+d*L-d*k,4+k,WH)}}else{set(FW/2,3,WH);set(FW/2,5,WH)}}
+  if(edge>0&&Math.floor(edge*16)%2)for(let y=0;y<FH;y++){set(0,y,YL);set(1,y,YL);set(FW-1,y,YL);set(FW-2,y,YL)}
+  ctx.putImageData(img,0,0);
+}
+let raf=0,lastT=0,stN=0;
+function loop(ts){raf=0;const dt=clamp((ts-lastT)/1000||0,0,.05);lastT=ts;if(state!=='title'&&state!=='roundEnd'&&state!=='matchEnd')step(dt);else for(const c of clouds)c.x+=3*dt;draw();if(ts-stN>200){stN=ts;drawStatus()}kick()}
+function kick(){if(!raf&&typeof requestAnimationFrame==='function'&&!document.hidden){if(!lastT||performance.now()-lastT>200)lastT=performance.now();raf=requestAnimationFrame(loop)}}
+if(document.addEventListener)document.addEventListener('visibilitychange',()=>{if(document.hidden)hush();else{lastT=performance.now();kick()}});
+function render(){draw();drawStatus();ui();kick()}
+function show(rows){const m=$('msg');if(!rows){m.style.display='none';return}m.textContent='';for(const [t,c] of rows){if(!t)continue;const e=document.createElement('div');e.textContent=t;if(c)e.className=c;m.appendChild(e)}m.style.display='block'}
+const mkE=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
+function drawStatus(){
+  const st=$('stat');st.textContent='';const grp=(name,on)=>{const e=mkE('div','grp'+(on?' on':''));if(name)e.appendChild(mkE('span','gl',name));st.appendChild(e);return e};
+  const it=(g,label,val,cls,bar)=>{const e=mkE('span','it'+(cls?' '+cls:''));if(label)e.appendChild(mkE('span','lab',label));e.appendChild(mkE('span','val',String(val)));if(bar){const b=mkE('span','bar'),i=mkE('i');i.style.width=clamp(bar,0,100)+'%';b.appendChild(i);e.appendChild(b)}g.appendChild(e)};
+  if(state==='title'){const g=grp();it(g,'',players===1?'YOU AGAINST THE COMPUTER':'TWO PLAYERS, ONE DEVICE');it(g,'TIME PER SHOT',RANKS[rank][1]+' SECONDS');return}
+  const n=names();
+  T.forEach((t,i)=>{const g=grp(n[i],(state==='aim'||state==='think')&&cur===i);it(g,'HULL',t.hp,i?'hp':'you',t.hp);it(g,'BARREL',Math.round(t.ang)+'°');it(g,'POWDER',Math.round(t.pow))});
+  const g=grp('ROUND '+round);it(g,'SCORE',score[0]+' – '+score[1],'gold');it(g,'WIND',wind?Math.abs(wind)+(wind>0?' →':' ←'):'CALM','shd');
+  if(state==='aim')it(g,'TIME',Math.ceil(timer),timer<5?'hp low':'');else if(state==='think')it(g,'','COMPUTER IS AIMING');else if(state==='fly')it(g,'','SHELL AWAY');else if(last)it(g,'',last,'gold');
+}
+let padKey='',quitT=0;
+$('quit').onclick=()=>{wake();if(Date.now()<quitT){quitT=0;state='title';shell=null;booms=[];padKey='';genField();show([['LONGSHOT','big'],['Two guns, one ridge, and the wind.']]);sfx('sel');render()}else{quitT=Date.now()+3000;$('quit').textContent='SURE? TAP AGAIN';setTimeout(()=>{if(Date.now()>=quitT)$('quit').textContent='RESTART MATCH'},3100)}};
+function ui(){
+  $('quit').hidden=state==='title'||state==='matchEnd';if(Date.now()>=quitT)$('quit').textContent='RESTART MATCH';
+  const key=state==='aim'?'aim':state==='title'?'title'+players+rank:state;if(key===padKey)return;padKey=key;
+  const pad=$('pad');pad.textContent='';pad.className='';
+  const btn=(t,f,hot,span,rep)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot)e.className='hot';if(span)e.classList.add('s'+span);if(!f)e.disabled=true;else if(rep){let iv=0,to=0;const stop=()=>{clearTimeout(to);clearInterval(iv)};
+      e.addEventListener('pointerdown',ev=>{ev.preventDefault();wake();f();stop();to=setTimeout(()=>{iv=setInterval(f,70)},350)});for(const k of ['pointerup','pointercancel','pointerleave'])e.addEventListener(k,stop);e.addEventListener('contextmenu',ev=>ev.preventDefault())}
+    else e.onclick=()=>{wake();e.blur();f()};pad.appendChild(e)};
+  if(state==='title'){btn(players===1?'ONE PLAYER':'TWO PLAYERS',()=>{players=3-players;sfx('sel');render()});btn('RANK: '+RANKS[rank][0],()=>{rank=(rank+1)%3;sfx('sel');render()});btn('START',()=>{newMatch()},true);return}
+  if(state==='aim'){pad.className='g4';const adj=(k,d)=>()=>{const t=T[cur];if(state!=='aim')return;if(k==='a')t.ang=clamp(t.ang+d,0,90);else t.pow=clamp(t.pow+d,1,99);sfx('sel');draw();drawStatus()};
+    btn('BARREL −5',adj('a',-5),0,0,1);btn('−1',adj('a',-1),0,0,1);btn('+1',adj('a',1),0,0,1);btn('BARREL +5',adj('a',5),0,0,1);
+    btn('POWDER −5',adj('p',-5),0,0,1);btn('−1',adj('p',-1),0,0,1);btn('+1',adj('p',1),0,0,1);btn('POWDER +5',adj('p',5),0,0,1);
+    btn('FIRE',fire,true,4);return}
+  if(state==='roundEnd'){btn('NEXT ROUND',newRound,true,3);return}
+  if(state==='matchEnd'){btn('NEW MATCH',()=>{state='title';show([['LONGSHOT','big'],['Two guns, one ridge, and the wind.']]);render()},true,3);return}
+  btn(state==='think'?'COMPUTER IS AIMING':'SHELL AWAY',null,false,3);
+}
+addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key;
+  if(state==='aim'){const t=T[cur],d=e.shiftKey?5:1;let used=true;if(k==='ArrowLeft')t.ang=clamp(t.ang+(t.dir>0?d:-d),0,90);else if(k==='ArrowRight')t.ang=clamp(t.ang-(t.dir>0?d:-d),0,90);else if(k==='ArrowUp')t.pow=clamp(t.pow+d,1,99);else if(k==='ArrowDown')t.pow=clamp(t.pow-d,1,99);else if(k===' '||k==='Enter')fire();else used=false;if(used){e.preventDefault();wake();drawStatus()}return}
+  if(k==='Enter'||k===' '){const b=document.querySelector('#pad button.hot');if(b){e.preventDefault();wake();b.click()}}
+});
+try{const v=localStorage.getItem('longshot.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
+setTone();setSnd();genField();
+show([['LONGSHOT','big'],['Two guns, one ridge, and the wind.']]);
+render();
+</script>
+</body>
+</html>

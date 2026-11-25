@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nerdica's mini-games</title>
-<meta name="description" content="Small browser games by Nerdica: Hollowdeep, a wireframe dungeon crawl; Regolith, a vector moon lander; Marchlands, a turn-based territory war; Skerry, a tiny island quest; Farlane, a space trading run. Cryptward, a dungeon board game. Work in progress: Underdeck, Stop the Press.">
+<meta name="description" content="Small browser games by Nerdica: Hollowdeep, a wireframe dungeon crawl; Regolith, a vector moon lander; Marchlands, a turn-based territory war; Skerry, a tiny island quest; Farlane, a space trading run. Cryptward, a dungeon board game; Longshot, an artillery duel. Work in progress: Underdeck, Stop the Press.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
 <style>
 /* layout: one column on phones, a grid of game cabinets on wider screens; 1-bit phosphor on black */
@@ -135,6 +135,20 @@ const GAMES=[
      for(let i=0;i<4;i++){const x=214+i*0,y=118;}
      R(212,114,236,138);F(218,120,222,124);F(226,120,230,124);F(220,128,228,130);
      for(let x=14;x<266;x+=12)g.line(x,172,x+1,172);for(let x=134;x<140;x+=12)for(let y=14;y<180;y+=12)g.line(x,y,x,y+1);
+   }},
+  {slug:'longshot',title:'LONGSHOT',
+   blurb:'An artillery duel across a ridge. Set the barrel and the powder, read the wind from the clouds, and fire before the clock runs out. Play the computer or a friend.',
+   tags:'ARTILLERY · 1 OR 2 PLAYERS · TOUCH OR KEYS',
+   art:g=>{
+     const h=x=>Math.round(140-40*Math.exp(-((x-150)*(x-150))/(2*45*45))-10*Math.sin(x/37)-4*Math.sin(x/11));
+     for(let x=0;x<279;x++)g.line(x,h(x),x+1,h(x+1));
+     for(let y=150;y<192;y+=6)for(let x=(y%12?3:0);x<280;x+=6)if(y>h(x)+4)g.line(x,y,x,y);
+     const tank=(x,d)=>{const y=h(x);g.line(x-8,y-1,x+8,y-1);g.line(x-8,y-1,x-6,y-5);g.line(x+8,y-1,x+6,y-5);g.line(x-6,y-5,x+6,y-5);g.line(x-3,y-5,x-2,y-9);g.line(x+3,y-5,x+2,y-9);g.line(x-2,y-9,x+2,y-9);g.line(x,y-9,x+d*10,y-18)};
+     tank(34,1);tank(246,-1);
+     for(let i=0;i<=40;i++){const t=i/40,x=44+t*196,y=h(34)-18-150*t*(1-t)*1.6;if(i%2)g.line(x,y,x,y)}
+     for(const [cx,cy,w] of [[70,26,22],[190,40,28]]){g.line(cx-w,cy,cx+w,cy);g.line(cx-w+5,cy-3,cx+w-5,cy-3);g.line(cx-w+4,cy+3,cx+w-6,cy+3)}
+     g.line(128,10,152,10);g.line(152,10,147,6);g.line(152,10,147,14);
+     for(const x of [100,128,184,206]){const y=h(x);g.line(x,y,x,y-6);g.line(x-3,y-8,x+3,y-8);g.line(x-2,y-10,x+2,y-10);g.line(x-2,y-6,x+2,y-6)}
    }},
   {slug:'underdeck',title:'UNDERDECK',wip:true,
    blurb:'A first-person maze shooter. Five random floors of doors, rooms and wireframe guards. Find the keycard, reach the lift, and kill the Warden at the bottom.',
