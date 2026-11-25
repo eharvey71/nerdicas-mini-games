@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Nerdica's mini-games</title>
-<meta name="description" content="Small browser games by Nerdica: Hollowdeep, a wireframe dungeon crawl; Regolith, a vector moon lander; Marchlands, a turn-based territory war; Skerry, a tiny island quest.">
+<meta name="description" content="Small browser games by Nerdica: Hollowdeep, a wireframe dungeon crawl; Regolith, a vector moon lander; Marchlands, a turn-based territory war; Skerry, a tiny island quest; Farlane, a space trading run.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
 <style>
 /* layout: one column on phones, a grid of game cabinets on wider screens; 1-bit phosphor on black */
@@ -103,6 +103,19 @@ const GAMES=[
      P([[108,128],[108,120],[114,116],[120,120],[120,128]],1);P([[124,128],[124,122],[128,118],[132,122],[132,128]],1);
      P([[152,118],[152,126]]);P([[149,121],[155,121]]);P([[152,126],[149,132]]);P([[152,126],[155,132]]);g.line(151,115,153,115);g.line(151,116,153,116);
      P([[160,134],[172,134],[176,140],[156,140]],1);P([[166,134],[166,128]]);
+   }},
+  {slug:'farlane',title:'FARLANE',
+   blurb:'A short space trading run across ten random stars. Buy low, sell high, fight raiders from a wireframe cockpit and dock by hand. Clear a debt, kill the raider flagship, or win renown.',
+   tags:'TRADE AND COMBAT · 1 PLAYER · TOUCH OR KEYS',
+   art:g=>{
+     const P=(pts,close)=>{for(let i=0;i<pts.length-1;i++)g.line(pts[i][0],pts[i][1],pts[i+1][0],pts[i+1][1]);if(close)g.line(pts[pts.length-1][0],pts[pts.length-1][1],pts[0][0],pts[0][1])};
+     const oc=(cx,cy,r)=>{const a=[];for(let i=0;i<8;i++){const t=Math.PI/8+i*Math.PI/4;a.push([cx+Math.cos(t)*r,cy+Math.sin(t)*r])}return a};
+     const f=oc(176,92,52),b=oc(196,84,40);P(f,1);P(b,1);for(let i=0;i<8;i++)g.line(f[i][0],f[i][1],b[i][0],b[i][1]);
+     P([[156,84],[196,84],[196,100],[156,100]],1);P([[166,86],[194,86],[194,96],[166,96]],1);g.line(156,84,166,86);g.line(196,100,194,96);g.line(156,100,166,96);g.line(196,84,194,86);
+     for(const k of [1.5,2.3])P([[176-20*k*1.4,92-8*k*1.4],[176+20*k*1.4,92-8*k*1.4],[176+20*k*1.4,92+8*k*1.4],[176-20*k*1.4,92+8*k*1.4]].map(([x,y])=>[x-18*k,y+10*k]),1);
+     P([[40,60],[78,52],[58,44],[40,60],[20,48],[58,44]]);P([[20,48],[52,54],[78,52]]);P([[52,54],[40,60]]);
+     for(const [x,y] of [[14,18],[60,12],[110,30],[250,20],[262,150],[20,150],[90,170],[130,8],[236,176],[8,100]])g.line(x,y,x,y);
+     g.line(128,150,136,150);g.line(144,150,152,150);g.line(140,138,140,146);g.line(140,154,140,162);
    }}
 ];
 const HUES=[[51,255,102],[255,176,0],[255,255,255]];
