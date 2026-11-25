@@ -94,7 +94,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 #vbtn{position:absolute;right:6px;top:6px;display:flex;gap:4px;line-height:1.2}
 #vbtn .mini{background:#000;padding:4px 6px}
 #stat .grp.on{outline:2px solid var(--fg);outline-offset:1px}
-#stat .gl{width:54px}
+#stat .gl{width:66px}
 #log .deck{color:var(--goal)}
 #log{height:7.2em}
 </style>
@@ -130,10 +130,10 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
     </ul>
     <h2>HEROES</h2>
     <ul>
-      <li>REAVER: 3 attack dice, 2 defend, 8 body.</li>
-      <li>DELVER: 2 attack, 2 defend, 7 body. Spots hidden traps within two squares.</li>
-      <li>STRIDER: 2 attack, 2 defend, 6 body. Spells: MEND, SWIFT.</li>
-      <li>MAGUS: 1 attack, 2 defend, 4 body. Spells: FIREBOLT twice, MEND, SLUMBER, STONE SKIN.</li>
+      <li>BARBARIAN: 3 attack dice, 2 defend, 8 body.</li>
+      <li>DWARF: 2 attack, 2 defend, 7 body. Spots hidden traps within two squares.</li>
+      <li>ELF: 2 attack, 2 defend, 6 body. Spells: MEND, SWIFT.</li>
+      <li>MAGE: 1 attack, 2 defend, 4 body. Spells: FIREBOLT twice, MEND, SLUMBER, STONE SKIN.</li>
     </ul>
     <h2>A HERO'S TURN</h2>
     <ul>
@@ -233,19 +233,19 @@ if(document.addEventListener)document.addEventListener('visibilitychange',()=>{i
 /* ---------- rules data ---------- */
 const BW=19,BH=15,NC=BW*BH,D4=[1,-1,BW,-BW];
 const HEROES=[
-  {k:'R',n:'REAVER',a:3,d:2,b:8,sp:[]},
-  {k:'D',n:'DELVER',a:2,d:2,b:7,sp:[],sense:true},
-  {k:'S',n:'STRIDER',a:2,d:2,b:6,sp:['heal','swift']},
-  {k:'M',n:'MAGUS',a:1,d:2,b:4,sp:['bolt','bolt','heal','sleep','stone']}
+  {k:'B',n:'BARBARIAN',a:3,d:2,b:8,sp:[]},
+  {k:'D',n:'DWARF',a:2,d:2,b:7,sp:[],sense:true},
+  {k:'E',n:'ELF',a:2,d:2,b:6,sp:['heal','swift']},
+  {k:'M',n:'MAGE',a:1,d:2,b:4,sp:['bolt','bolt','heal','sleep','stone']}
 ];
 const MON={
-  G:{n:'GNAWER',mv:10,a:2,d:1,b:1},B:{n:'BRAWLER',mv:8,a:3,d:2,b:1},N:{n:'BONEMAN',mv:6,a:2,d:2,b:1},H:{n:'HUSK',mv:5,a:2,d:3,b:1},
+  G:{n:'GNAWER',mv:10,a:2,d:1,b:1},B:{n:'RAIDER',l:'R',mv:8,a:3,d:2,b:1},N:{n:'BONEMAN',mv:6,a:2,d:2,b:1},H:{n:'HUSK',mv:5,a:2,d:3,b:1},
   W:{n:'WIGHT',mv:4,a:3,d:4,b:2},I:{n:'IRONHELM',mv:7,a:4,d:4,b:3},S:{n:'STONEWING',mv:6,a:4,d:5,b:3},L:{n:'WARLOCK',mv:6,a:4,d:4,b:5,boss:true}
 };
 const SPELLS={bolt:{n:'FIREBOLT',t:'mon'},heal:{n:'MEND',t:'hero'},swift:{n:'SWIFT',t:'self'},sleep:{n:'SLUMBER',t:'mon'},stone:{n:'STONE SKIN',t:'hero'}};
 const BUD={4:108,3:88,2:78,1:62},FACES={4:12,3:8,2:4,1:2},ACES={4:2,3:2,2:1,1:1};
 const QUEST={slay:'KILL THE WARLOCK',rescue:'FREE THE CAPTIVE AND REACH THE STAIRS',relic:'FIND THE RELIC AND REACH THE STAIRS'};
-let S=null,mode='title',pick=[1,1,1,1],busy=false,FAST=false,menu='',aim=null,lines=[],logN=-1,sure=0,dice=null,flash=null;
+let S=null,mode='title',pick=[0,0,0,0],busy=false,FAST=false,menu='',aim=null,lines=[],logN=-1,sure=0,dice=null,flash=null;
 const pause=ms=>FAST?Promise.resolve():new Promise(r=>setTimeout(r,ms));
 const X=c=>c%BW,Y=c=>(c/BW)|0,ek=(a,b)=>a<b?a*1000+b:b*1000+a;
 const adj=(a,b)=>{const d=Math.abs(a-b);return d===BW||(d===1&&Y(a)===Y(b))};
@@ -514,7 +514,7 @@ function draw(){
     else if(q.at===c&&q.type==='relic'&&!q.found)late.push(()=>pawn(c,'?','yl',.6));
     const m=monAt(c);
     if(m&&(sn||m.wander)){const T=MON[m.t],can=h&&!busy&&!aim&&S.acts>0&&adj(h.cell,c)&&open(h.cell,c),tg=aim&&SPELLS[aim].t==='mon'&&h&&los(h.cell,c);
-      late.push(()=>{pawn(c,m.asleep?'z':m.t,m.asleep?'zz':T.boss?'mg':'rd',HGT[m.t],can||tg?'#ffe650':null,m.t!=='G'&&m.t!=='S');
+      late.push(()=>{pawn(c,m.asleep?'z':T.l||m.t,m.asleep?'zz':T.boss?'mg':'rd',HGT[m.t],can||tg?'#ffe650':null,m.t!=='G'&&m.t!=='S');
       if(T.b>1){const bw=tw*.5,by=sy-hu*HGT[m.t]-7;ctx.fillStyle='#000';ctx.fillRect(sx-bw/2-1,by-1,bw+2,5);ctx.fillStyle='#fff';ctx.fillRect(sx-bw/2,by,bw*m.b/T.b,3)}})}
     const o=heroAt(c);
     if(o){const i=S.heroes.indexOf(o),on=i===S.turn&&mode==='play',fl=flash&&flash.c===c&&now<flash.t;
@@ -565,7 +565,7 @@ function ui(){
   const btn=(t,f,keys,dis,hot,span)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(span)e.classList.add('s'+span);if(dis||!f)e.disabled=true;else{e.onclick=()=>{wake();e.blur();f()};if(keys)pads.push({keys,f})}pad.appendChild(e)};
   const toPick=()=>{mode='pick';show([['PICK YOUR HEROES','big'],['Fewer heroes means fewer monsters and fewer cunning turns.']]);render()};
   if(mode==='title'){btn('NEW QUEST',toPick,['n','Enter'],false,true);btn('CONTINUE',hasSave()?load:null,['c']);btn('·',null);return}
-  if(mode==='pick'){HEROES.forEach((T,i)=>btn((pick[i]?'■ ':'□ ')+T.n,()=>{pick[i]=pick[i]?0:1;sfx('sel');render()},[String(i+1)],false,!!pick[i]));btn(`START WITH ${pick.filter(v=>v).length}`,newQuest,['Enter'],!pick.some(v=>v),false,2);return}
+  if(mode==='pick'){HEROES.forEach((T,i)=>btn((pick[i]?'■ ':'□ ')+T.n,()=>{pick[i]=pick[i]?0:1;sfx('sel');render()},[String(i+1)],false,!!pick[i]));btn(pick.some(v=>v)?`START WITH ${pick.filter(v=>v).length}`:'PICK AT LEAST ONE',newQuest,['Enter'],!pick.some(v=>v),true,2);return}
   if(mode!=='play'){btn('NEW QUEST',toPick,['n','Enter'],false,true,3);return}
   if(busy||S.turn<0){btn("MONSTERS' TURN",null,null,true,false,3);return}
   const h=H();
