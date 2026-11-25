@@ -74,6 +74,13 @@ canvas{display:block;width:100%}
 button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
 #quick{margin:0;padding:0 0 0 1.3em;font-size:12px;line-height:1.45}
 #quick li{margin-bottom:2px}
+#help{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#help summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#help summary::-webkit-details-marker{display:none}
+#help summary::after{content:"  +"}
+#help[open] summary::after{content:"  \2212"}
+#help[open] summary{border-bottom:2px solid var(--fg)}
+#help #quick{margin:8px 10px}
 #how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
 #how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
 #how summary::-webkit-details-marker{display:none}
@@ -97,6 +104,8 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
     <div id="stick" aria-label="Steering stick"><i id="nub"></i></div>
     <div id="fbtn"><button id="bfire" type="button">FIRE</button><button id="bthr" type="button">THRUST</button><button id="inv" type="button"></button><button id="pace" type="button"></button></div>
   </div>
+  <details id="help">
+    <summary>HELP</summary>
   <ul id="quick">
     <li>Pick a goal: clear a debt, kill the raider flagship, or win renown.</li>
     <li>Buy goods where they are cheap, tap a star on the chart, jump, and sell where they are dear.</li>
@@ -105,6 +114,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
     <li>To dock, fly round to the front of the station, line up with the dotted frames, and go through the slot slowly.</li>
     <li>Spend profit at the shipyard. Hull at zero ends the run.</li>
   </ul>
+  </details>
   <details id="how">
     <summary>ALL THE RULES</summary>
     <h2>GOALS</h2>

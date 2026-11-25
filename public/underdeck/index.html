@@ -74,6 +74,13 @@ canvas{display:block;width:100%;image-rendering:pixelated}
 button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
 #quick{margin:0;padding:0 0 0 1.3em;font-size:12px;line-height:1.45}
 #quick li{margin-bottom:2px}
+#help{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#help summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#help summary::-webkit-details-marker{display:none}
+#help summary::after{content:"  +"}
+#help[open] summary::after{content:"  \2212"}
+#help[open] summary{border-bottom:2px solid var(--fg)}
+#help #quick{margin:8px 10px}
 #how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
 #how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
 #how summary::-webkit-details-marker{display:none}
@@ -108,6 +115,8 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
     <div class="stk" id="stick2" aria-label="Turn stick, push up to fire"><i id="nub2"></i><span>TURN &#183; UP FIRES</span></div>
     <div id="opts"><button id="inv" type="button"></button><button id="walls" type="button"></button><button id="pause" type="button">PAUSE</button></div>
   </div>
+  <details id="help">
+    <summary>HELP</summary>
   <ul id="quick">
     <li>Five floors down. On each, find the cyan keycard, then the pale blue lift door.</li>
     <li>On the fifth floor, kill the Warden to win.</li>
@@ -116,6 +125,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
     <li>A flashing yellow ! over an enemy means it is about to hit you. A red arc shows where a hit came from.</li>
     <li>WALLS changes how the walls are drawn: SOLID, LINES or PANELS.</li>
   </ul>
+  </details>
   <details id="how">
     <summary>ALL THE RULES</summary>
     <h2>GOAL</h2>

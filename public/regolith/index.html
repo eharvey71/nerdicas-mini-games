@@ -36,6 +36,13 @@ button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-of
 #quick{margin:0;padding:0 0 0 1.3em;font-size:12px;line-height:1.45}
 #quick li{margin-bottom:2px}
 #stat span.bad{background:var(--fg);color:var(--bg)}
+#help{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#help summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#help summary::-webkit-details-marker{display:none}
+#help summary::after{content:"  +"}
+#help[open] summary::after{content:"  \2212"}
+#help[open] summary{border-bottom:2px solid var(--fg)}
+#help #quick{margin:8px 10px}
 #how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
 #how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
 #how summary::-webkit-details-marker{display:none}
@@ -60,12 +67,15 @@ button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-of
     <button type="button" id="bt">THRUST</button>
     <button type="button" id="br">ROTATE &#9654;</button>
   </div>
+  <details id="help">
+    <summary>HELP</summary>
   <ul id="quick">
     <li>Land on a flat pad, upright, with FALL 15 or less and DRIFT 10 or less.</li>
     <li>Hold THRUST to slow your fall. ROTATE, then thrust, to stop sideways drift.</li>
     <li>A highlighted number in the readout would crash you.</li>
     <li>Beeping means fuel is under 20. No fuel, no engine.</li>
   </ul>
+  </details>
   <details id="how">
     <summary>ALL THE RULES</summary>
     <h2>GOAL</h2>

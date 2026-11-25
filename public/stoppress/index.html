@@ -52,6 +52,13 @@ canvas{display:block;width:100%;height:100%;cursor:pointer}
 button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
 #quick{margin:0;padding:0 0 0 1.3em;font-size:12px;line-height:1.45}
 #quick li{margin-bottom:2px}
+#help{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#help summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#help summary::-webkit-details-marker{display:none}
+#help summary::after{content:"  +"}
+#help[open] summary::after{content:"  \2212"}
+#help[open] summary{border-bottom:2px solid var(--fg)}
+#help #quick{margin:8px 10px}
 #how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
 #how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
 #how summary::-webkit-details-marker{display:none}
@@ -73,12 +80,15 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
   <div id="inv"></div>
   <div id="log"></div>
   <div id="more"></div>
+  <details id="help">
+    <summary>HELP</summary>
   <ul id="quick">
     <li>Tap the picture to walk. Tap a thing to look at it, or a door to go through.</li>
     <li>Pick LOOK, TAKE, USE or TALK, then tap a thing.</li>
     <li>Tap something in your pockets, then tap what to use it on.</li>
     <li>Stuck? HINT nudges you. LABELS shows what can be tapped.</li>
   </ul>
+  </details>
   <details id="how">
     <summary>ALL THE RULES</summary>
     <h2>THE STORY</h2>
