@@ -94,7 +94,10 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 #vbtn{position:absolute;right:6px;top:6px;display:flex;gap:4px;line-height:1.2}
 #vbtn .mini{background:#000;padding:4px 6px}
 #stat .grp.on{outline:2px solid var(--fg);outline-offset:1px}
-#stat .gl{width:66px}
+#stat .gl{width:62px;letter-spacing:0}
+#stat .grp{gap:1px 4px}
+#stat .bar{width:20px;margin-left:4px}
+#stat .lab{margin-right:3px}
 #log .deck{color:var(--goal)}
 #log{height:7.2em}
 </style>
@@ -111,12 +114,13 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
   <ul id="quick">
     <li>Pick one to four heroes. Each quest is a new dungeon with a new goal.</li>
     <li>Each hero rolls two dice to move, and gets one action: attack, cast, or search.</li>
-    <li>Tap a lit square to walk there. Tap a monster beside you to attack it. Tap the square behind an amber door to open it.</li>
+    <li>Tap a lit square to walk there. Tap a monster beside you to attack it.</li>
+    <li>When you stand at a closed door it flashes yellow and an OPEN DOOR button appears.</li>
     <li>Drag the board to look around. TURN VIEW spins it a quarter turn, TILT changes the angle, ZOOM switches between close and the whole board.</li>
     <li>UNDO MOVE takes back your last walk.</li>
     <li>Attackers count skulls; defenders cancel them with shields. Heroes use white shields, monsters black.</li>
     <li>After the heroes comes the monsters' turn. A banner on the board says what kind of turn it is and what the monsters will do.</li>
-    <li>Heroes are cyan, and the one whose turn it is turns gold with an arrow over it. Monsters are red, the Warlock magenta, the stairs pale blue.</li>
+    <li>Heroes are cyan, and the one whose turn it is turns gold with an arrow over it. Monsters are red, the Warlock magenta, the stairs pale blue, found traps a violet X.</li>
   </ul>
   </details>
   <details id="how">
@@ -141,6 +145,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>You may pass through other heroes but not through monsters, and may not stop on an occupied square.</li>
       <li>One action per turn. Act before you move or after, not in the middle: acting after you have moved ends your movement.</li>
       <li>Opening a door and drinking a potion are free.</li>
+      <li>A door you can open flashes yellow with an arrow over it, and an OPEN DOOR button appears. Tapping your own hero, or the square behind the door, opens it too.</li>
       <li>To open a door a hero must stand on the square in front of it. A hero cannot open a door past a friend who is standing there: the friend opens it on their own turn, and after that others may walk through them.</li>
       <li>Your two movement dice and the moves you have left are shown under the board.</li>
       <li>UNDO MOVE takes back the last walk, as long as it sprang no trap and brought no new monster into view. Dice, doors, searches and spells cannot be undone.</li>
@@ -154,10 +159,24 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>The dice are shown under the board and written in the log.</li>
       <li>A hero about to die drinks a potion automatically if carrying one.</li>
     </ul>
+    <h2>MONSTERS</h2>
+    <ul>
+      <li>Each piece carries two letters. Numbers are squares moved, attack dice, defend dice, body.</li>
+      <li>GO Goblin: 10, 2, 1, 1.</li>
+      <li>OR Orc: 8, 3, 2, 1.</li>
+      <li>SK Skeleton: 6, 2, 2, 1.</li>
+      <li>ZO Zombie: 5, 2, 3, 1.</li>
+      <li>BF Bog Fiend: 6, 3, 3, 2.</li>
+      <li>MU Mummy: 4, 3, 4, 2.</li>
+      <li>DK Dread Knight: 7, 4, 4, 3.</li>
+      <li>GA Gargoyle: 6, 4, 5, 3.</li>
+      <li>WL Warlock: 6, 4, 4, 5. Throws a 2-dice bolt at any hero it can see.</li>
+      <li>A white bar over a monster shows its remaining body when it has more than 1.</li>
+    </ul>
     <h2>SEARCHING</h2>
     <ul>
       <li>SEARCH is an action and needs the room or corridor around you to be free of monsters.</li>
-      <li>It finds and disarms every trap in the room, or within five squares in a corridor.</li>
+      <li>It finds and disarms every trap in the room, or within five squares in a corridor. Found traps are marked with a violet X and are safe to cross.</li>
       <li>The first search of each room also turns up treasure: gold, a potion, a better weapon or shield, nothing, a trap, or a wandering monster that attacks at once.</li>
       <li>Stepping on a hidden trap costs 1 body and ends the move.</li>
     </ul>
@@ -233,14 +252,14 @@ if(document.addEventListener)document.addEventListener('visibilitychange',()=>{i
 /* ---------- rules data ---------- */
 const BW=19,BH=15,NC=BW*BH,D4=[1,-1,BW,-BW];
 const HEROES=[
-  {k:'B',n:'BARBARIAN',a:3,d:2,b:8,sp:[]},
-  {k:'D',n:'DWARF',a:2,d:2,b:7,sp:[],sense:true},
-  {k:'E',n:'ELF',a:2,d:2,b:6,sp:['heal','swift']},
-  {k:'M',n:'MAGE',a:1,d:2,b:4,sp:['bolt','bolt','heal','sleep','stone']}
+  {k:'BA',n:'BARBARIAN',a:3,d:2,b:8,sp:[]},
+  {k:'DW',n:'DWARF',a:2,d:2,b:7,sp:[],sense:true},
+  {k:'EL',n:'ELF',a:2,d:2,b:6,sp:['heal','swift']},
+  {k:'MA',n:'MAGE',a:1,d:2,b:4,sp:['bolt','bolt','heal','sleep','stone']}
 ];
 const MON={
-  G:{n:'GNAWER',mv:10,a:2,d:1,b:1},B:{n:'RAIDER',l:'R',mv:8,a:3,d:2,b:1},N:{n:'BONEMAN',mv:6,a:2,d:2,b:1},H:{n:'HUSK',mv:5,a:2,d:3,b:1},
-  W:{n:'WIGHT',mv:4,a:3,d:4,b:2},I:{n:'IRONHELM',mv:7,a:4,d:4,b:3},S:{n:'STONEWING',mv:6,a:4,d:5,b:3},L:{n:'WARLOCK',mv:6,a:4,d:4,b:5,boss:true}
+  G:{n:'GOBLIN',l:'GO',mv:10,a:2,d:1,b:1},B:{n:'ORC',l:'OR',mv:8,a:3,d:2,b:1},N:{n:'SKELETON',l:'SK',mv:6,a:2,d:2,b:1},H:{n:'ZOMBIE',l:'ZO',mv:5,a:2,d:3,b:1},
+  F:{n:'BOG FIEND',l:'BF',mv:6,a:3,d:3,b:2},W:{n:'MUMMY',l:'MU',mv:4,a:3,d:4,b:2},I:{n:'DREAD KNIGHT',l:'DK',mv:7,a:4,d:4,b:3},S:{n:'GARGOYLE',l:'GA',mv:6,a:4,d:5,b:3},L:{n:'WARLOCK',l:'WL',mv:6,a:4,d:4,b:5,boss:true}
 };
 const SPELLS={bolt:{n:'FIREBOLT',t:'mon'},heal:{n:'MEND',t:'hero'},swift:{n:'SWIFT',t:'self'},sleep:{n:'SLUMBER',t:'mon'},stone:{n:'STONE SKIN',t:'hero'}};
 const BUD={4:108,3:88,2:78,1:62},FACES={4:12,3:8,2:4,1:2},ACES={4:2,3:2,2:1,1:1};
@@ -302,10 +321,10 @@ function gen(sel){
   const put=(t,r)=>{const fc=free(r);if(!fc.length)return 0;const T=MON[t];S.mons.push({t,cell:fc[ri(fc.length)],b:T.b,home:r,asleep:false,wander:false,last:-1});return T.a+T.d+T.b};
   let bud=BUD[nh];
   if(type==='slay')put('L',far);else{const fc=free(far);S.q.at=fc[ri(fc.length)];bud-=put(type==='rescue'?'I':'W',far)}
-  for(let gb=BUD[nh]*.4,n=0;gb>3&&n<5;n++){const opts=['S','I','W','H','B','N','G'].filter(t=>MON[t].a+MON[t].d+MON[t].b<=gb),t=opts[ri(Math.min(3,opts.length))];if(!t)break;const v=put(t,far);if(!v)break;gb-=v;bud-=v}
+  for(let gb=BUD[nh]*.4,n=0;gb>3&&n<5;n++){const opts=['S','I','W','F','H','B','N','G'].filter(t=>MON[t].a+MON[t].d+MON[t].b<=gb),t=opts[ri(Math.min(3,opts.length))];if(!t)break;const v=put(t,far);if(!v)break;gb-=v;bud-=v}
   const rooms=[];for(let r=1;r<=nr;r++)if(r!==sr&&r!==far)rooms.push(r);
   for(let guard=0;bud>3&&guard<400;guard++){const r=rooms[ri(rooms.length)];if(count(r)>=Math.min(cap,Math.floor(cellsOf(r).length/4)))continue;
-    const fr=clamp(depth[r]/Math.max(1,fv),0,1),w={G:3*(1-fr)+1,N:2,B:2+fr,H:1+fr,W:fr*2.5,I:fr>.4?fr*2.5:0,S:fr>.7?1:0},bag=[];
+    const fr=clamp(depth[r]/Math.max(1,fv),0,1),w={G:3*(1-fr)+1,N:2,B:2+fr,H:1+fr,F:.6+fr*1.6,W:fr*2.5,I:fr>.4?fr*2.5:0,S:fr>.7?1:0},bag=[];
     for(const t in w){const T=MON[t];if(T.a+T.d+T.b<=bud)for(let i=0;i<Math.round(w[t]*4);i++)bag.push(t)}if(!bag.length)break;bud-=put(bag[ri(bag.length)],r)}
   /* hidden traps */
   const tc=[];for(let c=0;c<NC;c++)if(c!==S.stairs&&reg[c]!==sr&&!monAt(c)&&c!==S.q.at&&f.d[c]>4)tc.push(c);shuf(tc);for(let i=0;i<rnd(3,5);i++)S.traps[tc[i]]={found:false};
@@ -357,13 +376,14 @@ async function walk(h,path){
   for(const c of path){h.cell=c;S.mv--;S.moved=true;sfx('step');look();focus(c);render();await pause(70);
     const t=S.traps[c];if(t&&!t.found){clean=false;t.found=true;S.mv=0;say(`${h.n} SPRINGS A TRAP: 1 DAMAGE.`,'bad');wound(h,1);break}
     checkGoal(h);if(mode!=='play')break}
-  busy=false;if(mode==='play'){if(liveH().length===0)return lose();if(h.dead)return nextHero();S.undo=clean&&S.q.holder===qh&&S.mons.filter(m=>seenCell(m.cell)).length===seenN?before:null;render()}
+  busy=false;if(mode==='play'){if(liveH().length===0)return lose();if(h.dead)return nextHero();S.undo=clean&&S.q.holder===qh&&S.mons.filter(m=>seenCell(m.cell)).length===seenN?before:null;if(doorsHere().length)say(`${h.n} IS AT A DOOR. PRESS OPEN DOOR.`);render()}
 }
 async function attack(m){
   const h=H();busy=true;S.undo=null;spend();const dmg=await clash(h.n,MON[m.t].n,h.a,m.asleep?0:MON[m.t].d,false);m.last=S.turn;
   if(dmg){m.b-=dmg;if(m.asleep)m.asleep=false;if(m.b<=0)slain(m)}
   busy=false;dice=mode==='play'?dice:null;if(mode==='play')render();
 }
+const doorsHere=()=>{if(!S||S.turn<0)return [];const c=H().cell;return D4.filter(d=>inb(c,d)&&S.doors[ek(c,c+d)]&&!S.doors[ek(c,c+d)].open).map(d=>ek(c,c+d))};
 function openDoor(k){S.undo=null;const d=S.doors[k];d.open=true;sfx('door');for(const c of [d.a,d.b])if(S.reg[c])S.rev[S.reg[c]]=true;look();
   const r=[S.reg[d.a],S.reg[d.b]],ms=S.mons.filter(m=>r.includes(S.reg[m.cell])&&S.reg[m.cell]!==0&&!m.seen);ms.forEach(m=>m.seen=true);
   say(ms.length?`THE DOOR OPENS: ${ms.map(m=>MON[m.t].n).join(', ')}.`:'THE DOOR OPENS.',ms.length?'bad':'');render()}
@@ -438,6 +458,7 @@ function tap(c){
   if(aim){const sp=SPELLS[aim];if(sp.t==='mon'&&m&&seenCell(c)&&los(h.cell,c))return cast(aim,m);if(sp.t==='hero'&&hh)return cast(aim,hh);sfx('no');return}
   if(m&&seenCell(c)){if(S.acts>0&&adj(h.cell,c)&&open(h.cell,c))return attack(m);sfx('no');say(S.acts<=0?'NO ACTION LEFT THIS TURN.':'YOU MUST STAND RIGHT BESIDE IT TO ATTACK.','bad');return render()}
   const k=ek(h.cell,c);if(adj(h.cell,c)&&S.doors[k]&&!S.doors[k].open)return openDoor(k);
+  if(c===h.cell&&doorsHere().length)return openDoor(doorsHere()[0]);
   if(hh)return;
   const f=reachH();
   if(f.d[c]>0&&S.mv>0&&!heroAt(c))return walk(h,pathTo(f,c));
@@ -474,18 +495,19 @@ function pips(x,y,s,v){ctx.fillStyle='#000';ctx.fillRect(x,y,s,s);ctx.strokeStyl
 const poly=(p,fill,stroke,lw)=>{ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke()}};
 const tile=(x,y,k)=>{const cx=iX(x+.5,y+.5),cy=iY(x+.5,y+.5),a=tw/2*k,b=th/2*k;return [[cx,cy-b],[cx+a,cy],[cx,cy+b],[cx-a,cy]]};
 const SHADE={on:['#fff7b0','#ffe650','#c9a92a'],cy:['#5ff','#3cc','#289a9a'],rd:['#ff7a7a','#ff5a5a','#b83a3a'],mg:['#ff8cff','#ff5cff','#b23cb2'],yl:['#ffe27a','#ffd24a','#b8942e'],hit:['#fff','#ff5a5a','#b83a3a'],zz:['#888','#666','#444']};
-const HGT={G:.8,N:1,B:1.1,H:1.1,W:1.3,I:1.45,S:1.55,L:1.8};
+const HGT={G:.8,N:1,B:1.1,H:1.1,F:1.3,W:1.3,I:1.45,S:1.55,L:1.8};
 function pawn(c,ch,sh,hk,ring,head){
   const x=X(c),y=Y(c),cx=iX(x+.5,y+.5),cy=iY(x+.5,y+.5),r=tw*.25,h=hu*hk*(head?.72:1),[top,right,left]=SHADE[sh];
   if(ring)poly(tile(x,y,.92),null,ring,2);
   ctx.fillStyle='rgba(0,0,0,.55)';ctx.beginPath();ctx.ellipse(cx,cy,r*1.25,r*1.25*th/tw,0,0,7);ctx.fill();
   const bx=(cx,cy,r,h)=>{const q=r*th/tw,L=[cx-r,cy],R=[cx+r,cy],B=[cx,cy+q],T=[cx,cy-q],u=p=>[p[0],p[1]-h];poly([L,B,u(B),u(L)],left,'#000',1);poly([B,R,u(R),u(B)],right,'#000',1);poly([u(L),u(B),u(R),u(T)],top,'#000',1)};
   bx(cx,cy,r,h);if(head)bx(cx,cy-h,r*.55,hu*hk*.28);
-  const fs=Math.max(8,Math.round(r*1.5));ctx.font=`bold ${fs}px "Courier New",monospace`;ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle=right;ctx.strokeText(ch,cx,cy-h/2+fs*.36);ctx.fillStyle='#000';ctx.fillText(ch,cx,cy-h/2+fs*.36);
+  const fs=Math.max(7,Math.round(r*(String(ch).length>1?1.12:1.5)));ctx.font=`bold ${fs}px "Courier New",monospace`;ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle=right;ctx.strokeText(ch,cx,cy-h/2+fs*.36);ctx.fillStyle='#000';ctx.fillText(ch,cx,cy-h/2+fs*.36);
 }
 function wall(x0,y0,x1,y1,kind,face){
   const a=[iX(x0,y0),iY(x0,y0)],b=[iX(x1,y1),iY(x1,y1)],h=hu*.6,u=p=>[p[0],p[1]-h];
   if(kind==='open'){ctx.strokeStyle='#ffb347';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(a[0],a[1]-h);ctx.moveTo(b[0],b[1]);ctx.lineTo(b[0],b[1]-h);ctx.stroke();ctx.globalAlpha=.5;ctx.setLineDash([3,3]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();ctx.setLineDash([]);ctx.globalAlpha=1;return}
+  if(kind==='hot'){const on=Math.floor(Date.now()/350)%2;poly([a,b,u(b),u(a)],on?'#ffe650':'#6b4514','#ffe650',3);const m=[(a[0]+b[0])/2,(a[1]+b[1])/2-h-6-(on?3:0)],z=Math.max(5,tw*.1);ctx.fillStyle='#ffe650';ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(m[0],m[1]);ctx.lineTo(m[0]-z,m[1]-z*1.3);ctx.lineTo(m[0]+z,m[1]-z*1.3);ctx.closePath();ctx.fill();ctx.stroke();return}
   if(kind==='shut'){poly([a,b,u(b),u(a)],'#6b4514','#ffb347',1.5);const m=[(a[0]+b[0])/2,(a[1]+b[1])/2];ctx.strokeStyle='#ffb347';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(m[0],m[1]);ctx.lineTo(m[0],m[1]-h);ctx.stroke();return}
   const c=HUES[hueI],k=face?.34:.2;poly([a,b,u(b),u(a)],`rgb(${c[0]*k|0},${c[1]*k|0},${c[2]*k|0})`,FG,1);
 }
@@ -496,9 +518,9 @@ function draw(){
   ctx.save();ctx.beginPath();ctx.rect(0,0,W,VH);ctx.clip();
   const edge=(c,n,x0,y0,x1,y1,face)=>{
     if(n<0){if(seenCell(c))wall(x0,y0,x1,y1,'wall',face);return}
-    if(S.reg[c]===S.reg[n]||(!seenCell(c)&&!seenCell(n)))return;const d=S.doors[ek(c,n)];wall(x0,y0,x1,y1,d?(d.open?'open':'shut'):'wall',face);
+    if(S.reg[c]===S.reg[n]||(!seenCell(c)&&!seenCell(n)))return;const d=S.doors[ek(c,n)];if(d&&!d.open&&h&&!busy&&(h.cell===c||h.cell===n)){hot.push([x0,y0,x1,y1]);return}wall(x0,y0,x1,y1,d?(d.open?'open':'shut'):'wall',face);
   };
-  const late=[];
+  const late=[],hot=[];
   for(const c of ORDER){
     const x=X(c),y=Y(c),sx=iX(x+.5,y+.5),sy=iY(x+.5,y+.5);if(sx<-tw||sx>W+tw||sy<-tw*2||sy>VH+tw*2)continue;
     const r=S.reg[c],sn=seenCell(c);
@@ -508,13 +530,13 @@ function draw(){
     if(rot===0||rot===1)edge(c,x?c-1:-1,x,y,x,y+1,rot===1);else edge(c,x<BW-1?c+1:-1,x+1,y,x+1,y+1,rot===3);
     if(!sn)continue;
     if(c===S.stairs){const t=tile(x,y,.8);poly(t,null,'#9fd0ff',1.5);ctx.strokeStyle='#9fd0ff';ctx.lineWidth=1.2;ctx.beginPath();for(let i=1;i<=3;i++){const k=i/4;ctx.moveTo(t[3][0]+(t[0][0]-t[3][0])*k,t[3][1]+(t[0][1]-t[3][1])*k);ctx.lineTo(t[2][0]+(t[1][0]-t[2][0])*k,t[2][1]+(t[1][1]-t[2][1])*k)}ctx.stroke()}
-    const t=S.traps[c];if(t&&t.found){const p=tile(x,y,.5);ctx.strokeStyle=FG;ctx.globalAlpha=.7;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);ctx.lineTo(p[2][0],p[2][1]);ctx.moveTo(p[1][0],p[1][1]);ctx.lineTo(p[3][0],p[3][1]);ctx.stroke();ctx.globalAlpha=1}
+    const t=S.traps[c];if(t&&t.found){const p=tile(x,y,.5);ctx.strokeStyle='#c58bff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);ctx.lineTo(p[2][0],p[2][1]);ctx.moveTo(p[1][0],p[1][1]);ctx.lineTo(p[3][0],p[3][1]);ctx.stroke()}
     if(f&&f.d[c]>0&&!heroAt(c))poly(tile(x,y,.42),`rgba(${c3[0]},${c3[1]},${c3[2]},.6)`,null);
-    if(q.at===c&&(q.type==='rescue'||q.found))late.push(()=>pawn(c,q.type==='rescue'?'C':'*','yl',q.type==='rescue'?1.1:.6));
+    if(q.at===c&&(q.type==='rescue'||q.found))late.push(()=>pawn(c,q.type==='rescue'?'CA':'*','yl',q.type==='rescue'?1.1:.6));
     else if(q.at===c&&q.type==='relic'&&!q.found)late.push(()=>pawn(c,'?','yl',.6));
     const m=monAt(c);
     if(m&&(sn||m.wander)){const T=MON[m.t],can=h&&!busy&&!aim&&S.acts>0&&adj(h.cell,c)&&open(h.cell,c),tg=aim&&SPELLS[aim].t==='mon'&&h&&los(h.cell,c);
-      late.push(()=>{pawn(c,m.asleep?'z':T.l||m.t,m.asleep?'zz':T.boss?'mg':'rd',HGT[m.t],can||tg?'#ffe650':null,m.t!=='G'&&m.t!=='S');
+      late.push(()=>{pawn(c,m.asleep?'zz':T.l||m.t,m.asleep?'zz':T.boss?'mg':'rd',HGT[m.t],can||tg?'#ffe650':null,m.t!=='G'&&m.t!=='S');
       if(T.b>1){const bw=tw*.5,by=sy-hu*HGT[m.t]-7;ctx.fillStyle='#000';ctx.fillRect(sx-bw/2-1,by-1,bw+2,5);ctx.fillStyle='#fff';ctx.fillRect(sx-bw/2,by,bw*m.b/T.b,3)}})}
     const o=heroAt(c);
     if(o){const i=S.heroes.indexOf(o),on=i===S.turn&&mode==='play',fl=flash&&flash.c===c&&now<flash.t;
@@ -522,7 +544,7 @@ function draw(){
       if(q.holder===i){ctx.fillStyle='#ffd24a';ctx.fillRect(sx+tw*.2,sy-hu*1.3-6,6,6)}
       if(on){const ay=sy-hu*1.5-12-(bl?3:0),a=Math.max(5,tw*.11);ctx.fillStyle='#ffe650';ctx.strokeStyle='#000';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(sx,ay);ctx.lineTo(sx-a,ay-a*1.3);ctx.lineTo(sx+a,ay-a*1.3);ctx.closePath();ctx.fill();ctx.stroke()}})}
   }
-  for(const f2 of late)f2();
+  for(const f2 of late)f2();for(const q2 of hot)wall(q2[0],q2[1],q2[2],q2[3],'hot');
   /* near edges of the board */
   ctx.strokeStyle=FG;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(iX(0,0),iY(0,0));ctx.lineTo(iX(BW,0),iY(BW,0));ctx.lineTo(iX(BW,BH),iY(BW,BH));ctx.lineTo(iX(0,BH),iY(0,BH));ctx.closePath();ctx.stroke();
   ctx.restore();
@@ -572,6 +594,7 @@ function ui(){
   if(aim){btn('CANCEL',()=>{aim=null;render()},['Escape'],false,true,3);return}
   if(menu==='spell'){[...new Set(h.sp)].forEach((k,i)=>{const n=h.sp.filter(v=>v===k).length;btn(SPELLS[k].n+(n>1?' x'+n:''),()=>{if(SPELLS[k].t==='self')cast(k,h);else{aim=k;render()}},[String(i+1)])});btn('BACK',()=>{menu='';render()},['Escape'],false,true);return}
   const fresh=()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;toPick()}};
+  const dh=doorsHere();if(dh.length)btn(dh.length>1?`OPEN DOOR (${dh.length} HERE)`:'OPEN DOOR',()=>openDoor(dh[0]),['o'],false,true,3);
   btn('SEARCH',search,['s'],S.acts<=0);btn('SPELL',()=>{menu='spell';render()},['c'],S.acts<=0||!h.sp.length);btn(`POTION ${h.pot}`,potion,['p'],!h.pot||h.b>=h.mb);
   btn('END TURN',endTurn,['e','Enter',' '],false,S.acts<=0&&S.mv<=0);btn('UNDO MOVE',undo,['u','z'],!S.undo);btn(Date.now()<sure?'SURE?':'NEW QUEST',fresh,[]);
 }
