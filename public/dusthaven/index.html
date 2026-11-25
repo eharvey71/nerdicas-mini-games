@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dusthaven</title>
+<meta name="description" content="Build a mining outpost on a dead world, month by month. Keep the air, water, food and power flowing, and meet your goal before the deadline.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
+<style>
+/* layout: one phone-width column — the angled board, supply and money rows, log, then the build buttons */
+:root{
+  --fg:#33ff66;          /* phosphor, set by the TONE key for the whole site */
+  --bg:#000000;
+  --hp:#ff6b6b; --shd:#6fb1ff; --fuel:#8fd9a0; --gold:#ffd24a; --goal:#c58bff; --you:#5ff;
+  --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+body{display:flex;justify-content:center;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+#app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:6px;padding:8px 16px 12px}
+#app>*{flex-shrink:0}
+[hidden]{display:none!important}
+header{display:flex;align-items:center;gap:8px}
+h1{font-family:var(--font-display);font-size:15px;letter-spacing:.2em;margin:0;font-weight:700;flex:1}
+.mini{font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:4px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.mini:active{background:var(--fg);color:var(--bg)}
+#view{position:relative;border:2px solid var(--fg);width:100%;background:var(--bg);line-height:0;touch-action:manipulation}
+canvas{display:block;width:100%}
+#msg{position:absolute;left:0;right:0;margin:0 auto;top:50%;transform:translateY(-50%);width:max-content;max-width:92%;display:none;text-align:center;background:var(--bg);border:2px solid var(--fg);box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--fg);padding:10px 18px;font-size:13px;line-height:1.5}
+#msg .big{font-family:var(--font-display);font-size:24px;font-weight:700;letter-spacing:.14em;line-height:1.3}
+#stat{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.4;display:grid;gap:3px;font-variant-numeric:tabular-nums}
+#stat .grp{display:flex;flex-wrap:wrap;align-items:center;gap:1px 10px;padding-top:3px;border-top:1px dotted var(--fg)}
+#stat .grp:first-child{border-top:0;padding-top:0}
+#stat .gl{font-size:10px;letter-spacing:.06em;opacity:.55;width:44px;flex:none}
+#stat .it{--c:var(--fg);color:var(--c);padding:0 3px;white-space:nowrap}
+#stat .lab{opacity:.65;font-size:11px;margin-right:5px}
+#stat .val{font-weight:700}
+#stat .dl{font-size:11px;font-weight:700;margin-left:5px}
+#stat .bar{display:inline-block;width:30px;height:7px;border:1px solid var(--c);margin-left:6px;vertical-align:middle}
+#stat .bar i{display:block;height:100%;background:var(--c)}
+#stat .hp{--c:var(--hp)}#stat .shd{--c:var(--shd)}#stat .fuel{--c:var(--fuel)}#stat .gold{--c:var(--gold)}#stat .goal{--c:var(--goal)}
+#stat .low{outline:1px solid var(--c)}
+#stat .flash,#log div.new{animation:blink .6s steps(1) 1}
+@keyframes blink{0%,24%{background:var(--c,var(--fg));color:var(--bg)}25%,49%{background:transparent;color:var(--c,var(--fg))}50%,74%{background:var(--c,var(--fg));color:var(--bg)}75%,100%{background:transparent;color:var(--c,var(--fg))}}
+@media (prefers-reduced-motion:reduce){#stat .flash,#log div.new{animation:none}}
+#log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:6em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+#log .good{color:var(--fuel)}#log .bad{color:var(--hp)}#log .gold{color:var(--gold)}
+#pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#pad button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:46px;cursor:pointer}
+#pad button:active{background:var(--fg);color:var(--bg)}
+#pad button:disabled{border-style:dotted;opacity:.35;cursor:default}
+#pad button.hot{background:var(--fg);color:var(--bg)}
+#pad .s2{grid-column:span 2}#pad .s3{grid-column:span 3}
+#pad .note{grid-column:span 3;font-size:12px;line-height:1.35;border-bottom:1px dotted var(--fg);padding:0 0 4px}
+#pad .row{grid-column:span 3;display:grid;grid-template-columns:1fr 62px 62px;gap:6px;align-items:stretch}
+#pad .row.one{grid-template-columns:1fr 130px}
+#pad .row .rn{font-size:12px;line-height:1.35;align-self:center;font-variant-numeric:tabular-nums}
+#pad .row b{font-size:13px}
+#pad .row .pr{color:var(--gold);font-weight:700}
+#pad .row .up{color:var(--fuel)}#pad .row .dn{color:var(--hp)}
+#pad .row small{font-size:11px;opacity:.75}
+#pad .row button{padding:6px 2px;min-height:44px}
+#fly{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;touch-action:none}
+#stick{width:140px;height:140px;border:2px solid var(--fg);border-radius:50%;position:relative;touch-action:none;cursor:pointer}
+#stick::before{content:"";position:absolute;inset:38%;border:1px dotted var(--fg);border-radius:50%}
+#nub{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px;border-radius:50%;background:var(--fg);opacity:.85;pointer-events:none}
+#fbtn{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#fbtn button{font:inherit;font-size:14px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;min-height:88px;cursor:pointer;touch-action:none}
+#fbtn button.on{background:var(--fg);color:var(--bg)}
+#fbtn button:disabled{border-style:dotted;opacity:.35}
+#fbtn #inv,#fbtn #pace{min-height:40px;font-size:11px;touch-action:manipulation}
+button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+#quick{margin:0;padding:0 0 0 1.3em;font-size:12px;line-height:1.45}
+#quick li{margin-bottom:2px}
+#help{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#help summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#help summary::-webkit-details-marker{display:none}
+#help summary::after{content:"  +"}
+#help[open] summary::after{content:"  \2212"}
+#help[open] summary{border-bottom:2px solid var(--fg)}
+#help #quick{margin:8px 10px}
+#how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#how summary::-webkit-details-marker{display:none}
+#how summary::after{content:"  +"}
+#how[open] summary::after{content:"  \2212"}
+#how[open] summary{border-bottom:2px solid var(--fg)}
+#how h2{font-size:12px;letter-spacing:.1em;margin:10px 10px 2px;border-bottom:1px dotted var(--fg)}
+#how p,#how ul{margin:4px 10px 6px}
+#how ul{padding-left:1.3em}
+#how li{margin-bottom:2px}
+
+#quit{padding:10px;font-size:12px}
+#pad.g4{grid-template-columns:repeat(4,1fr)}
+#pad.g4 .s4{grid-column:span 4}
+#pad.g4 button{font-size:12px;touch-action:none}
+#stat .grp.on{outline:2px solid var(--fg);outline-offset:1px}
+#stat .gl{width:64px;letter-spacing:0}
+#stat .grp{gap:1px 6px}
+#stat .you{--c:var(--you)}
+#vbtn{position:absolute;right:6px;top:6px;display:flex;gap:4px;line-height:1.2}
+#vbtn .mini{background:#000;padding:4px 6px}
+#pad button{font-size:11px;padding:10px 1px;min-height:42px}
+#pad button.sel{background:#ffe650;color:#000;border-color:#ffe650}
+#stat .gl{width:52px}
+#stat .grp{gap:1px 8px}
+#log{height:5.6em}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>DUSTHAVEN</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <div id="view"><canvas id="cv"></canvas><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="zoom" type="button">ZOOM IN</button></div><div id="msg"></div></div>
+  <div id="stat"></div>
+  <div id="log"></div>
+  <div id="pad"></div>
+  <details id="help">
+    <summary>HELP</summary>
+    <ul id="quick">
+      <li>You run a mining outpost on a dead world. Pick a goal, then build month by month.</li>
+      <li>Tap a building button, then tap squares to place it. Everything must join the lander by tubes or by touching.</li>
+      <li>Colonists need air, water, food and beds. Buildings need power, and most need crew.</li>
+      <li>The SUPPLY row shows what you will have left over each month. Red means short, and people die.</li>
+      <li>Mines sit on ore (yellow) and earn credits. Ice wells sit on or beside ice (blue).</li>
+      <li>END MONTH runs the colony: income, arrivals, and whatever the planet throws at you.</li>
+      <li>UNDO takes back anything placed this month. A building marked ! is not working: tap it to see why.</li>
+    </ul>
+  </details>
+  <details id="how">
+    <summary>ALL THE RULES</summary>
+    <h2>GOALS</h2>
+    <ul>
+      <li>CHARTER: reach 60 colonists by the end of month 36.</li>
+      <li>DEBT: you owe 4000 credits. Pay it all by the end of month 40, in parts if you like.</li>
+      <li>HOLD OUT: keep at least 20 colonists alive to the end of month 48. Storms come twice as often.</li>
+      <li>The run is lost if the deadline passes, or if nobody is left alive.</li>
+    </ul>
+    <h2>BUILDING</h2>
+    <ul>
+      <li>Build on open dust. Rock and craters cannot be built on.</li>
+      <li>A building only works if it is linked to the lander: through tubes, or by standing next to another linked building or tube. Diagonals do not link.</li>
+      <li>Costs are paid at once. Every building also costs upkeep each month.</li>
+      <li>UNDO refunds anything placed this month. CLEAR removes a building or tube for good, with no refund.</li>
+    </ul>
+    <h2>THE BUILDINGS</h2>
+    <ul>
+      <li>LD Lander: where you start. Beds for 6, with enough power, air and water for those six and a little over. It cannot be removed.</li>
+      <li>TUBE, 10: links things.</li>
+      <li>HB Habitat, 120: beds for 8. Uses 1 power.</li>
+      <li>SO Solar array, 80: 4 power. Only a quarter of that in a dust storm.</li>
+      <li>RX Reactor, 420: 16 power in any weather. Needs 2 crew. Upkeep 18.</li>
+      <li>AP Air plant, 150: air for 10. Uses 2 power, 1 crew.</li>
+      <li>IW Ice well, 140: water for 20 colonists. Must stand on ice or right beside it. Uses 2 power, 1 crew.</li>
+      <li>FD Farm dome, 130: food for 7. Uses 1 power, water for 6, and 2 crew.</li>
+      <li>MN Mine, 220: must stand on ore. Earns 110 credits a month. Uses 3 power, 3 crew.</li>
+      <li>CL Clinic, 180: covers habitats within 4 squares. Raises morale and blunts outbreaks. Uses 1 power, 2 crew.</li>
+    </ul>
+    <h2>SUPPLY</h2>
+    <ul>
+      <li>Each colonist uses 1 air, 1 food and half a water every month.</li>
+      <li>POWER, AIR and WATER show what is left over after everyone and everything is supplied. FOOD shows the store and how it changes each month.</li>
+      <li>Short of power: buildings switch off, mines first, then clinics, farms, habitats, ice wells, and air plants last.</li>
+      <li>Short of crew: buildings stand idle, mines first, reactors last.</li>
+      <li>Short of air or water at month's end: colonists die. No food in the store: about a third of those unfed die.</li>
+    </ul>
+    <h2>PEOPLE AND MONEY</h2>
+    <ul>
+      <li>Each colonist pays 14 credits a month.</li>
+      <li>New colonists land each month if there are free beds, nothing is short, and morale is 40 or more. Bigger colonies draw more.</li>
+      <li>Colonists without a bed leave.</li>
+      <li>Morale starts at 60. Clinics covering your habitats raise it; every shortage and every death lowers it.</li>
+    </ul>
+    <h2>THE PLANET</h2>
+    <ul>
+      <li>DUST STORM: warned a month ahead, lasts one or two months. Solar arrays give a quarter of their power.</li>
+      <li>BREAKDOWN: a building stops. Tap it twice to repair it for 60 credits, or it mends itself after two months.</li>
+      <li>METEOR: destroys one building or tube and leaves a crater.</li>
+      <li>OUTBREAK: 15 in 100 colonists die, or 5 in 100 if every habitat is covered by a clinic.</li>
+      <li>SUPPLY DROP: 150 credits from orbit.</li>
+      <li>Trouble grows more likely as the months pass.</li>
+    </ul>
+    <h2>SAVING</h2>
+    <p>The colony saves itself at the end of every month, on this device.</p>
+  </details>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const ri=n=>Math.floor(Math.random()*n),rnd=(a,b)=>a+ri(b-a+1),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),hyp=Math.hypot;
+const shuf=a=>{for(let i=a.length-1;i>0;i--){const j=ri(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+/* ---------- tone and sound ---------- */
+const HUES=[[51,255,102],[255,176,0],[255,255,255]];let hueI=0,FG='rgb(51,255,102)';
+const setTone=()=>{const c=HUES[hueI];FG=`rgb(${c[0]},${c[1]},${c[2]})`;document.documentElement.style.setProperty('--fg',FG)};
+$('tone').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setTone();render()};
+const SFX={build:[[330,.04],[494,.06]],sel:[[700,.03]],no:[[120,.07]],get:[[659,.05],[880,.08]],hurt:[['n',.07],[160,.1,80]],boom:[['n',.12],[180,.12,60]],warn:[[330,.1],[262,.16]],win:[[523,.12],[659,.12],[784,.12],[1047,.12],[1319,.12],[1568,.4]],die:[[440,.25,220],[220,.3,110],[110,.5,50]],buy:[[659,.05],[880,.08]]};
+let actx=null,vol=1,nbuf=null,unl=null,sq=0;const VM=[0,.15,.45];
+function silentWav(){
+  const n=2000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  let t='';for(const x of b)t+=String.fromCharCode(x);return 'data:audio/wav;base64,'+btoa(t);
+}
+function wake(){
+  if(!vol)return;
+  try{
+    if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A){$('snd').textContent='NO SOUND HERE';return}actx=new A();
+      nbuf=actx.createBuffer(1,actx.sampleRate,actx.sampleRate);const c=nbuf.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()<.5?-1:1;
+      setTimeout(()=>{if(vol&&actx.state!=='running')$('snd').textContent='SOUND BLOCKED'},800)}
+    if(actx.state!=='running'){actx.resume().then(setSnd,()=>{});const u=actx.createBufferSource();u.buffer=actx.createBuffer(1,1,22050);u.connect(actx.destination);u.start(0)}
+  }catch(e){}
+  try{if(!unl){unl=new Audio(silentWav());unl.loop=true;unl.setAttribute('playsinline','')}if(unl.paused){const q=unl.play();if(q&&q.catch)q.catch(()=>{})}}catch(e){}
+}
+function hush(){try{if(unl)unl.pause()}catch(e){}}
+function sfx(n){
+  if(!vol||!actx||!SFX[n])return;
+  try{
+    let t=Math.max(actx.currentTime,sq);if(t-actx.currentTime>.25)return;
+    for(const [f,dur,f2] of SFX[n]){
+      const gn=actx.createGain();gn.gain.setValueAtTime((f==='n'?.05:.07)*VM[vol],t);gn.gain.setValueAtTime(0,t+dur);gn.connect(actx.destination);
+      let src;
+      if(f==='n'){src=actx.createBufferSource();src.buffer=nbuf}
+      else{src=actx.createOscillator();src.type='square';src.frequency.setValueAtTime(f,t);if(f2)src.frequency.linearRampToValueAtTime(f2,t+dur)}
+      src.connect(gn);src.start(t);src.stop(t+dur+.01);t+=dur;
+    }
+    sq=t+.01;
+  }catch(e){}
+}
+function setSnd(){$('snd').textContent=['SOUND OFF','SOUND LOW','SOUND HIGH'][vol]}
+$('snd').onclick=()=>{vol=(vol+1)%3;try{localStorage.setItem('dusthaven.vol',vol)}catch(e){}setSnd();if(!vol)hush();else{wake();sfx('buy')}};
+if(document.addEventListener)document.addEventListener('visibilitychange',()=>{if(document.hidden)hush()});
+
+
+/* ---------- the colony ---------- */
+const N=14,NC=N*N,D4=[1,-1,N,-N],DUST=0,ROCK=1,ORE=2,ICE=3,PIT=4;
+const DEF={
+  L:{n:'LANDER',l:'LD',beds:6,pw:4,air:8,wat:4,h:1.5,col:'mg'},
+  H:{n:'HABITAT',l:'HB',cost:120,beds:8,pw:-1,up:4,h:.9,col:'wh'},
+  S:{n:'SOLAR ARRAY',l:'SO',cost:80,pw:4,up:2,h:.35,col:'yl'},
+  R:{n:'REACTOR',l:'RX',cost:420,pw:16,wk:2,up:18,h:1.3,col:'yl'},
+  A:{n:'AIR PLANT',l:'AP',cost:150,air:10,pw:-2,wk:1,up:5,h:1.1,col:'cy'},
+  W:{n:'ICE WELL',l:'IW',cost:140,wat:10,pw:-2,wk:1,up:5,h:1.2,col:'bl'},
+  F:{n:'FARM DOME',l:'FD',cost:130,food:7,pw:-1,wk:2,up:4,h:.7,col:'gr'},
+  M:{n:'MINE',l:'MN',cost:220,pw:-3,wk:3,up:6,h:1,col:'or'},
+  C:{n:'CLINIC',l:'CL',cost:180,pw:-1,wk:2,up:8,h:.9,col:'pk'}
+};
+const TOOLS=['T','H','S','A','W','F','M','C','R'],TUBE=10,TAX=14,ORECR=110,FARMW=3,REPAIR=60;
+const GOALS={charter:{n:'CHARTER',d:'Reach 60 colonists by the end of month 36.',m:36},debt:{n:'DEBT',d:'Pay off 4000 credits by the end of month 40.',m:40},hold:{n:'HOLD OUT',d:'Keep 20 colonists alive to the end of month 48. Storms come twice as often.',m:48}};
+const POPGOAL=60,DEBT=4000,HOLDPOP=20;
+let S=null,mode='title',tool='',lines=[],logN=-1,sure=0,armed=-1,pick=-1;
+const X=c=>c%N,Y=c=>(c/N)|0,inb=(c,d)=>{const n=c+d;return n>=0&&n<NC&&(Math.abs(d)===N||Y(n)===Y(c))};
+function say(t,c){lines.push([t,c||'']);if(lines.length>140){lines.splice(0,50);logN=-1}}
+function gen(goal){
+  for(let tries=0;tries<200;tries++){
+    const ter=new Uint8Array(NC),blob=(t,n,sz)=>{for(let i=0;i<n;i++){let c=ri(NC);for(let k=0;k<sz;k++){ter[c]=t;const s=D4[ri(4)];if(inb(c,s))c+=s}}};
+    blob(ROCK,6,4);blob(ORE,4,3);blob(ICE,4,3);
+    const hub=(4+ri(6))*N+4+ri(6);for(const s of [0,1,-1,N,-N,N+1,N-1,-N+1,-N-1])ter[hub+s]=DUST;
+    const dist=t=>{let b=99;for(let c=0;c<NC;c++)if(ter[c]===t)b=Math.min(b,Math.abs(X(c)-X(hub))+Math.abs(Y(c)-Y(hub)));return b};
+    if(dist(ICE)>5||dist(ORE)>6||dist(ICE)<2)continue;
+    S={goal,ter,hub,b:{},tube:new Uint8Array(NC),pop:6,cr:650,food:24,month:1,storm:0,stormIn:0,morale:60,debt:goal==='debt'?DEBT:0,undo:[],dead:0,born:0};
+    S.b[hub]={t:'L',broke:0};return;
+  }
+}
+/* everything the colony makes and uses right now, and which buildings are standing idle and why */
+function calc(){
+  const con=new Uint8Array(NC),q=[S.hub];con[S.hub]=1;while(q.length){const c=q.pop();for(const s of D4){if(!inb(c,s))continue;const n=c+s;if(!con[n]&&(S.tube[n]||S.b[n])){con[n]=1;q.push(n)}}}
+  const list=Object.keys(S.b).map(Number),why={};let crew=S.pop;
+  for(const c of list){const b=S.b[c];why[c]=!con[c]?'NOT LINKED TO THE LANDER':b.broke?'BROKEN DOWN':b.t==='W'&&!nearIce(c)?'NO ICE HERE':''}
+  for(const t of ['R','A','W','F','C','M'])for(const c of list){const b=S.b[c];if(b.t!==t||why[c])continue;const w=DEF[t].wk;if(crew>=w)crew-=w;else why[c]='NO CREW'}
+  let sup=0,use=0;for(const c of list){const D=DEF[S.b[c].t];if(!why[c]&&D.pw>0)sup+=S.b[c].t==='S'&&S.storm>0?D.pw*.25:D.pw}
+  for(const t of ['A','W','H','F','C','M'])for(const c of list){const b=S.b[c],D=DEF[t];if(b.t!==t||why[c])continue;if(use-D.pw<=sup+1e-9)use-=D.pw;else why[c]='NO POWER'}
+  const R={con,why,pw:sup-use,air:-S.pop,wat:-S.pop/2,food:-S.pop,beds:0,up:0,mines:0,clinics:[],crew,habs:[]};
+  for(const c of list){const b=S.b[c],D=DEF[b.t];R.up+=D.up||0;if(why[c])continue;R.air+=D.air||0;R.wat+=D.wat||0;R.food+=D.food||0;R.beds+=D.beds||0;if(b.t==='F')R.wat-=FARMW;if(b.t==='M')R.mines++;if(b.t==='C')R.clinics.push(c);if(b.t==='H'||b.t==='L')R.habs.push(c)}
+  R.cover=R.habs.length?R.habs.filter(h=>R.clinics.some(k=>Math.abs(X(k)-X(h))+Math.abs(Y(k)-Y(h))<=4)).length/R.habs.length:0;
+  R.income=S.pop*TAX+R.mines*ORECR-R.up;R.pw=Math.round(R.pw*10)/10;R.wat=Math.round(R.wat*10)/10;
+  return R;
+}
+const nearIce=c=>S.ter[c]===ICE||D4.some(s=>inb(c,s)&&S.ter[c+s]===ICE);
+function canPlace(t,c){
+  if(S.b[c])return 'SOMETHING IS BUILT THERE.';if(S.ter[c]===ROCK)return 'SOLID ROCK. BUILD ON OPEN DUST.';if(S.ter[c]===PIT)return 'A CRATER. NOTHING CAN BE BUILT IN IT.';
+  if(t==='T')return S.tube[c]?'A TUBE IS ALREADY THERE.':S.cr<TUBE?'NOT ENOUGH CREDITS.':'';
+  if(t==='M'&&S.ter[c]!==ORE)return 'A MINE MUST STAND ON ORE, THE YELLOW GROUND.';
+  if(t==='W'&&!nearIce(c))return 'AN ICE WELL MUST STAND ON ICE OR RIGHT BESIDE IT.';
+  if(S.cr<DEF[t].cost)return `NOT ENOUGH CREDITS: ${DEF[t].n} COSTS ${DEF[t].cost}.`;
+  return '';
+}
+function place(t,c,quiet){
+  const no=canPlace(t,c);if(no){if(!quiet){sfx('no');say(no,'bad');render()}return false}
+  if(t==='T'){S.tube[c]=1;S.cr-=TUBE;S.undo.push({c,t})}else{S.undo.push({c,t,tube:S.tube[c]});S.tube[c]=0;S.b[c]={t,broke:0};S.cr-=DEF[t].cost}
+  if(!quiet){sfx('build');render()}return true;
+}
+function undo(){const u=S.undo.pop();if(!u){sfx('no');return}if(u.t==='T'){S.tube[u.c]=0;S.cr+=TUBE}else{delete S.b[u.c];S.tube[u.c]=u.tube;S.cr+=DEF[u.t].cost}sfx('sel');say(`TOOK BACK THE ${u.t==='T'?'TUBE':DEF[u.t].n}.`);render()}
+function clearAt(c){if(c===S.hub){sfx('no');say('THE LANDER STAYS.','bad');return render()}if(S.b[c]){say(`${DEF[S.b[c].t].n} CLEARED.`);delete S.b[c]}else if(S.tube[c]){S.tube[c]=0;say('TUBE CLEARED.')}else{sfx('no');return}S.undo=S.undo.filter(u=>u.c!==c);sfx('boom');render()}
+function pay(){const n=Math.min(S.cr,S.debt);if(n<=0){sfx('no');return}S.cr-=n;S.debt-=n;sfx('get');say(`PAID ${n}. ${S.debt?S.debt+' STILL OWED.':'THE DEBT IS CLEAR.'}`,'gold');if(S.debt<=0)return win('The debt is paid. Dusthaven belongs to its people.');render()}
+function endMonth(){
+  if(mode!=='play')return;const R=calc(),G=GOALS[S.goal];let dead=0,short=0;armed=-1;pick=-1;
+  S.cr+=R.income;
+  S.food+=R.food;if(S.food<0){const n=Math.ceil(Math.min(S.pop,-S.food)*.35);dead+=n;S.food=0;short++;say(`THE FOOD RAN OUT. ${n} STARVED.`,'bad')}
+  if(R.air<0){const n=Math.min(S.pop-dead,Math.ceil(-R.air*.6));dead+=n;short++;say(`NOT ENOUGH AIR. ${n} SUFFOCATED.`,'bad')}
+  if(R.wat<0){const n=Math.min(S.pop-dead,Math.ceil(-R.wat*.4));dead+=n;short++;say(`NOT ENOUGH WATER. ${n} DIED OF THIRST.`,'bad')}
+  if(S.cr<0){short++;say('THE COLONY IS IN THE RED. MORALE SUFFERS.','bad')}
+  S.pop-=dead;S.dead+=dead;if(dead)sfx('hurt');
+  S.morale=clamp(Math.round(S.morale*.5+(60+R.cover*25-short*22-dead*3)*.5),0,100);
+  if(S.pop>R.beds){const n=S.pop-R.beds;S.pop=R.beds;say(`${n} WITH NO BED TOOK THE SHUTTLE HOME.`,'bad')}
+  else if(!short&&S.morale>=40&&S.pop<R.beds&&S.pop>0){const n=Math.min(R.beds-S.pop,2+Math.floor(S.pop/8));S.pop+=n;S.born+=n;say(`${n} NEW COLONIST${n>1?'S':''} LANDED.`,'good')}
+  /* repairs, weather, and whatever else the planet has in store */
+  for(const c in S.b)if(S.b[c].broke&&--S.b[c].broke===0)say(`THE ${DEF[S.b[c].t].n} IS RUNNING AGAIN.`,'good');
+  if(S.storm>0){S.storm--;if(!S.storm)say('THE DUST STORM HAS PASSED.','good')}
+  if(S.stormIn){S.stormIn=0;S.storm=rnd(1,2);sfx('warn');say(`A DUST STORM HITS. SOLAR POWER IS DOWN TO A QUARTER FOR ${S.storm} MONTH${S.storm>1?'S':''}.`,'bad')}
+  const k=1+S.month/40,r=Math.random,others=Object.keys(S.b).map(Number).filter(c=>c!==S.hub);
+  if(!S.storm&&r()<(S.goal==='hold'?.2:.1)*k){S.stormIn=1;sfx('warn');say('STORM FRONT SIGHTED. IT ARRIVES NEXT MONTH.','gold')}
+  if(others.length&&r()<.1*k){const c=others[ri(others.length)];if(!S.b[c].broke){S.b[c].broke=2;sfx('warn');say(`THE ${DEF[S.b[c].t].n} HAS BROKEN DOWN. TAP IT TO REPAIR FOR ${REPAIR}.`,'bad')}}
+  if(r()<.045*k){const t=others.concat([...Array(NC).keys()].filter(c=>S.tube[c]));if(t.length){const c=t[ri(t.length)];say(`A METEOR DESTROYS ${S.b[c]?'THE '+DEF[S.b[c].t].n:'A TUBE'}.`,'bad');delete S.b[c];S.tube[c]=0;S.ter[c]=PIT;sfx('boom')}}
+  if(S.pop>8&&r()<.05*k){const n=Math.max(1,Math.round(S.pop*(R.cover>=1?.05:.15)));S.pop-=n;S.dead+=n;sfx('hurt');say(`AN OUTBREAK KILLS ${n}.${R.cover>=1?' THE CLINICS HELD IT BACK.':' A CLINIC NEAR EVERY HABITAT WOULD HAVE SAVED MOST.'}`,'bad')}
+  if(r()<.06){S.cr+=150;sfx('get');say('A SUPPLY DROP: 150 CREDITS.','gold')}
+  S.undo=[];
+  if(S.pop<=0)return lose('NOBODY LEFT','The last colonist is gone. The dust takes Dusthaven back.');
+  if(S.goal==='charter'&&S.pop>=POPGOAL)return win('Sixty colonists. The charter is granted.');
+  if(S.month>=G.m){if(S.goal==='hold'&&S.pop>=HOLDPOP)return win('Forty-eight months. The relief ship is in orbit.');return lose('TIME IS UP',S.goal==='charter'?`Only ${S.pop} of ${POPGOAL} colonists. The charter lapses.`:S.goal==='debt'?`${S.debt} credits still owed. The company takes the colony.`:`Only ${S.pop} left. The relief ship finds too few to save the charter.`)}
+  S.month++;sfx('sel');save();render();
+}
+function best(v){try{const k='dusthaven.best.'+S.goal,b=+localStorage.getItem(k)||0;if(!b||v<b)localStorage.setItem(k,v);return +localStorage.getItem(k)}catch(e){return v}}
+function win(t){mode='won';wipe();sfx('win');const b=best(S.month);show([['COLONY SECURE','big'],[t],[`Month ${S.month}. ${S.pop} colonists. ${S.dead} lost along the way.`],[`Quickest so far: month ${b}.`]]);render()}
+function lose(big,t){mode='dead';wipe();sfx('die');show([[big,'big'],[t],[`Month ${S.month}. ${S.dead} lost.`]]);render()}
+function save(){try{localStorage.setItem('dusthaven.save',JSON.stringify(S,(k,v)=>v instanceof Uint8Array?Array.from(v):v))}catch(e){}}
+function hasSave(){try{return !!localStorage.getItem('dusthaven.save')}catch(e){return false}}
+function wipe(){try{localStorage.removeItem('dusthaven.save')}catch(e){}}
+function load(){try{S=JSON.parse(localStorage.getItem('dusthaven.save'))}catch(e){S=null}if(!S)return;S.ter=Uint8Array.from(S.ter);S.tube=Uint8Array.from(S.tube);begin(true)}
+function begin(old){mode='play';tool='';lines=[];logN=-1;armed=-1;pick=-1;show(null);setZoom();say(old?`MONTH ${S.month} AT DUSTHAVEN.`:`GOAL: ${GOALS[S.goal].d.toUpperCase()}`,'gold');if(!old)say('THE LANDER KEEPS SIX ALIVE. TO GROW YOU NEED BEDS, THEN MORE AIR, WATER, FOOD AND POWER. FOOD RUNS OUT FIRST.');render()}
+function tap(c){
+  if(mode!=='play')return;const b=S.b[c];
+  if(tool==='X')return clearAt(c);
+  if(tool){if(place(tool,c))armed=-1;return}
+  pick=c;const R=calc();
+  if(b&&b.broke){if(armed===c){if(S.cr<REPAIR){sfx('no');say('NOT ENOUGH CREDITS TO REPAIR.','bad')}else{S.cr-=REPAIR;b.broke=0;armed=-1;sfx('build');say(`${DEF[b.t].n} REPAIRED.`,'good')}}else{armed=c;say(`${DEF[b.t].n}: BROKEN DOWN. TAP IT AGAIN TO REPAIR FOR ${REPAIR}.`,'bad')}return render()}
+  armed=-1;sfx('sel');
+  if(b)say(`${DEF[b.t].n}: ${R.why[c]||'WORKING'}.`,R.why[c]?'bad':'');else if(S.tube[c])say(R.con[c]?'TUBE: LINKED.':'TUBE: NOT LINKED TO THE LANDER.',R.con[c]?'':'bad');
+  else say(['OPEN DUST. GOOD TO BUILD ON.','SOLID ROCK.','ORE. A MINE CAN STAND HERE.','ICE. AN ICE WELL CAN STAND HERE OR BESIDE IT.','A CRATER.'][S.ter[c]]);
+  render();
+}
+/* ---------- drawing: an angled board ---------- */
+const cv=$('cv'),ctx=cv.getContext('2d');let W=320,VH=260,Hh=300,DPR=1,STRIP=30,tw=24,th=12,zoom=0,rot=0,cam={x:0,y:0},ORDER=[];
+const U=(x,y)=>rot===0?x:rot===1?N-y:rot===2?N-x:y,V=(x,y)=>rot===0?y:rot===1?x:rot===2?N-y:N-x;
+const iX=(x,y)=>W/2+(U(x,y)-V(x,y))*tw/2-cam.x,iY=(x,y)=>VH/2+(U(x,y)+V(x,y))*th/2-cam.y;
+function setZoom(){const fit=Math.floor((W-8)/N);tw=zoom?Math.max(fit+14,44):fit;tw-=tw%2;th=tw/2;const d=c=>U(X(c)+.5,Y(c)+.5)+V(X(c)+.5,Y(c)+.5);ORDER=[...Array(NC).keys()].sort((a,b)=>d(a)-d(b)||a-b);
+  if(!zoom){cam.x=0;cam.y=N*th/2-th*.4}else if(S){const c=pick>=0?pick:S.hub,u=U(X(c)+.5,Y(c)+.5),v=V(X(c)+.5,Y(c)+.5);cam.x=(u-v)*tw/2;cam.y=(u+v)*th/2}
+  cv.style.touchAction=zoom?'none':'manipulation';$('zoom').textContent=zoom?'ZOOM OUT':'ZOOM IN'}
+function resize(){const w=$('view').clientWidth||320;W=Math.max(240,w-4);VH=Math.round(clamp(W*.62,190,380));Hh=VH+STRIP+4;DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(Hh*DPR);cv.style.height=Hh+'px';setZoom()}
+function text(t,x,y,col,al,sz){ctx.font=`bold ${sz||11}px "Courier New",monospace`;ctx.textAlign=al||'left';ctx.fillStyle=col||FG;ctx.fillText(t,x,y)}
+const poly=(p,fill,stroke,lw)=>{ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke()}};
+const tile=(x,y,k)=>{const cx=iX(x+.5,y+.5),cy=iY(x+.5,y+.5),a=tw/2*k,b=th/2*k;return [[cx,cy-b],[cx+a,cy],[cx,cy+b],[cx-a,cy]]};
+const SHADE={mg:['#ff8cff','#ff5cff','#b23cb2'],wh:['#fff','#cfd8dc','#8f9aa0'],yl:['#ffe27a','#ffd24a','#b8942e'],cy:['#8ff','#5ff','#289a9a'],bl:['#b9dcff','#6fb1ff','#3f6fb0'],gr:['#b5f0c0','#8fd9a0','#4f9a62'],or:['#ffc08a','#ff9a4a','#b3652a'],pk:['#ffc4dc','#ff8fb8','#b35a7c'],zz:['#888','#666','#444'],rk:['#777','#555','#3a3a3a']};
+function block(c,ch,sh,hk,rk){
+  const x=X(c),y=Y(c),cx=iX(x+.5,y+.5),cy=iY(x+.5,y+.5),r=tw*(rk||.36),h=th*hk,q=r*th/tw,[top,right,left]=SHADE[sh],L=[cx-r,cy],R=[cx+r,cy],B=[cx,cy+q],T=[cx,cy-q],u=p=>[p[0],p[1]-h];
+  poly([L,B,u(B),u(L)],left,'#000',1);poly([B,R,u(R),u(B)],right,'#000',1);poly([u(L),u(B),u(R),u(T)],top,'#000',1);
+  if(ch&&tw>=20){const fs=Math.max(7,Math.round(tw*.3));ctx.font=`bold ${fs}px "Courier New",monospace`;ctx.textAlign='center';ctx.fillStyle='#000';ctx.fillText(ch,cx,cy-h/2+fs*.34)}
+}
+function draw(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#000';ctx.fillRect(0,0,W,Hh);ctx.textBaseline='alphabetic';
+  if(!S||mode==='title'||mode==='goal'){ctx.strokeStyle=FG;ctx.lineWidth=1;for(let i=0;i<5;i++){const k=1-i*.18,a=W*.44*k,b=VH*.4*k;poly([[W/2,VH/2-b],[W/2+a,VH/2],[W/2,VH/2+b],[W/2-a,VH/2]],null,FG,1)}return}
+  const R=calc(),c3=HUES[hueI],now=Date.now(),bl=Math.floor(now/400)%2,rgba=a=>`rgba(${c3[0]},${c3[1]},${c3[2]},${a})`;
+  ctx.save();ctx.beginPath();ctx.rect(0,0,W,VH);ctx.clip();
+  const late=[];
+  for(const c of ORDER){
+    const x=X(c),y=Y(c),sx=iX(x+.5,y+.5),sy=iY(x+.5,y+.5);if(sx<-tw||sx>W+tw||sy<-tw*2||sy>VH+tw)continue;const t=S.ter[c];
+    poly(tile(x,y,1),t===PIT?'#000':rgba(.1),rgba(.25),1);
+    if(t===ORE||t===ICE){ctx.fillStyle=t===ORE?'#ffd24a':'#9fd0ff';for(const [a,b] of [[-.22,0],[.2,-.12],[0,.2],[.05,-.25],[-.05,.02]])ctx.fillRect(sx+a*tw-1,sy+b*th-1,2.5,2.5)}
+    if(t===PIT){ctx.strokeStyle=rgba(.6);ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(sx,sy,tw*.3,th*.3,0,0,7);ctx.stroke()}
+    if(t===ROCK)late.push(()=>block(c,'','rk',.45,.34));
+    if(S.tube[c]||S.b[c])for(const s of D4){if(!inb(c,s))continue;const n=c+s;if(!(S.tube[n]||S.b[n]))continue;const ex=iX(X(n)+.5,Y(n)+.5),ey=iY(X(n)+.5,Y(n)+.5);ctx.strokeStyle=R.con[c]?FG:'#777';ctx.lineWidth=Math.max(2,tw*.12);ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo((sx+ex)/2,(sy+ey)/2);ctx.stroke()}
+    if(S.tube[c]){ctx.fillStyle=R.con[c]?FG:'#777';ctx.beginPath();ctx.ellipse(sx,sy,tw*.1,th*.1,0,0,7);ctx.fill()}
+    const b=S.b[c];
+    if(b)late.push(()=>{const D=DEF[b.t],off=R.why[c];block(c,D.l,off?'zz':D.col,D.h);
+      if(off&&bl)text('!',sx,sy-th*D.h-3,'#ff5a5a','center',Math.max(11,tw*.5));
+      if(b.t==='C'&&!off&&pick===c){ctx.strokeStyle='#ff8fb8';ctx.setLineDash([3,3]);for(let d=0;d<NC;d++)if(Math.abs(X(d)-x)+Math.abs(Y(d)-y)===4)poly(tile(X(d),Y(d),.4),null,'#ff8fb8',1);ctx.setLineDash([])}});
+    if(pick===c)late.push(()=>poly(tile(x,y,.95),null,'#ffe650',2));
+  }
+  ctx.strokeStyle=FG;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(iX(0,0),iY(0,0));ctx.lineTo(iX(N,0),iY(N,0));ctx.lineTo(iX(N,N),iY(N,N));ctx.lineTo(iX(0,N),iY(0,N));ctx.closePath();ctx.stroke();
+  for(const f of late)f();
+  ctx.save();ctx.globalAlpha=.6;ctx.setLineDash([3,4]);ctx.lineWidth=Math.max(1.5,tw*.045);ctx.strokeStyle='#000';
+  for(const c of ORDER){if(!S.tube[c])continue;const sx=iX(X(c)+.5,Y(c)+.5),sy=iY(X(c)+.5,Y(c)+.5);for(const s of D4){if(!inb(c,s))continue;const n=c+s;if(!(S.tube[n]||S.b[n]))continue;const ex=iX(X(n)+.5,Y(n)+.5),ey=iY(X(n)+.5,Y(n)+.5);ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo((sx+ex)/2,(sy+ey)/2);ctx.stroke()}}
+  ctx.restore();
+  if(S.storm>0){ctx.fillStyle='#d9a066';for(let i=0;i<90;i++){const px=((i*97+now*.12*(1+i%3))%(W+40))-20,py=(i*53+Math.sin(now/700+i)*8)%VH;ctx.fillRect(px,py,3,1)}text('DUST STORM',W/2,VH-8,'#d9a066','center',12)}
+  ctx.restore();
+  ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,VH+.5);ctx.lineTo(W,VH+.5);ctx.stroke();
+  const tl=tool==='X'?'CLEAR: TAP A BUILDING OR TUBE TO REMOVE IT':tool==='T'?`TUBE, ${TUBE}: TAP SQUARES TO LAY IT`:tool?`${DEF[tool].n}, ${DEF[tool].cost}: TAP A SQUARE`:'TAP A SQUARE TO LOOK AT IT, OR PICK SOMETHING TO BUILD';
+  text(tl,4,VH+20,tool?'#ffe650':FG,'left',W<340?9:10);
+}
+let animT=0;
+function render(){draw();drawStatus();ui();clearInterval(animT);if(mode==='play')animT=setInterval(()=>{if(mode==='play')draw()},S&&S.storm>0?90:400)}
+function show(rows){const m=$('msg');if(!rows){m.style.display='none';return}m.textContent='';for(const [t,c] of rows){if(!t)continue;const e=document.createElement('div');e.textContent=t;if(c)e.className=c;m.appendChild(e)}m.style.display='block'}
+const mkE=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
+let prevS={},flashT={},stT=0;
+function drawStatus(){
+  const st=$('stat');st.textContent='';const grp=name=>{const e=mkE('div','grp');if(name)e.appendChild(mkE('span','gl',name));st.appendChild(e);return e};
+  if(!S||mode==='title'||mode==='goal'){grp().appendChild(mkE('span','it','A MINING OUTPOST ON A DEAD WORLD'));return}
+  const now=Date.now();let again=false;
+  const it=(g,k,label,val,num,cls,bar)=>{val=String(val);const p=prevS[k];if(p&&p.val!==val)flashT[k]={until:now+700,dUntil:now+1900,d:typeof num==='number'&&typeof p.num==='number'?Math.round((num-p.num)*10)/10:0};prevS[k]={val,num};
+    const f=flashT[k],e=mkE('span','it'+(cls?' '+cls:'')+(f&&now<f.until?' flash':''));if(label)e.appendChild(mkE('span','lab',label));e.appendChild(mkE('span','val',val));
+    if(bar){const b=mkE('span','bar'),i=mkE('i');i.style.width=clamp(Math.round(bar[0]/Math.max(1,bar[1])*100),0,100)+'%';b.appendChild(i);e.appendChild(b)}
+    if(f&&now<f.dUntil&&f.d)e.appendChild(mkE('span','dl',(f.d>0?'+':'−')+Math.abs(f.d)));if(f&&now<f.dUntil)again=true;g.appendChild(e)};
+  const R=calc(),sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v),G=GOALS[S.goal];
+  let g=grp('PEOPLE');it(g,'pop','COLONISTS',`${S.pop}/${R.beds} BEDS`,S.pop,S.pop>R.beds?'hp low':'');it(g,'crew','IDLE CREW',R.crew,R.crew);it(g,'mor','MORALE',S.morale,S.morale,S.morale<40?'hp low':'',[S.morale,100]);
+  g=grp('SUPPLY');it(g,'pw','POWER',sg(R.pw),R.pw,R.pw<0?'hp low':'gold');it(g,'air','AIR',sg(R.air),R.air,R.air<0?'hp low':'you');it(g,'wat','WATER',sg(R.wat),R.wat,R.wat<0?'hp low':'shd');it(g,'food','FOOD',`${S.food} (${sg(R.food)})`,S.food,S.food+R.food<0?'hp low':'fuel');
+  g=grp('MONEY');it(g,'cr','CREDITS',S.cr,S.cr,S.cr<0?'hp low':'gold');it(g,'inc','EACH MONTH',sg(R.income),R.income,R.income<0?'hp':'');if(S.goal==='debt')it(g,'debt','DEBT',S.debt,S.debt,'hp');
+  g=grp('GOAL');it(g,'mo','MONTH',`${S.month}/${G.m}`,S.month,G.m-S.month<=4?'hp low':'');g.appendChild(mkE('span','it goal',S.goal==='charter'?`${S.pop} OF ${POPGOAL} COLONISTS`:S.goal==='debt'?'CLEAR THE DEBT':`KEEP ${HOLDPOP} ALIVE`));
+  if(S.storm>0)g.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)g.appendChild(mkE('span','it gold','STORM NEXT MONTH'));
+  clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
+}
+function ui(){
+  const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
+  if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];e.textContent=lines[logN][0];lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
+  const pad=$('pad');pad.textContent='';
+  const btn=(t,f,dis,hot,span,sel)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(sel)e.classList.add('sel');if(span)e.classList.add('s'+span);if(dis||!f)e.disabled=true;else e.onclick=()=>{wake();e.blur();f()};pad.appendChild(e)};
+  const toGoal=()=>{mode='goal';show([['PICK A GOAL','big'],...Object.values(GOALS).map(g=>[g.n+': '+g.d])]);render()};
+  if(mode==='title'){btn('NEW COLONY',toGoal,false,true);btn('CONTINUE',hasSave()?load:null);btn('·',null);return}
+  if(mode==='goal'){for(const k in GOALS)btn(GOALS[k].n,()=>{gen(k);begin(false)});return}
+  if(mode!=='play'){btn('NEW COLONY',toGoal,false,true,3);return}
+  for(const t of TOOLS)btn(t==='T'?`TUBE ${TUBE}`:`${DEF[t].n.replace(' ARRAY','').replace(' DOME','').replace(' PLANT','')} ${DEF[t].cost}`,()=>{tool=tool===t?'':t;armed=-1;sfx('sel');render()},false,false,0,tool===t);
+  btn('CLEAR',()=>{tool=tool==='X'?'':'X';sfx('sel');render()},false,false,0,tool==='X');btn('UNDO',undo,!S.undo.length);
+  if(S.goal==='debt')btn('PAY DEBT',pay,S.cr<1);else btn(Date.now()<sure?'SURE?':'NEW COLONY',()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;wipe();toGoal()}});
+  btn('END MONTH',endMonth,false,true,3);
+  if(S.goal==='debt')btn(Date.now()<sure?'SURE?':'NEW COLONY',()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;wipe();toGoal()}},false,false,3);
+}
+let drag=null;
+const cellAt=e=>{const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,py=(e.clientY-r.top)*Hh/r.height;if(py>VH)return -1;const dx=(px-W/2+cam.x)/(tw/2),dy=(py-VH/2+cam.y)/(th/2),u=(dx+dy)/2,v=(dy-dx)/2,x=Math.floor(rot===0?u:rot===1?v:rot===2?N-u:N-v),y=Math.floor(rot===0?v:rot===1?N-u:rot===2?N-v:u);return x<0||y<0||x>=N||y>=N?-1:y*N+x};
+cv.addEventListener('pointerdown',e=>{if(!S||mode!=='play')return;wake();drag={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y,pan:false,id:e.pointerId};try{cv.setPointerCapture(e.pointerId)}catch(x){}});
+cv.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||!zoom)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.pan&&Math.hypot(dx,dy)<8)return;drag.pan=true;cam.x=clamp(drag.cx-dx,-N*tw/2,N*tw/2);cam.y=clamp(drag.cy-dy,0,N*th);draw()});
+cv.addEventListener('pointerup',e=>{if(!drag||e.pointerId!==drag.id)return;const d=drag;drag=null;if(d.pan)return;const c=cellAt(e);if(c>=0)tap(c)});
+cv.addEventListener('pointercancel',()=>{drag=null});
+$('zoom').onclick=()=>{zoom=zoom?0:1;setZoom();draw()};$('turn').onclick=()=>{rot=(rot+1)%4;setZoom();draw()};
+addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey||mode!=='play')return;const k=e.key.toLowerCase();if(k==='enter'){e.preventDefault();endMonth()}else if(k==='u'||k==='z')undo();else if(k==='escape'){tool='';render()}else if(k>='1'&&k<='9'){tool=TOOLS[+k-1];render()}});
+let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
+try{const v=localStorage.getItem('dusthaven.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
+setTone();setSnd();resize();
+show([['DUSTHAVEN','big'],['A mining outpost on a dead world.'],['Air, water, food, power. Keep them all.']]);
+render();
+</script>
+</body>
+</html>
