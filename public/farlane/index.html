@@ -23,7 +23,7 @@ body{display:flex;justify-content:center;-webkit-user-select:none;user-select:no
 #app>*{flex-shrink:0}
 [hidden]{display:none!important}
 header{display:flex;align-items:center;gap:8px}
-h1{font-family:var(--font-display);font-size:15px;letter-spacing:.25em;margin:0;font-weight:700;flex:1}
+h1{font-family:var(--font-display);font-size:15px;letter-spacing:.2em;margin:0;font-weight:700;flex:1}
 .mini{font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:4px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
 .mini:active{background:var(--fg);color:var(--bg)}
 #view{position:relative;border:2px solid var(--fg);width:100%;background:var(--bg);line-height:0;touch-action:manipulation}
@@ -60,7 +60,7 @@ canvas{display:block;width:100%}
 #pad .row b{font-size:13px}
 #pad .row .pr{color:var(--gold);font-weight:700}
 #pad .row .up{color:var(--fuel)}#pad .row .dn{color:var(--hp)}
-#pad .row small{font-size:11px;opacity:.75}
+#pad .row small{font-size:11px;opacity:.75}#pad .row small.up,#pad .row small.dn{opacity:1;font-weight:700}
 #pad .row button{padding:6px 2px;min-height:44px}
 #fly{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;touch-action:none}
 #stick{width:140px;height:140px;border:2px solid var(--fg);border-radius:50%;position:relative;touch-action:none;cursor:pointer}
@@ -650,11 +650,12 @@ function ui(){
   if(mode==='meet'){btn('FIGHT',()=>startFight(meet),['f','Enter'],false,true);btn(`RUN ${runPct()}%`,meetRun,['r']);btn('DUMP CARGO',meetDump,['d'],used()<3);return}
   if(sub==='market'){
     const c=S.sel>=0&&S.sel!==S.at?S.sys[S.sel]:null;
-    pad.appendChild(mkE('div','note',c?(c.seen?`SECOND PRICE IS ${c.n}, SEEN ${S.day-c.seen.day} DAY${S.day-c.seen.day===1?'':'S'} AGO.`:`${c.n} NOT VISITED: SHOWING LOW / HIGH FOR A ${ECO[c.eco]}.`):'TAP A STAR ON THE CHART TO COMPARE ITS PRICES.'));
+    pad.appendChild(mkE('div','note',c?(c.seen?`${c.n} PRICES ARE FROM ${S.day-c.seen.day} DAY${S.day-c.seen.day===1?'':'S'} AGO. GREEN = WORTH MORE THERE, RED = LESS.`:`${c.n} NOT VISITED: A ${ECO[c.eco]} WORLD, SO ONLY LOW / HIGH IS KNOWN.`):'TAP A STAR ON THE CHART TO SEE ITS PRICES NEXT TO THESE.'));
     GOODS.forEach((n,g)=>{
-      const p=price(S.at,g),r=mkE('div','row'),rn=mkE('div','rn');rn.appendChild(mkE('b','',n+' '));rn.appendChild(mkE('span','pr',p+' '));
-      if(c){let t,cl='';if(c.seen){const q=c.seen.pr[g];t=`→ ${q}`;cl=q>p*1.05?'up':q<p*.95?'dn':''}else{const m=MOD[c.eco][g];t=m<.8?'→ LOW':m>1.25?'→ HIGH':'→ ·';cl=m<.8?'dn':m>1.25?'up':''}rn.appendChild(mkE('span',cl,t))}
-      rn.appendChild(mkE('br'));rn.appendChild(mkE('small','',S.cargo[g]?`HOLD ${S.cargo[g]} · PAID ${Math.round(S.cost[g])} · SELLS ${sellP(S.at,g)}`:`SELLS ${sellP(S.at,g)}`));
+      const p=price(S.at,g),r=mkE('div','row'),rn=mkE('div','rn');rn.appendChild(mkE('b','',n+' '));rn.appendChild(mkE('span','pr','BUY '+p));rn.appendChild(mkE('small','',` SELL ${sellP(S.at,g)}`));
+      rn.appendChild(mkE('br'));if(S.cargo[g])rn.appendChild(mkE('small','',`HOLD ${S.cargo[g]} · PAID ${Math.round(S.cost[g])}`+(c?' · ':'')));
+      if(c){let t,cl='';if(c.seen){const q=c.seen.pr[g];cl=q>p*1.05?'up':q<p*.95?'dn':'';t=`${c.n} ${q}${cl==='up'?' ▲':cl==='dn'?' ▼':''}`}else{const m=MOD[c.eco][g];cl=m<.8?'dn':m>1.25?'up':'';t=`${c.n} ${m<.8?'LOW ▼':m>1.25?'HIGH ▲':'AVERAGE'}`}rn.appendChild(mkE('small',cl,t))}
+      else if(!S.cargo[g])rn.appendChild(mkE('small','','·'));
       r.appendChild(rn);r.appendChild(mkB('BUY',()=>buy(g,qty),null,S.cr<p||used()>=up('car')));r.appendChild(mkB('SELL',()=>sell(g,qty),null,!S.cargo[g]));pad.appendChild(r);
     });
     btn(qty>99?'AMOUNT: ALL':`AMOUNT: ${qty}`,()=>{qty=qty===1?5:qty===5?999:1;render()},['q'],false,false,2);btn('BACK',()=>{sub='';render()},['Escape','b'],false,true);return;
