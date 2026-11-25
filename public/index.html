@@ -52,7 +52,8 @@ footer{font-size:12px;line-height:1.5;border-top:2px solid var(--fg);padding-top
 <script>
 "use strict";
 /* To add a game: put it in its own folder beside this file (its page named index.html),
-   then add an entry here. `art` draws the 280x192 1-bit preview; leave it out for a blank screen. */
+   then add an entry here. `art` draws the 280x192 1-bit preview; leave it out for a blank screen.
+   Add live:true and use the second argument (seconds) to make the preview move. */
 const GAMES=[
   {slug:'hollowdeep',title:'HOLLOWDEEP',
    blurb:'A wireframe dungeon crawl. Twenty levels down, a dead king wears a crown. Pick fighter, mage or thief, haul gold back to the Inn, and bring the crown home. Death is permanent.',
@@ -122,19 +123,32 @@ const GAMES=[
      for(const [x,y] of [[14,18],[60,12],[110,30],[250,20],[262,150],[20,150],[90,170],[130,8],[236,176],[8,100]])g.line(x,y,x,y);
      g.line(128,150,136,150);g.line(144,150,152,150);g.line(140,138,140,146);g.line(140,154,140,162);
    }},
-  {slug:'cryptward',title:'CRYPTWARD',
+  {slug:'cryptward',title:'CRYPTWARD',live:true,
    blurb:'A dungeon board game for one to four heroes. Roll to move, fight with skull-and-shield dice, search the furniture, find keys and clues, and take the same party through quest after quest.',
    tags:'BOARD GAME · 1 TO 4 HEROES · TOUCH OR MOUSE',
-   art:g=>{
-     const R=(x0,y0,x1,y1)=>{g.line(x0,y0,x1,y0);g.line(x1,y0,x1,y1);g.line(x1,y1,x0,y1);g.line(x0,y1,x0,y0)};
-     const F=(x0,y0,x1,y1)=>{for(let y=y0;y<=y1;y++)g.line(x0,y,x1,y)};
-     R(8,8,271,183);R(28,26,120,84);R(28,84,74,160);R(74,84,120,160);R(150,26,252,100);R(150,100,200,160);R(200,100,252,160);
-     for(const [x,y] of [[40,40],[60,60],[96,48],[170,44],[226,70],[168,128]]){R(x,y,x+12,y+12);g.line(x+3,y+3,x+9,y+9);g.line(x+9,y+3,x+3,y+9)}
-     for(const [x,y] of [[44,112],[44,128],[58,120]])F(x,y,x+11,y+11);
-     F(118,50,122,60);F(90,82,100,86);F(148,56,152,66);F(170,98,180,102);F(72,120,76,130);
-     for(let i=0;i<4;i++){const x=214+i*0,y=118;}
-     R(212,114,236,138);F(218,120,222,124);F(226,120,230,124);F(220,128,228,130);
-     for(let x=14;x<266;x+=12)g.line(x,172,x+1,172);for(let x=134;x<140;x+=12)for(let y=14;y<180;y+=12)g.line(x,y,x,y+1);
+   art:(g,sec)=>{
+     const P=(x,y)=>[140+(x-y)*18,50+(x+y)*9],L=(a,b)=>g.line(a[0],a[1],b[0],b[1]),up=(p,h)=>[p[0],p[1]-h];
+     /* floor, and low walls along the two far edges with a doorway */
+     for(let x=0;x<=6;x++)L(P(x,0),P(x,5));for(let y=0;y<=5;y++)L(P(0,y),P(6,y));
+     for(let x=0;x<=6;x++)L(P(x,0),up(P(x,0),10));for(let y=1;y<=5;y++)L(P(0,y),up(P(0,y),10));
+     for(let x=0;x<6;x++)if(x!==3)L(up(P(x,0),10),up(P(x+1,0),10));for(let y=0;y<5;y++)L(up(P(0,y),10),up(P(0,y+1),10));
+     L(up(P(3,0),14),up(P(3,0),10));L(up(P(4,0),14),up(P(4,0),10));
+     const box=(c,r,h,hatch)=>{const l=[c[0]-r,c[1]],rr=[c[0]+r,c[1]],b=[c[0],c[1]+r/2],tp=[c[0],c[1]-r/2];L(l,b);L(b,rr);L(l,up(l,h));L(b,up(b,h));L(rr,up(rr,h));L(up(l,h),up(b,h));L(up(b,h),up(rr,h));L(up(rr,h),up(tp,h));L(up(tp,h),up(l,h));
+       if(hatch)for(let k=2;k<r;k+=2){const q=[l[0]+k,l[1]+k/2];L(q,up(q,h))}};
+     const pawn=(x,y,hero,bob)=>{const c=P(x+.5,y+.5);c[1]-=bob||0;box(c,8,13,hero);box(up(c,13),4.5,5,hero);if(!hero){const t2=up(c,18);g.line(t2[0]-4,t2[1],t2[0]-7,t2[1]-5);g.line(t2[0]+4,t2[1],t2[0]+7,t2[1]-5)}};
+     const mark=(x,y)=>{const c=P(x+.5,y+.5);g.line(c[0]-4,c[1],c[0],c[1]-2);g.line(c[0],c[1]-2,c[0]+4,c[1]);g.line(c[0]+4,c[1],c[0],c[1]+2);g.line(c[0],c[1]+2,c[0]-4,c[1])};
+     /* a hero walks to a monster, they clash, the hero walks back: one loop every six seconds */
+     const path=[[1,3],[2,3],[3,3],[3,2],[3,1],[4,1]],t=sec%6,n=path.length-1;
+     let k=t<2.1?t/.42:t<2.9?n:t<5?n-(t-2.9)/.42:0;k=Math.max(0,Math.min(n,k));
+     const i=Math.min(n-1,Math.floor(k)),f=k-i,hx=path[i][0]+(path[i+1][0]-path[i][0])*f,hy=path[i][1]+(path[i+1][1]-path[i][1])*f;
+     if(t<2.1)for(let j=Math.ceil(k)+(k%1?0:1);j<=n;j++)mark(path[j][0],path[j][1]);
+     const alive=t<2.9||t>5.3,things=[[1,0.2,()=>{const c=P(1.5,.7);box(c,9,7);g.line(c[0]-9,c[1]-4,c[0],c[1]+1);g.line(c[0],c[1]+1,c[0]+9,c[1]-4)}],[hx,hy,()=>pawn(hx,hy,true,(k%1)>.1&&(k%1)<.9?2:0)]];
+     if(alive)things.push([5,1,()=>pawn(5,1,false,Math.sin(sec*4)>0?1:0)]);
+     things.sort((a,b)=>(a[0]+a[1])-(b[0]+b[1]));for(const th of things)th[2]();
+     if(t>2.1&&t<2.9){const c=P(5,1.5);c[1]-=12;for(let a=0;a<8;a++){const r=8+((sec*14|0)%2)*6;g.line(c[0]+Math.cos(a*.785)*3,c[1]+Math.sin(a*.785)*3,c[0]+Math.cos(a*.785)*r,c[1]+Math.sin(a*.785)*r)}}
+     /* the two movement dice, re-rolled each loop */
+     const roll=Math.floor(sec/6),pips=[[],[[2,2]],[[1,1],[3,3]],[[1,1],[2,2],[3,3]],[[1,1],[3,1],[1,3],[3,3]],[[1,1],[3,1],[2,2],[1,3],[3,3]],[[1,1],[3,1],[1,2],[3,2],[1,3],[3,3]]];
+     [[10,(roll*7+3)%6+1],[36,(roll*5+1)%6+1]].forEach(([x0,v])=>{const y0=164;g.line(x0,y0,x0+20,y0);g.line(x0+20,y0,x0+20,y0+20);g.line(x0+20,y0+20,x0,y0+20);g.line(x0,y0+20,x0,y0);for(const [px,py] of pips[v]){g.line(x0+px*5-1,y0+py*5-1,x0+px*5+1,y0+py*5-1);g.line(x0+px*5-1,y0+py*5,x0+px*5+1,y0+py*5);g.line(x0+px*5-1,y0+py*5+1,x0+px*5+1,y0+py*5+1)}});
    }},
   {slug:'longshot',title:'LONGSHOT',
    blurb:'An artillery duel across a ridge. Set the barrel and the powder, read the wind from the clouds, and fire before the clock runs out. Play the computer or a friend.',
@@ -181,16 +195,17 @@ const GAMES=[
 const HUES=[[51,255,102],[255,176,0],[255,255,255]];
 let hue=0;try{const tv=localStorage.getItem('nmg.tone');hue=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
 let C=HUES[hue];const shots=[];
-function setTone(){C=HUES[hue];document.documentElement.style.setProperty('--fg',`rgb(${C[0]},${C[1]},${C[2]})`);for(const [cv,art] of shots)preview(cv,art)}
+function setTone(){C=HUES[hue];document.documentElement.style.setProperty('--fg',`rgb(${C[0]},${C[1]},${C[2]})`);for(const [cv,art] of shots)preview(cv,art,clock)}
 document.getElementById('tone').onclick=()=>{hue=(hue+1)%HUES.length;try{localStorage.setItem('nmg.tone',hue)}catch(e){}setTone()};
-function preview(cv,art){
+let clock=1;
+function preview(cv,art,sec){
   const W=280,H=192,ctx=cv.getContext('2d'),img=ctx.createImageData(W,H),buf=new Uint8Array(W*H);
   const g={line(x0,y0,x1,y1){
     x0=Math.round(x0);y0=Math.round(y0);x1=Math.round(x1);y1=Math.round(y1);
     const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let e=dx-dy,n=0;
     while(n++<3000){if(x0>=0&&x0<W&&y0>=0&&y0<H)buf[y0*W+x0]=1;if(x0===x1&&y0===y1)break;const e2=2*e;if(e2>-dy){e-=dy;x0+=sx}if(e2<dx){e+=dx;y0+=sy}}
   }};
-  if(art)art(g);
+  if(art)art(g,sec||0);
   for(let i=0;i<W*H;i++){const o=i*4,v=buf[i];img.data[o]=v?C[0]:0;img.data[o+1]=v?C[1]:0;img.data[o+2]=v?C[2]:0;img.data[o+3]=255}
   ctx.putImageData(img,0,0);
 }
@@ -202,9 +217,14 @@ for(const gm of GAMES){
   const p=document.createElement('p');p.textContent=gm.blurb;
   const t=document.createElement('p');t.className='tags';t.textContent=gm.tags;
   const a=document.createElement('a');a.className='play';a.href=gm.slug+'/';a.textContent='PLAY';a.setAttribute('aria-label','Play '+gm.title);
-  body.append(h,p,t,a);li.append(cv,body);list.appendChild(li);shots.push([cv,gm.art]);
+  body.append(h,p,t,a);li.append(cv,body);list.appendChild(li);shots.push([cv,gm.art,gm.live]);
 }
 setTone();
+/* cards marked live redraw about fifteen times a second, unless the visitor asked for less motion */
+if(!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)){
+  let last=0;const tick=ts=>{if(ts-last>66&&!document.hidden){last=ts;clock=ts/1000;for(const [cv,art,live] of shots)if(live){const r=cv.getBoundingClientRect();if(r.bottom>0&&r.top<innerHeight)preview(cv,art,clock)}}requestAnimationFrame(tick)};
+  requestAnimationFrame(tick);
+}
 </script>
 </body>
 </html>
