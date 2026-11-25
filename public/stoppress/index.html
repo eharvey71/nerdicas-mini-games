@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Stop Press</title>
+<title>Stop the Press</title>
 <meta name="description" content="A short point-and-click adventure. Your made-up tabloid headline is coming true, and the front page locks at midnight.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
 <style>
@@ -23,7 +23,7 @@ body{display:flex;justify-content:center;-webkit-user-select:none;user-select:no
 #app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:6px;padding:8px 16px 12px}
 #app>*{flex-shrink:0}
 header{display:flex;align-items:center;gap:8px}
-h1{font-family:var(--font-display);font-size:15px;letter-spacing:.3em;margin:0;font-weight:700;flex:1}
+h1{font-family:var(--font-display);font-size:14px;letter-spacing:.3em;margin:0;font-weight:700;flex:1}
 .mini{font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:4px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
 .mini:active{background:var(--fg);color:var(--bg)}
 #view{position:relative;border:2px solid var(--fg);width:100%;aspect-ratio:320/200;background:var(--bg);line-height:0}
@@ -73,7 +73,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 </head>
 <body>
 <div id="app">
-  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>STOP PRESS</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>STOP THE PRESS</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
   <div id="view"><canvas id="cv"></canvas><div id="msg"></div></div>
   <div id="line"></div>
   <div id="verbs"></div>
@@ -384,7 +384,7 @@ const ILOOK={mug:"WORLD'S OKAYEST REPORTER. Empty.",coffee:'Black, hot, faintly 
 function go(to,tx){G.room=to;G.x=tx;sfx('door');say(`You are in ${ROOMN[to].toLowerCase()}.`);walk=null}
 function win(){
   G.f.won=1;sfx('win');
-  say('You haul the lever down. The press shudders, roars, and starts to roll. STOP PRESS: it is true.');
+  say('You haul the lever down. The press shudders, roars, and starts to roll. STOP THE PRESS: it is true.');
   say(`The Moon Man waves from the stairs and is gone. The paper sells out by noon. Nobody believes a word. ${G.moves} moves.`);
   let best=0;try{best=+localStorage.getItem('stoppress.best')||0;if(!best||G.moves<best){best=G.moves;localStorage.setItem('stoppress.best',best)}}catch(e){}
   show([['EXTRA! EXTRA!'],['THE END','big'],[`Finished in ${G.moves} moves.`+(best?` Fewest so far: ${best}.`:'')]]);
@@ -622,7 +622,7 @@ cv.addEventListener('pointerdown',e=>{
 let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(draw,120)});
 try{const v=localStorage.getItem('stoppress.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
 setTone();setSnd();ambient();
-lines=[{t:'STOP PRESS. A short adventure for one reporter and one deadline.'}];
+lines=[{t:'STOP THE PRESS. A short adventure for one reporter and one deadline.'}];
 render();
 </script>
 </body>
