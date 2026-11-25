@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cryptward</title>
-<meta name="description" content="A dungeon board game for one to four heroes. Dice, doors, a random crypt and a deck of cards that runs the monsters.">
+<meta name="description" content="A dungeon board game for one to four heroes. Dice, doors, a random crypt, and monsters that take their own turn.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
 <style>
 /* layout: one phone-width column — the board with a dice strip, one status row per hero, log, buttons */
@@ -115,7 +115,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
     <li>Drag the board to look around. TURN VIEW spins it a quarter turn, TILT changes the angle, ZOOM switches between close and the whole board.</li>
     <li>UNDO MOVE takes back your last walk.</li>
     <li>Attackers count skulls; defenders cancel them with shields. Heroes use white shields, monsters black.</li>
-    <li>After the heroes, the Deck turns a card and the monsters act.</li>
+    <li>After the heroes comes the monsters' turn. A banner on the board says what kind of turn it is and what the monsters will do.</li>
     <li>Heroes are cyan, and the one whose turn it is turns gold with an arrow over it. Monsters are red, the Warlock magenta, the stairs pale blue.</li>
   </ul>
   </details>
@@ -141,6 +141,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>You may pass through other heroes but not through monsters, and may not stop on an occupied square.</li>
       <li>One action per turn. Act before you move or after, not in the middle: acting after you have moved ends your movement.</li>
       <li>Opening a door and drinking a potion are free.</li>
+      <li>To open a door a hero must stand on the square in front of it. A hero cannot open a door past a friend who is standing there: the friend opens it on their own turn, and after that others may walk through them.</li>
       <li>Your two movement dice and the moves you have left are shown under the board.</li>
       <li>UNDO MOVE takes back the last walk, as long as it sprang no trap and brought no new monster into view. Dice, doors, searches and spells cannot be undone.</li>
       <li>A lone hero gets two actions each turn.</li>
@@ -166,16 +167,17 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>FIREBOLT: 2 damage to a monster in sight. It rolls one die to block.</li>
       <li>MEND: restores 4 body to any hero.</li>
       <li>SWIFT: roll your movement again and add it.</li>
-      <li>SLUMBER: a monster in sight sleeps. It cannot act or defend, and each Deck turn has an even chance to wake. The Warlock is immune.</li>
+      <li>SLUMBER: a monster in sight sleeps. It cannot act or defend, and each monsters' turn it has an even chance to wake. The Warlock is immune.</li>
       <li>STONE SKIN: a hero gets 2 extra defend dice until next wounded.</li>
     </ul>
-    <h2>THE DECK</h2>
+    <h2>THE MONSTERS' TURN</h2>
     <ul>
-      <li>After the last hero, one card is turned from a deck of playing cards.</li>
-      <li>2 to 10: a normal turn. A monster beside a hero attacks the weakest one. A monster that can reach a hero moves and attacks the nearest. Others hold their room. Monsters never open doors.</li>
-      <li>Face card: a cunning turn. Every monster that can goes for the hero with the least body. Those that cannot reach fall back to guard the quest room.</li>
-      <li>Ace: a wandering monster appears at the open door farthest from the heroes, then a normal turn follows. Wanderers hunt you.</li>
-      <li>The deck is built for the party: 36 number cards always, with 12 face cards and 2 aces for four heroes, 8 and 2 for three, 4 and 1 for two, 2 and 1 for one.</li>
+      <li>There is no player for the monsters. After the last hero has moved, the game takes one turn for all of them. A banner on the board names the kind of turn, and the log lists every move and roll.</li>
+      <li>Only monsters you have uncovered act. Those behind closed doors wait. Monsters never open doors.</li>
+      <li>NORMAL turn, the usual one: a monster beside a hero attacks the weakest hero beside it. A monster that can reach a hero this turn moves and attacks the nearest. The rest hold their room.</li>
+      <li>CUNNING turn: every monster that can reach the hero with the least body goes for that hero. Monsters that cannot reach anyone fall back to guard the quest room.</li>
+      <li>REINFORCEMENTS: a wandering monster appears at the open door farthest from the heroes, then a normal turn follows. Wanderers do not hold a room; they hunt you.</li>
+      <li>How often each comes up depends on the party. With four heroes about 1 turn in 4 is cunning and 1 in 25 brings reinforcements. With one hero about 1 in 20 is cunning and 1 in 40 brings reinforcements.</li>
       <li>Fewer heroes also means fewer monsters, a potion each for parties of two or one, and two actions a turn for a lone hero.</li>
     </ul>
     <h2>SAVING</h2>
@@ -394,11 +396,12 @@ async function cast(k,target){
     say(`${h.n}'S FIREBOLT HITS ${MON[target.t].n} FOR ${dmg}.`,dmg?'good':'');target.b-=dmg;target.last=S.turn;if(target.b<=0)slain(target);busy=false}
   if(mode==='play')render();
 }
-/* ---------- the Deck and the monsters ---------- */
+/* ---------- the monsters' turn: a hidden shuffled deck sets how often each kind comes up ---------- */
 function draw1(){if(!S.deck.length){for(let i=0;i<36;i++)S.deck.push('N');for(let i=0;i<FACES[S.nh];i++)S.deck.push('F');for(let i=0;i<ACES[S.nh];i++)S.deck.push('A');shuf(S.deck)}return S.deck.pop()}
 async function deckTurn(){
-  busy=true;S.turn=-1;dice=null;const card=draw1(),names={N:String(rnd(2,10)),F:['JACK','QUEEN','KING'][ri(3)],A:'ACE'};S.card=names[card];
-  say(card==='N'?`THE DECK: ${S.card}. THE MONSTERS ACT.`:card==='F'?`THE DECK: ${S.card}. A CUNNING TURN: THEY GO FOR THE WEAKEST.`:'THE DECK: ACE. A WANDERER COMES.',card==='N'?'deck':'bad');sfx(card==='N'?'sel':'warn');render();await pause(650);
+  busy=true;S.turn=-1;dice=null;const card=draw1(),names={N:'NORMAL',F:'CUNNING',A:'REINFORCED'};S.card=names[card];
+  S.ban=card==='N'?['MONSTERS\' TURN','EACH ATTACKS THE NEAREST HERO IT CAN REACH']:card==='F'?['CUNNING TURN','THE MONSTERS GO FOR THE WEAKEST HERO']:['REINFORCEMENTS','A WANDERING MONSTER ARRIVES, THEN THE MONSTERS ACT'];
+  say(card==='N'?"MONSTERS' TURN: EACH ATTACKS THE NEAREST HERO IT CAN REACH.":card==='F'?"MONSTERS' TURN, CUNNING: THEY ALL GO FOR THE WEAKEST HERO.":"MONSTERS' TURN, REINFORCEMENTS: A WANDERER ARRIVES.",card==='N'?'deck':'bad');sfx(card==='N'?'sel':'warn');render();await pause(1300);
   if(card==='A'){
     const hs=liveH(),far=c=>Math.min(...hs.map(h=>Math.abs(X(c)-X(h.cell))+Math.abs(Y(c)-Y(h.cell))));let cand=[];
     for(const k in S.doors){const d=S.doors[k];if(d.open)for(const c of [d.a,d.b])if(!monAt(c)&&!heroAt(c))cand.push(c)}
@@ -424,7 +427,7 @@ async function deckTurn(){
     if(cunning&&S.reg[m.cell]!==S.goalRoom&&!m.wander){const g=flood(m.cell,99,c=>!!monAt(c)||!!heroAt(c));let bn=999;for(let c=0;c<NC;c++)if(S.reg[c]===S.goalRoom&&g.d[c]>0&&g.d[c]<bn){bn=g.d[c];dest=c}if(dest>=0){const p=pathTo(g,dest).slice(0,T.mv);await go(p)}}
     else if(m.wander||S.reg[m.cell]!==m.home){const g=flood(m.cell,99,c=>!!monAt(c)||!!heroAt(c));let bn=999;for(const h of hs)for(const s of D4){if(!inb(h.cell,s))continue;const c=h.cell+s;if(g.d[c]>0&&g.d[c]<bn&&open(c,h.cell)){bn=g.d[c];dest=c}}if(dest>=0)await go(pathTo(g,dest).slice(0,T.mv))}
   }
-  busy=false;if(mode!=='play')return;if(!liveH().length)return lose();
+  S.ban=null;busy=false;if(mode!=='play')return;if(!liveH().length)return lose();
   S.round++;dice=null;save();S.turn=-1;nextHero();
 }
 function win(){mode='won';wipe();sfx('win');show([['QUEST WON','big'],[S.q.type==='slay'?'The Warlock is dead.':S.q.type==='rescue'?'The captive is safe.':'The relic is yours.'],[`${S.round} rounds. ${liveH().length} of ${S.nh} alive. ${S.gold} gold. ${S.kills} kills.`]]);render()}
@@ -523,6 +526,7 @@ function draw(){
   /* near edges of the board */
   ctx.strokeStyle=FG;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(iX(0,0),iY(0,0));ctx.lineTo(iX(BW,0),iY(BW,0));ctx.lineTo(iX(BW,BH),iY(BW,BH));ctx.lineTo(iX(0,BH),iY(0,BH));ctx.closePath();ctx.stroke();
   ctx.restore();
+  if(S.ban&&mode==='play'&&S.turn<0){const [t1,t2]=S.ban,bad=t1!=="MONSTERS' TURN",col=bad?'#ff6b6b':FG;ctx.font='bold 9px "Courier New",monospace';const w=Math.min(W-12,Math.max(190,ctx.measureText(t2).width+16));ctx.fillStyle='rgba(0,0,0,.88)';ctx.fillRect(W/2-w/2,VH-50,w,44);ctx.strokeStyle=col;ctx.lineWidth=2;ctx.strokeRect(W/2-w/2+1,VH-49,w-2,42);text(t1,W/2,VH-30,col,'center',16);text(t2,W/2,VH-14,col,'center',W<340?8:9)}
   ctx.fillStyle='#000';ctx.fillRect(0,VH,W,Hh-VH);ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,VH+.5);ctx.lineTo(W,VH+.5);ctx.stroke();
   const sy=VH+4;
   if(dice){const s=Math.min(26,STRIP-10);text(dice.t,4,sy+12,FG,'left',10);let x=4;dice.A.forEach(v=>{die(x,sy+15,s-4,v,v<3);x+=s});text('VS',x+2,sy+30,FG,'left',9);x+=20;dice.D.forEach(v=>{die(x,sy+15,s-4,v,dice.heroDef?(v===3||v===4):v===5);x+=s});text(dice.dmg?`${dice.dmg} DAMAGE`:'BLOCKED',W-4,sy+30,dice.dmg?'#ff6b6b':'#8fd9a0','right',12)}
@@ -531,7 +535,7 @@ function draw(){
     else if(h){text(`${h.n} ROLLED`,4,sy+12,FG,'left',10);let x=4;for(const v of S.md||[]){pips(x,sy+16,22,v);x+=26}
       x=Math.max(x+10,118);text('MOVES LEFT',x,sy+12,FG,'left',10);text(String(S.mv),x,sy+36,S.mv?'#fff':'#ff6b6b','left',24);
       text(S.nh===1?'ACTIONS':'ACTION',W-4,sy+12,FG,'right',10);text(S.acts>0?(S.nh===1?String(S.acts):'READY'):'USED',W-4,sy+34,S.acts>0?'#8fd9a0':'#ff6b6b','right',16)}
-    else text('THE DECK IS PLAYING',4,sy+24,FG,'left',12);
+    else text("MONSTERS' TURN",4,sy+24,FG,'left',12);
   }
 }
 function render(){draw();drawStatus();ui();if(mode==='play'&&!blinkT)blinkT=setInterval(()=>{if(mode==='play'&&!busy)draw();else if(mode!=='play'){clearInterval(blinkT);blinkT=0}},350)}
@@ -541,7 +545,7 @@ const mkE=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className
 let prevS={},flashT={},stT=0;
 function drawStatus(){
   const st=$('stat');st.textContent='';const grp=(name,on)=>{const e=mkE('div','grp'+(on?' on':''));if(name)e.appendChild(mkE('span','gl',name));st.appendChild(e);return e};
-  if(!S||mode==='title'||mode==='pick'){grp().appendChild(mkE('span','it',mode==='pick'?'TAP A HERO TO ADD OR DROP. ONE TO FOUR.':'FOUR HEROES, ONE DECK, A NEW CRYPT EVERY TIME'));return}
+  if(!S||mode==='title'||mode==='pick'){grp().appendChild(mkE('span','it',mode==='pick'?'TAP A HERO TO ADD OR DROP. ONE TO FOUR.':'ONE TO FOUR HEROES, A NEW CRYPT EVERY TIME'));return}
   const now=Date.now();let again=false;
   const it=(g,k,label,val,num,cls,bar)=>{val=String(val);const p=prevS[k];if(p&&p.val!==val)flashT[k]={until:now+700,dUntil:now+1900,d:typeof num==='number'&&typeof p.num==='number'?num-p.num:0};prevS[k]={val,num};
     const f=flashT[k],e=mkE('span','it'+(cls?' '+cls:'')+(f&&now<f.until?' flash':''));if(label)e.appendChild(mkE('span','lab',label));e.appendChild(mkE('span','val',val));
@@ -550,7 +554,7 @@ function drawStatus(){
   S.heroes.forEach((h,i)=>{const g=grp(h.n,i===S.turn&&mode==='play');if(h.dead){g.appendChild(mkE('span','it hp','DEAD'));return}
     it(g,'b'+i,'BODY',`${h.b}/${h.mb}`,h.b,'hp'+(h.b<=2?' low':''),[h.b,h.mb]);it(g,'a'+i,'ATK',h.a,h.a);it(g,'d'+i,'DEF',h.d+(h.stone?'+2':''),h.d,h.stone?'shd':'');
     if(h.pot)it(g,'p'+i,'POTION',h.pot,h.pot,'fuel');if(h.sp.length)it(g,'s'+i,'SPELLS',h.sp.length,h.sp.length,'goal');if(S.q.holder===i)g.appendChild(mkE('span','it gold',S.q.type==='rescue'?'CAPTIVE':'RELIC'))});
-  const g=grp('QUEST');g.appendChild(mkE('span','it goal',QUEST[S.q.type]));it(g,'rd','ROUND',S.round,S.round);it(g,'gold','GOLD',S.gold,S.gold,'gold');if(S.card)it(g,'card','LAST CARD',S.card,0);
+  const g=grp('QUEST');g.appendChild(mkE('span','it goal',QUEST[S.q.type]));it(g,'rd','ROUND',S.round,S.round);it(g,'gold','GOLD',S.gold,S.gold,'gold');if(S.card)it(g,'card','MONSTERS LAST',S.card,0);
   clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
 }
 let pads=[];
@@ -559,11 +563,11 @@ function ui(){
   if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];e.textContent=lines[logN][0];lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
   const pad=$('pad');pad.textContent='';pads=[];
   const btn=(t,f,keys,dis,hot,span)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(span)e.classList.add('s'+span);if(dis||!f)e.disabled=true;else{e.onclick=()=>{wake();e.blur();f()};if(keys)pads.push({keys,f})}pad.appendChild(e)};
-  const toPick=()=>{mode='pick';show([['PICK YOUR HEROES','big'],['Fewer heroes means fewer monsters and a kinder Deck.']]);render()};
+  const toPick=()=>{mode='pick';show([['PICK YOUR HEROES','big'],['Fewer heroes means fewer monsters and fewer cunning turns.']]);render()};
   if(mode==='title'){btn('NEW QUEST',toPick,['n','Enter'],false,true);btn('CONTINUE',hasSave()?load:null,['c']);btn('·',null);return}
   if(mode==='pick'){HEROES.forEach((T,i)=>btn((pick[i]?'■ ':'□ ')+T.n,()=>{pick[i]=pick[i]?0:1;sfx('sel');render()},[String(i+1)],false,!!pick[i]));btn(`START WITH ${pick.filter(v=>v).length}`,newQuest,['Enter'],!pick.some(v=>v),false,2);return}
   if(mode!=='play'){btn('NEW QUEST',toPick,['n','Enter'],false,true,3);return}
-  if(busy||S.turn<0){btn('THE DECK IS PLAYING',null,null,true,false,3);return}
+  if(busy||S.turn<0){btn("MONSTERS' TURN",null,null,true,false,3);return}
   const h=H();
   if(aim){btn('CANCEL',()=>{aim=null;render()},['Escape'],false,true,3);return}
   if(menu==='spell'){[...new Set(h.sp)].forEach((k,i)=>{const n=h.sp.filter(v=>v===k).length;btn(SPELLS[k].n+(n>1?' x'+n:''),()=>{if(SPELLS[k].t==='self')cast(k,h);else{aim=k;render()}},[String(i+1)])});btn('BACK',()=>{menu='';render()},['Escape'],false,true);return}
@@ -584,7 +588,7 @@ addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;const k=
 let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
 try{const v=localStorage.getItem('cryptward.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length;const zv=localStorage.getItem('cryptward.zoom');if(zv!==null)zoom=+zv?1:0;const tv2=localStorage.getItem('cryptward.tilt');if(tv2!==null)tilt=clamp(+tv2||0,0,2)}catch(e){}
 setTone();setSnd();resize();
-show([['CRYPTWARD','big'],['Four heroes. One deck of cards.'],['A new crypt every quest.']]);
+show([['CRYPTWARD','big'],['One to four heroes. The crypt fights back.'],['A new crypt every quest.']]);
 render();
 </script>
 </body>
