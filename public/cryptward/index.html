@@ -11,7 +11,7 @@
 :root{
   --fg:#33ff66;          /* phosphor, set by the TONE key for the whole site */
   --bg:#000000;
-  --hp:#ff6b6b; --shd:#6fb1ff; --fuel:#8fd9a0; --gold:#ffd24a; --goal:#c58bff; --you:#5ff;
+  --hp:#ff9a9a; --shd:#9ccbff; --fuel:#a9f0b8; --gold:#ffdc6b; --goal:#dcbcff; --you:#7ff;
   --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
   --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
   color-scheme:dark;
@@ -33,9 +33,9 @@ canvas{display:block;width:100%}
 #stat{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.4;display:grid;gap:3px;font-variant-numeric:tabular-nums}
 #stat .grp{display:flex;flex-wrap:wrap;align-items:center;gap:1px 10px;padding-top:3px;border-top:1px dotted var(--fg)}
 #stat .grp:first-child{border-top:0;padding-top:0}
-#stat .gl{font-size:10px;letter-spacing:.06em;opacity:.55;width:44px;flex:none}
+#stat .gl{font-size:10px;letter-spacing:.06em;opacity:.85;font-weight:700;width:44px;flex:none}
 #stat .it{--c:var(--fg);color:var(--c);padding:0 3px;white-space:nowrap}
-#stat .lab{opacity:.65;font-size:11px;margin-right:5px}
+#stat .lab{opacity:.9;font-size:11px;margin-right:5px}
 #stat .val{font-weight:700}
 #stat .dl{font-size:11px;font-weight:700;margin-left:5px}
 #stat .bar{display:inline-block;width:30px;height:7px;border:1px solid var(--c);margin-left:6px;vertical-align:middle}
@@ -46,7 +46,7 @@ canvas{display:block;width:100%}
 @keyframes blink{0%,24%{background:var(--c,var(--fg));color:var(--bg)}25%,49%{background:transparent;color:var(--c,var(--fg))}50%,74%{background:var(--c,var(--fg));color:var(--bg)}75%,100%{background:transparent;color:var(--c,var(--fg))}}
 @media (prefers-reduced-motion:reduce){#stat .flash,#log div.new{animation:none}}
 #log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:6em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
-#log .good{color:var(--fuel)}#log .bad{color:var(--hp)}#log .gold{color:var(--gold)}
+#log .good{color:var(--fuel)}#log .bad{color:var(--hp)}#log .gold{color:var(--gold)}#log .good,#log .bad,#log .gold,#log .deck{font-weight:700}
 #pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 #pad button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:46px;cursor:pointer}
 #pad button:active{background:var(--fg);color:var(--bg)}
