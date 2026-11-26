@@ -45,7 +45,8 @@ canvas{display:block;width:100%;height:100%;cursor:pointer}
 #log div{margin-bottom:3px;--c:var(--fg);color:var(--c)}
 #log div.q{--c:var(--say)}
 #inv button{--c:var(--fg)}
-#log div.new{animation:blink .6s steps(1) 1}
+#log div.new{animation:pulse .7s ease-out 1}
+@keyframes pulse{0%{opacity:.2}60%{opacity:1}80%{opacity:.6}100%{opacity:1}}
 @keyframes blink{0%,24%{background:var(--c);color:var(--bg)}25%,49%{background:transparent;color:var(--c)}50%,74%{background:var(--c);color:var(--bg)}75%,100%{background:transparent;color:var(--c)}}
 @media (prefers-reduced-motion:reduce){#log div.new,#inv button.new{animation:none}}
 #more{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}

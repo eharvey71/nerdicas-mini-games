@@ -42,8 +42,8 @@ canvas{display:block;width:100%}
 #stat .bar i{display:block;height:100%;background:var(--c)}
 #stat .hp{--c:var(--hp)}#stat .shd{--c:var(--shd)}#stat .fuel{--c:var(--fuel)}#stat .gold{--c:var(--gold)}#stat .goal{--c:var(--goal)}
 #stat .low{outline:1px solid var(--c)}
-#stat .flash,#log div.new{animation:blink .6s steps(1) 1}
-@keyframes blink{0%,24%{background:var(--c,var(--fg));color:var(--bg)}25%,49%{background:transparent;color:var(--c,var(--fg))}50%,74%{background:var(--c,var(--fg));color:var(--bg)}75%,100%{background:transparent;color:var(--c,var(--fg))}}
+#stat .flash{animation:pulse 1s ease-out 1}#log div.new{animation:pulse .7s ease-out 1}
+@keyframes pulse{0%{opacity:.2}60%{opacity:1}80%{opacity:.6}100%{opacity:1}}#stat .dl.up{color:#a9f0b8}#stat .dl.dn{color:#ff9a9a}
 @media (prefers-reduced-motion:reduce){#stat .flash,#log div.new{animation:none}}
 #log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:6em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
 #log .good{color:var(--fuel)}#log .bad{color:var(--hp)}#log .gold{color:var(--gold)}
@@ -619,7 +619,7 @@ function drawStatus(){
     const f=flashT[k],e=mkE('span','it'+(cls?' '+cls:'')+(f&&now<f.until?' flash':''));
     e.appendChild(mkE('span','lab',label));e.appendChild(mkE('span','val',val));
     if(bar){const b=mkE('span','bar'),i=mkE('i');i.style.width=clamp(Math.round(bar[0]/Math.max(1,bar[1])*100),0,100)+'%';b.appendChild(i);e.appendChild(b)}
-    if(f&&now<f.dUntil&&f.d)e.appendChild(mkE('span','dl',(f.d>0?'+':'−')+Math.abs(f.d)));
+    if(f&&now<f.dUntil&&f.d){const kk=String(k).replace(/\d+$/,''),gd=['day','due','cargo','fl'].includes(kk)?0:(f.d>0)!==['debt'].includes(kk)?1:-1;e.appendChild(mkE('span','dl'+(gd>0?' up':gd<0?' dn':''),(f.d>0?'+':'−')+Math.abs(f.d)))}
     if(f&&now<f.dUntil)again=true;
     G.appendChild(e);
   };

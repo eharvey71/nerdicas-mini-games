@@ -45,10 +45,8 @@ canvas{display:block;image-rendering:pixelated;image-rendering:crisp-edges;curso
 #log div{white-space:pre-wrap}
 #log div.roll{padding-left:1.2em;text-indent:-1.2em}
 #log .pc{font-weight:700;color:var(--pc)}
-#log div.new{animation:logblink .6s steps(1) 1}
-#log div.new .pc{animation:logblinkpc .6s steps(1) 1}
-@keyframes logblink{0%,24%{background:var(--fg);color:var(--bg)}25%,49%{background:transparent;color:var(--fg)}50%,74%{background:var(--fg);color:var(--bg)}75%,100%{background:transparent;color:var(--fg)}}
-@keyframes logblinkpc{0%,24%{color:var(--bg)}25%,49%{color:var(--pc)}50%,74%{color:var(--bg)}75%,100%{color:var(--pc)}}
+#log div.new{animation:pulse .7s ease-out 1}
+@keyframes pulse{0%{opacity:.2}60%{opacity:1}80%{opacity:.6}100%{opacity:1}}
 @media (prefers-reduced-motion:reduce){#log div.new,#log div.new .pc{animation:none}}
 #pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
 #pad button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:46px;cursor:pointer}
