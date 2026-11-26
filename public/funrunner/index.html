@@ -222,7 +222,7 @@ function whoosh(){
   if(!vol||!actx||!nbuf)return;
   try{const t=actx.currentTime,src=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();src.buffer=nbuf;f.type='bandpass';f.Q.value=1.1;
     f.frequency.setValueAtTime(260,t);f.frequency.exponentialRampToValueAtTime(2400,t+.28);f.frequency.exponentialRampToValueAtTime(420,t+.8);
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.3*VM[vol],t+.14);g.gain.linearRampToValueAtTime(0,t+.8);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.12*VM[vol],t+.14);g.gain.linearRampToValueAtTime(0,t+.8);
     src.connect(f);f.connect(g);g.connect(actx.destination);src.start(t);src.stop(t+.85)}catch(e){}
 }
 function setSnd(){$('snd').textContent=['SOUND OFF','SOUND LOW','SOUND HIGH'][vol]}
