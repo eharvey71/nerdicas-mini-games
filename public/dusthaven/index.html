@@ -54,7 +54,12 @@ canvas{display:block;width:100%}
 #pad button:disabled{border-style:dotted;opacity:.35;cursor:default}
 #pad button.hot{background:var(--fg);color:var(--bg)}
 #pad .strip{grid-column:span 3;display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x}#pad .strip::-webkit-scrollbar{display:none}
-#pad .strip button{flex:0 0 29%}
+#pad .strip button{flex:0 0 29%}#pad .strip.fit button{flex:1 1 0;min-width:0}
+#pad .stripw{grid-column:span 3;position:relative}
+#pad .stripw .arr{position:absolute;top:0;bottom:0;width:26px;min-height:0;padding:0;border:0;font-size:13px;color:var(--fg);background:linear-gradient(90deg,#000 55%,transparent)}
+#pad .stripw .arr.r{right:0;background:linear-gradient(270deg,#000 55%,transparent)}#pad .stripw .arr.l{left:0}
+#pad .stripw .arr[hidden]{display:none}
+#app.play #help:not([open]){display:none}
 #pad .s2{grid-column:span 2}#pad .s3{grid-column:span 3}
 #pad .note{grid-column:span 3;font-size:12px;line-height:1.35;border-bottom:1px dotted var(--fg);padding:0 0 4px}
 #pad .row{grid-column:span 3;display:grid;grid-template-columns:1fr 62px 62px;gap:6px;align-items:stretch}
@@ -147,7 +152,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>Build on open dust. Rock and craters cannot be built on.</li>
       <li>A building only works if it is linked to the lander: through tubes, or by standing next to another linked building or tube. Diagonals do not link.</li>
       <li>Costs are paid at once. Every building also costs upkeep each month.</li>
-      <li>UNDO refunds anything placed this month. CLEAR removes a building or tube for good, with no refund.</li>
+      <li>UNDO refunds anything placed this month. REMOVE takes away a building or tube for good, with no refund.</li>
     </ul>
     <h2>THE BUILDINGS</h2>
     <ul>
@@ -295,7 +300,7 @@ function place(t,c,quiet){
   if(!quiet){sfx('build');render()}return true;
 }
 function undo(){const u=S.undo.pop();if(!u){sfx('no');return}if(u.t==='T'){S.tube[u.c]=0;S.cr+=TUBE}else{delete S.b[u.c];S.tube[u.c]=u.tube;S.cr+=DEF[u.t].cost}sfx('sel');say(`TOOK BACK THE ${u.t==='T'?'TUBE':DEF[u.t].n}.`);render()}
-function clearAt(c){if(c===S.hub){sfx('no');say('THE LANDER STAYS.','bad');return render()}if(S.b[c]){say(`${DEF[S.b[c].t].n} CLEARED.`);delete S.b[c]}else if(S.tube[c]){S.tube[c]=0;say('TUBE CLEARED.')}else{sfx('no');return}S.undo=S.undo.filter(u=>u.c!==c);sfx('boom');render()}
+function clearAt(c){if(c===S.hub){sfx('no');say('THE LANDER STAYS.','bad');return render()}if(S.b[c]){say(`${DEF[S.b[c].t].n} REMOVED.`);delete S.b[c]}else if(S.tube[c]){S.tube[c]=0;say('TUBE REMOVED.')}else{sfx('no');return}S.undo=S.undo.filter(u=>u.c!==c);sfx('boom');render()}
 function pay(){const n=Math.min(S.cr,S.debt);if(n<=0){sfx('no');return}S.cr-=n;S.debt-=n;sfx('get');say(`PAID ${n}. ${S.debt?S.debt+' STILL OWED.':'THE DEBT IS CLEAR.'}`,'gold');if(S.debt<=0)return win('The debt is paid. Dusthaven belongs to its people.');render()}
 function endMonth(){
   if(mode!=='play')return;const R=calc(),G=GOALS[S.goal];let dead=0,short=0;armed=-1;pick=-1;
@@ -389,7 +394,7 @@ function draw(){
   if(S.storm>0){ctx.fillStyle='#d9a066';for(let i=0;i<90;i++){const px=((i*97+now*.12*(1+i%3))%(W+40))-20,py=(i*53+Math.sin(now/700+i)*8)%VH;ctx.fillRect(px,py,3,1)}text('DUST STORM',W/2,VH-8,'#d9a066','center',12)}
   ctx.restore();
   ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,VH+.5);ctx.lineTo(W,VH+.5);ctx.stroke();
-  const tl=tool==='X'?'CLEAR: TAP A BUILDING OR TUBE TO REMOVE IT':tool==='T'?`TUBE, ${TUBE}: TAP SQUARES TO LAY IT`:tool?`${DEF[tool].n}, ${DEF[tool].cost}: TAP A SQUARE`:'TAP A SQUARE TO LOOK AT IT, OR PICK SOMETHING TO BUILD';
+  const tl=tool==='X'?'REMOVE: TAP A BUILDING OR TUBE TO TAKE IT AWAY':tool==='T'?`TUBE, ${TUBE}: TAP SQUARES TO LAY IT`:tool?`${DEF[tool].n}, ${DEF[tool].cost}: TAP A SQUARE`:'TAP A SQUARE TO LOOK AT IT, OR PICK SOMETHING TO BUILD';
   text(tl,4,VH+20,tool?'#ffe650':FG,'left',W<340?9:10);
 }
 let animT=0;
@@ -417,21 +422,25 @@ $('log').onclick=()=>{const lg=$('log');lg.classList.toggle('big');lg.scrollTop=
 function ui(){
   const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
   if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];if(lines[logN][2]&&!/hdr/.test(lines[logN][1]))e.appendChild(mkE('span','mo','M'+lines[logN][2]+' '));e.appendChild(document.createTextNode(lines[logN][0]));lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
-  const pad=$('pad');pad.textContent='';
+  const pad=$('pad');pad.textContent='';$('app').classList.toggle('play',mode==='play');
   const btn=(t,f,dis,hot,span,sel)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(sel)e.classList.add('sel');if(span)e.classList.add('s'+span);if(dis||!f)e.disabled=true;else e.onclick=()=>{wake();e.blur();f()};pad.appendChild(e)};
   const toGoal=()=>{mode='goal';show([['PICK A GOAL','big'],...Object.values(GOALS).map(g=>[g.n+': '+g.d])]);render()};
   if(mode==='title'){btn('NEW COLONY',toGoal,false,true);btn('CONTINUE',hasSave()?load:null);btn('·',null);return}
   if(mode==='goal'){for(const k in GOALS)btn(GOALS[k].n,()=>{gen(k);begin(false)});return}
   if(mode!=='play'){btn('NEW COLONY',toGoal,false,true,3);return}
   /* two side-scrolling rows of like with like: what keeps people alive, then the colony itself. The pad is rebuilt on every change, so each row's scroll position is kept. */
-  const strip=(i,keys)=>{const d=mkE('div','strip');d.onscroll=()=>{stripX[i]=d.scrollLeft};pad.appendChild(d);const top=pad;for(const t of keys){
-      if(t==='X')btn('CLEAR',()=>{tool=tool==='X'?'':'X';sfx('sel');render()},false,false,0,tool==='X');
-      else if(t==='N')btn(Date.now()<sure?'SURE?':'NEW COLONY',()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;wipe();toGoal()}});
-      else btn(t==='T'?`TUBE ${TUBE}`:`${DEF[t].n.replace(' ARRAY','').replace(' DOME','').replace(' PLANT','')} ${DEF[t].cost}`,()=>{tool=tool===t?'':t;armed=-1;sfx('sel');render()},false,false,0,tool===t);
-      d.appendChild(top.lastChild)}d.scrollLeft=stripX[i]};
-  strip(0,['S','R','A','W','F']);strip(1,['T','H','C','M','X','N']);
+  const strip=(i,keys)=>{const w=mkE('div','stripw'),d=mkE('div','strip'+(keys.length<5?' fit':'')),L=mkE('button','arr l','\u25C0'),Rr=mkE('button','arr r','\u25B6');L.type=Rr.type='button';L.setAttribute('aria-label','More to the left');Rr.setAttribute('aria-label','More to the right');
+    const mark=()=>{stripX[i]=d.scrollLeft;L.hidden=d.scrollLeft<4;Rr.hidden=d.scrollLeft>d.scrollWidth-d.clientWidth-4};d.onscroll=mark;
+    L.onclick=()=>d.scrollBy({left:-d.clientWidth*.7,behavior:'smooth'});Rr.onclick=()=>d.scrollBy({left:d.clientWidth*.7,behavior:'smooth'});
+    w.appendChild(d);w.appendChild(L);w.appendChild(Rr);pad.appendChild(w);
+    for(const t of keys){btn(t==='T'?`TUBE ${TUBE}`:`${DEF[t].n.replace(' ARRAY','').replace(' DOME','').replace(' PLANT','')} ${DEF[t].cost}`,()=>{tool=tool===t?'':t;armed=-1;sfx('sel');render()},false,false,0,tool===t);d.appendChild(pad.lastChild)}
+    d.scrollLeft=stripX[i];mark()};
+  strip(0,['S','R','A','W','F']);strip(1,['T','H','C','M']);
   btn('UNDO',undo,!S.undo.length);
   if(S.goal==='debt'){btn('PAY DEBT',pay,S.cr<1);btn('END MONTH',endMonth,false,true)}else btn('END MONTH',endMonth,false,true,2);
+  btn('HELP',()=>{const h=$('help');h.open=!h.open;if(h.open)h.scrollIntoView({block:'nearest',behavior:'smooth'})});
+  btn('REMOVE',()=>{tool=tool==='X'?'':'X';sfx('sel');render()},false,false,0,tool==='X');
+  btn(Date.now()<sure?'SURE?':'NEW COLONY',()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;wipe();toGoal()}});
 }
 let drag=null;
 const cellAt=e=>{const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,py=(e.clientY-r.top)*Hh/r.height;if(py>VH)return -1;const dx=(px-W/2+cam.x)/(tw/2),dy=(py-VH/2+cam.y)/(th/2),u=(dx+dy)/2,v=(dy-dx)/2,x=Math.floor(rot===0?u:rot===1?v:rot===2?N-u:N-v),y=Math.floor(rot===0?v:rot===1?N-u:rot===2?N-v:u);return x<0||y<0||x>=N||y>=N?-1:y*N+x};
