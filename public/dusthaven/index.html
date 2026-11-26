@@ -53,6 +53,8 @@ canvas{display:block;width:100%}
 #pad button:active{background:var(--fg);color:var(--bg)}
 #pad button:disabled{border-style:dotted;opacity:.35;cursor:default}
 #pad button.hot{background:var(--fg);color:var(--bg)}
+#pad .strip{grid-column:span 3;display:flex;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x}#pad .strip::-webkit-scrollbar{display:none}
+#pad .strip button{flex:0 0 29%}
 #pad .s2{grid-column:span 2}#pad .s3{grid-column:span 3}
 #pad .note{grid-column:span 3;font-size:12px;line-height:1.35;border-bottom:1px dotted var(--fg);padding:0 0 4px}
 #pad .row{grid-column:span 3;display:grid;grid-template-columns:1fr 62px 62px;gap:6px;align-items:stretch}
@@ -107,7 +109,8 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 #pad button.sel{background:#ffe650;color:#000;border-color:#ffe650}
 #stat .gl{width:52px}
 #stat .grp{gap:1px 8px}
-#log{height:5.6em}
+#log{height:9.8em}
+#log.big{height:16.8em}
 </style>
 </head>
 <body>
@@ -127,6 +130,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>Mines sit on ore (yellow) and earn credits. Ice wells sit on or beside ice (blue).</li>
       <li>END MONTH runs the colony: income, arrivals, and whatever the planet throws at you.</li>
       <li>UNDO takes back anything placed this month. A building marked ! is not working: tap it to see why.</li>
+      <li>The build buttons are two rows that slide sideways: supplies on top, the colony itself below. Tap the log to make it taller, and again to shrink it.</li>
     </ul>
   </details>
   <details id="how">
@@ -392,7 +396,7 @@ let animT=0;
 function render(){draw();drawStatus();ui();clearInterval(animT);if(mode==='play')animT=setInterval(()=>{if(mode==='play')draw()},S&&S.storm>0?90:400)}
 function show(rows){const m=$('msg');if(!rows){m.style.display='none';return}m.textContent='';for(const [t,c] of rows){if(!t)continue;const e=document.createElement('div');e.textContent=t;if(c)e.className=c;m.appendChild(e)}m.style.display='block'}
 const mkE=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
-let prevS={},flashT={},stT=0;
+let prevS={},flashT={},stT=0,stripX=[0,0];
 function drawStatus(){
   const st=$('stat');st.textContent='';const grp=name=>{const e=mkE('div','grp');if(name)e.appendChild(mkE('span','gl',name));st.appendChild(e);return e};
   if(!S||mode==='title'||mode==='goal'){grp().appendChild(mkE('span','it','A MINING OUTPOST ON A DEAD WORLD'));return}
@@ -409,6 +413,7 @@ function drawStatus(){
   if(S.storm>0)g.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)g.appendChild(mkE('span','it gold','STORM NEXT MONTH'));
   clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
 }
+$('log').onclick=()=>{const lg=$('log');lg.classList.toggle('big');lg.scrollTop=lg.scrollHeight};
 function ui(){
   const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
   if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];if(lines[logN][2]&&!/hdr/.test(lines[logN][1]))e.appendChild(mkE('span','mo','M'+lines[logN][2]+' '));e.appendChild(document.createTextNode(lines[logN][0]));lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
@@ -418,11 +423,15 @@ function ui(){
   if(mode==='title'){btn('NEW COLONY',toGoal,false,true);btn('CONTINUE',hasSave()?load:null);btn('·',null);return}
   if(mode==='goal'){for(const k in GOALS)btn(GOALS[k].n,()=>{gen(k);begin(false)});return}
   if(mode!=='play'){btn('NEW COLONY',toGoal,false,true,3);return}
-  for(const t of TOOLS)btn(t==='T'?`TUBE ${TUBE}`:`${DEF[t].n.replace(' ARRAY','').replace(' DOME','').replace(' PLANT','')} ${DEF[t].cost}`,()=>{tool=tool===t?'':t;armed=-1;sfx('sel');render()},false,false,0,tool===t);
-  btn('CLEAR',()=>{tool=tool==='X'?'':'X';sfx('sel');render()},false,false,0,tool==='X');btn('UNDO',undo,!S.undo.length);
-  if(S.goal==='debt')btn('PAY DEBT',pay,S.cr<1);else btn(Date.now()<sure?'SURE?':'NEW COLONY',()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;wipe();toGoal()}});
-  btn('END MONTH',endMonth,false,true,3);
-  if(S.goal==='debt')btn(Date.now()<sure?'SURE?':'NEW COLONY',()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;wipe();toGoal()}},false,false,3);
+  /* two side-scrolling rows of like with like: what keeps people alive, then the colony itself. The pad is rebuilt on every change, so each row's scroll position is kept. */
+  const strip=(i,keys)=>{const d=mkE('div','strip');d.onscroll=()=>{stripX[i]=d.scrollLeft};pad.appendChild(d);const top=pad;for(const t of keys){
+      if(t==='X')btn('CLEAR',()=>{tool=tool==='X'?'':'X';sfx('sel');render()},false,false,0,tool==='X');
+      else if(t==='N')btn(Date.now()<sure?'SURE?':'NEW COLONY',()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;wipe();toGoal()}});
+      else btn(t==='T'?`TUBE ${TUBE}`:`${DEF[t].n.replace(' ARRAY','').replace(' DOME','').replace(' PLANT','')} ${DEF[t].cost}`,()=>{tool=tool===t?'':t;armed=-1;sfx('sel');render()},false,false,0,tool===t);
+      d.appendChild(top.lastChild)}d.scrollLeft=stripX[i]};
+  strip(0,['S','R','A','W','F']);strip(1,['T','H','C','M','X','N']);
+  btn('UNDO',undo,!S.undo.length);
+  if(S.goal==='debt'){btn('PAY DEBT',pay,S.cr<1);btn('END MONTH',endMonth,false,true)}else btn('END MONTH',endMonth,false,true,2);
 }
 let drag=null;
 const cellAt=e=>{const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,py=(e.clientY-r.top)*Hh/r.height;if(py>VH)return -1;const dx=(px-W/2+cam.x)/(tw/2),dy=(py-VH/2+cam.y)/(th/2),u=(dx+dy)/2,v=(dy-dx)/2,x=Math.floor(rot===0?u:rot===1?v:rot===2?N-u:N-v),y=Math.floor(rot===0?v:rot===1?N-u:rot===2?N-v:u);return x<0||y<0||x>=N||y>=N?-1:y*N+x};
