@@ -42,9 +42,10 @@ canvas{display:block;width:100%}
 #stat .bar i{display:block;height:100%;background:var(--c)}
 #stat .hp{--c:var(--hp)}#stat .shd{--c:var(--shd)}#stat .fuel{--c:var(--fuel)}#stat .gold{--c:var(--gold)}#stat .goal{--c:var(--goal)}
 #stat .low{outline:1px solid var(--c)}
-#stat .flash,#log div.new{animation:blink .6s steps(1) 1}
-@keyframes blink{0%,24%{background:var(--c,var(--fg));color:var(--bg)}25%,49%{background:transparent;color:var(--c,var(--fg))}50%,74%{background:var(--c,var(--fg));color:var(--bg)}75%,100%{background:transparent;color:var(--c,var(--fg))}}
-@media (prefers-reduced-motion:reduce){#stat .flash,#log div.new{animation:none}}
+#stat .flash .val{animation:pulse 1s ease-out 1}#log div.new{animation:pulse .7s ease-out 1}
+#log .mo{opacity:.55}#stat .dl.up{color:var(--fuel)}#stat .dl.dn{color:var(--hp)}
+@keyframes pulse{0%{opacity:.2}60%{opacity:1}80%{opacity:.6}100%{opacity:1}}
+@media (prefers-reduced-motion:reduce){#stat .flash .val,#log div.new{animation:none}}
 #log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:6em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
 #log .good{color:var(--fuel)}#log .bad{color:var(--hp)}#log .gold{color:var(--gold)}
 #pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
@@ -249,7 +250,7 @@ const GOALS={charter:{n:'CHARTER',d:'Reach 60 colonists by the end of month 36.'
 const POPGOAL=60,DEBT=4000,HOLDPOP=20;
 let S=null,mode='title',tool='',lines=[],logN=-1,sure=0,armed=-1,pick=-1;
 const X=c=>c%N,Y=c=>(c/N)|0,inb=(c,d)=>{const n=c+d;return n>=0&&n<NC&&(Math.abs(d)===N||Y(n)===Y(c))};
-function say(t,c){lines.push([t,c||'']);if(lines.length>140){lines.splice(0,50);logN=-1}}
+function say(t,c){lines.push([t,c||'',S&&mode==='play'?S.month:0]);if(lines.length>140){lines.splice(0,50);logN=-1}}
 function gen(goal){
   for(let tries=0;tries<200;tries++){
     const ter=new Uint8Array(NC),blob=(t,n,sz)=>{for(let i=0;i<n;i++){let c=ri(NC);for(let k=0;k<sz;k++){ter[c]=t;const s=D4[ri(4)];if(inb(c,s))c+=s}}};
@@ -367,8 +368,11 @@ function draw(){
     if(t===ORE||t===ICE){ctx.fillStyle=t===ORE?'#ffd24a':'#9fd0ff';for(const [a,b] of [[-.22,0],[.2,-.12],[0,.2],[.05,-.25],[-.05,.02]])ctx.fillRect(sx+a*tw-1,sy+b*th-1,2.5,2.5)}
     if(t===PIT){ctx.strokeStyle=rgba(.6);ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(sx,sy,tw*.3,th*.3,0,0,7);ctx.stroke()}
     if(t===ROCK)late.push(()=>block(c,'','rk',.45,.34));
-    if(S.tube[c]||S.b[c])for(const s of D4){if(!inb(c,s))continue;const n=c+s;if(!(S.tube[n]||S.b[n]))continue;const ex=iX(X(n)+.5,Y(n)+.5),ey=iY(X(n)+.5,Y(n)+.5);ctx.strokeStyle=R.con[c]?FG:'#777';ctx.lineWidth=Math.max(2,tw*.12);ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo((sx+ex)/2,(sy+ey)/2);ctx.stroke()}
-    if(S.tube[c]){ctx.fillStyle=R.con[c]?FG:'#777';ctx.beginPath();ctx.ellipse(sx,sy,tw*.1,th*.1,0,0,7);ctx.fill()}
+    if(S.tube[c]||S.b[c]){ /* a pipe: dark rim, lit body, thin highlight. Grey glass when it is not linked to the lander. */
+      const on=R.con[c],ends=[];for(const s of D4){if(!inb(c,s))continue;const n=c+s;if(!(S.tube[n]||S.b[n]))continue;ends.push([(sx+iX(X(n)+.5,Y(n)+.5))/2,(sy+iY(X(n)+.5,Y(n)+.5))/2])}
+      const w=Math.max(4,tw*.17),pass=(wd,col,dy)=>{ctx.strokeStyle=ctx.fillStyle=col;ctx.lineWidth=wd;ctx.lineCap='butt';ctx.beginPath();for(const e of ends){ctx.moveTo(sx,sy+dy);ctx.lineTo(e[0],e[1]+dy)}ctx.stroke();if(S.tube[c]){ctx.beginPath();ctx.arc(sx,sy+dy,wd/2,0,7);ctx.fill()}};
+      if(ends.length||S.tube[c]){pass(w,on?`rgb(${HUES[hueI].map(v=>v*.4|0)})`:'#8d8d8d',0);pass(w*.66,on?FG:'#26282b',0);pass(Math.max(1,w*.14),on?'rgba(255,255,255,.75)':'rgba(230,230,230,.6)',-w*.17)}
+    }
     const b=S.b[c];
     if(b)late.push(()=>{const D=DEF[b.t],off=R.why[c];block(c,D.l,off?'zz':D.col,D.h);
       if(off&&bl)text('!',sx,sy-th*D.h-3,'#ff5a5a','center',Math.max(11,tw*.5));
@@ -377,9 +381,6 @@ function draw(){
   }
   ctx.strokeStyle=FG;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(iX(0,0),iY(0,0));ctx.lineTo(iX(N,0),iY(N,0));ctx.lineTo(iX(N,N),iY(N,N));ctx.lineTo(iX(0,N),iY(0,N));ctx.closePath();ctx.stroke();
   for(const f of late)f();
-  ctx.save();ctx.globalAlpha=.6;ctx.setLineDash([3,4]);ctx.lineWidth=Math.max(1.5,tw*.045);ctx.strokeStyle='#000';
-  for(const c of ORDER){if(!S.tube[c])continue;const sx=iX(X(c)+.5,Y(c)+.5),sy=iY(X(c)+.5,Y(c)+.5);for(const s of D4){if(!inb(c,s))continue;const n=c+s;if(!(S.tube[n]||S.b[n]))continue;const ex=iX(X(n)+.5,Y(n)+.5),ey=iY(X(n)+.5,Y(n)+.5);ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo((sx+ex)/2,(sy+ey)/2);ctx.stroke()}}
-  ctx.restore();
   if(S.storm>0){ctx.fillStyle='#d9a066';for(let i=0;i<90;i++){const px=((i*97+now*.12*(1+i%3))%(W+40))-20,py=(i*53+Math.sin(now/700+i)*8)%VH;ctx.fillRect(px,py,3,1)}text('DUST STORM',W/2,VH-8,'#d9a066','center',12)}
   ctx.restore();
   ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,VH+.5);ctx.lineTo(W,VH+.5);ctx.stroke();
@@ -398,7 +399,7 @@ function drawStatus(){
   const it=(g,k,label,val,num,cls,bar)=>{val=String(val);const p=prevS[k];if(p&&p.val!==val)flashT[k]={until:now+700,dUntil:now+1900,d:typeof num==='number'&&typeof p.num==='number'?Math.round((num-p.num)*10)/10:0};prevS[k]={val,num};
     const f=flashT[k],e=mkE('span','it'+(cls?' '+cls:'')+(f&&now<f.until?' flash':''));if(label)e.appendChild(mkE('span','lab',label));e.appendChild(mkE('span','val',val));
     if(bar){const b=mkE('span','bar'),i=mkE('i');i.style.width=clamp(Math.round(bar[0]/Math.max(1,bar[1])*100),0,100)+'%';b.appendChild(i);e.appendChild(b)}
-    if(f&&now<f.dUntil&&f.d)e.appendChild(mkE('span','dl',(f.d>0?'+':'−')+Math.abs(f.d)));if(f&&now<f.dUntil)again=true;g.appendChild(e)};
+    if(f&&now<f.dUntil&&f.d){const gd=k==='mo'||k==='crew'?0:(f.d>0)!==(k==='debt')?1:-1;e.appendChild(mkE('span','dl'+(gd>0?' up':gd<0?' dn':''),(f.d>0?'+':'−')+Math.abs(f.d)))}if(f&&now<f.dUntil)again=true;g.appendChild(e)};
   const R=calc(),sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v),G=GOALS[S.goal];
   let g=grp('PEOPLE');it(g,'pop','COLONISTS',`${S.pop}/${R.beds} BEDS`,S.pop,S.pop>R.beds?'hp low':'');it(g,'crew','IDLE CREW',R.crew,R.crew);it(g,'mor','MORALE',S.morale,S.morale,S.morale<40?'hp low':'',[S.morale,100]);
   g=grp('SUPPLY');it(g,'pw','POWER',sg(R.pw),R.pw,R.pw<0?'hp low':'gold');it(g,'air','AIR',sg(R.air),R.air,R.air<0?'hp low':'you');it(g,'wat','WATER',sg(R.wat),R.wat,R.wat<0?'hp low':'shd');it(g,'food','FOOD',`${S.food} (${sg(R.food)})`,S.food,S.food+R.food<0?'hp low':'fuel');
@@ -409,7 +410,7 @@ function drawStatus(){
 }
 function ui(){
   const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
-  if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];e.textContent=lines[logN][0];lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
+  if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];if(lines[logN][2])e.appendChild(mkE('span','mo','M'+lines[logN][2]+' '));e.appendChild(document.createTextNode(lines[logN][0]));lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
   const pad=$('pad');pad.textContent='';
   const btn=(t,f,dis,hot,span,sel)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(sel)e.classList.add('sel');if(span)e.classList.add('s'+span);if(dis||!f)e.disabled=true;else e.onclick=()=>{wake();e.blur();f()};pad.appendChild(e)};
   const toGoal=()=>{mode='goal';show([['PICK A GOAL','big'],...Object.values(GOALS).map(g=>[g.n+': '+g.d])]);render()};
