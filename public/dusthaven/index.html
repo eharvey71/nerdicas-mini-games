@@ -294,13 +294,36 @@ function canPlace(t,c){
   if(S.cr<DEF[t].cost)return `NOT ENOUGH CREDITS: ${DEF[t].n} COSTS ${DEF[t].cost}.`;
   return '';
 }
+/* Say what an action just did to the rest of the colony: which buildings stopped (and what took their crew or power),
+   which started again, and which supply has just gone short. `why` is the cause: {k:'place',b:type} | {k:'remove'} | {k:'undo'} | {k:'month'}. */
+let lastWhy={},lastSup=null;
+function snap(R){R=R||calc();lastWhy=Object.assign({},R.why);lastSup={air:R.air,wat:R.wat,food:S.food+R.food};return R}
+function report(why){
+  if(!lastSup)return snap();
+  const R=calc(),nb=why.k==='place'&&why.b!=='T'?DEF[why.b]:null,out=[];
+  for(const k in R.why){const c=+k,now=R.why[c],was=lastWhy[c],D=DEF[S.b[c].t],nm=D.n;
+    if(was===undefined){if(now&&now!=='BROKEN DOWN')out.push([`THE NEW ${nm} IS NOT WORKING: ${now==='NO CREW'?`IT NEEDS ${D.wk} CREW AND ${R.crew} ${R.crew===1?'IS':'ARE'} IDLE`:now==='NO POWER'?'THERE IS NOT ENOUGH POWER':now==='NOT LINKED TO THE LANDER'?'IT IS NOT LINKED TO THE LANDER YET':now}.`,'bad']);continue}
+    if(now===was)continue;
+    if(now==='NO CREW')out.push([`THE ${nm} HAS NO CREW NOW`+(nb&&nb.wk?`: THE NEW ${nb.n} TOOK ${nb.wk}.`:why.k==='month'?': TOO FEW COLONISTS TO RUN EVERYTHING.':why.k==='undo'||why.k==='remove'?': THE CREW WENT TO OTHER WORK.':'.'),'bad']);
+    else if(now==='NO POWER')out.push([`THE ${nm} HAS NO POWER NOW`+(nb&&nb.pw<0?`: THE NEW ${nb.n} USES ${-nb.pw}.`:why.k==='month'&&S.storm>0?': THE STORM HAS CUT SOLAR POWER.':': POWER IS SHORT.'),'bad']);
+    else if(now==='NOT LINKED TO THE LANDER')out.push([`THE ${nm} IS CUT OFF FROM THE LANDER.`,'bad']);
+    else if(!now&&was!=='BROKEN DOWN')out.push([`THE ${nm} IS WORKING AGAIN.`,'good']);
+  }
+  out.slice(0,5).forEach(o=>say(o[0],o[1]));if(out.length>5)say(`AND ${out.length-5} MORE CHANGES. TAP ANY BUILDING MARKED ! TO SEE WHY.`,'bad');
+  if(why.k!=='month'){ /* the month's own shortages are reported when people die of them */
+    if(R.air<0&&lastSup.air>=0)say(`AIR IS NOW SHORT BY ${-R.air}. PEOPLE WILL DIE AT THE END OF THE MONTH.`,'bad');
+    if(R.wat<0&&lastSup.wat>=0)say(`WATER IS NOW SHORT BY ${-R.wat}. PEOPLE WILL DIE AT THE END OF THE MONTH.`,'bad');
+    if(S.food+R.food<0&&lastSup.food>=0)say('THE FOOD STORE WILL NOW RUN OUT THIS MONTH.','bad');
+  }
+  snap(R);
+}
 function place(t,c,quiet){
   const no=canPlace(t,c);if(no){if(!quiet){sfx('no');say(no,'bad');render()}return false}
   if(t==='T'){S.tube[c]=1;S.cr-=TUBE;S.undo.push({c,t})}else{S.undo.push({c,t,tube:S.tube[c]});S.tube[c]=0;S.b[c]={t,broke:0};S.cr-=DEF[t].cost}
-  if(!quiet){sfx('build');render()}return true;
+  if(!quiet){sfx('build');report({k:'place',b:t});render()}return true;
 }
-function undo(){const u=S.undo.pop();if(!u){sfx('no');return}if(u.t==='T'){S.tube[u.c]=0;S.cr+=TUBE}else{delete S.b[u.c];S.tube[u.c]=u.tube;S.cr+=DEF[u.t].cost}sfx('sel');say(`TOOK BACK THE ${u.t==='T'?'TUBE':DEF[u.t].n}.`);render()}
-function clearAt(c){if(c===S.hub){sfx('no');say('THE LANDER STAYS.','bad');return render()}if(S.b[c]){say(`${DEF[S.b[c].t].n} REMOVED.`);delete S.b[c]}else if(S.tube[c]){S.tube[c]=0;say('TUBE REMOVED.')}else{sfx('no');return}S.undo=S.undo.filter(u=>u.c!==c);sfx('boom');render()}
+function undo(){const u=S.undo.pop();if(!u){sfx('no');return}if(u.t==='T'){S.tube[u.c]=0;S.cr+=TUBE}else{delete S.b[u.c];S.tube[u.c]=u.tube;S.cr+=DEF[u.t].cost}sfx('sel');say(`TOOK BACK THE ${u.t==='T'?'TUBE':DEF[u.t].n}.`);report({k:'undo'});render()}
+function clearAt(c){if(c===S.hub){sfx('no');say('THE LANDER STAYS.','bad');return render()}if(S.b[c]){say(`${DEF[S.b[c].t].n} REMOVED.`);delete S.b[c]}else if(S.tube[c]){S.tube[c]=0;say('TUBE REMOVED.')}else{sfx('no');return}S.undo=S.undo.filter(u=>u.c!==c);sfx('boom');report({k:'remove'});render()}
 function pay(){const n=Math.min(S.cr,S.debt);if(n<=0){sfx('no');return}S.cr-=n;S.debt-=n;sfx('get');say(`PAID ${n}. ${S.debt?S.debt+' STILL OWED.':'THE DEBT IS CLEAR.'}`,'gold');if(S.debt<=0)return win('The debt is paid. Dusthaven belongs to its people.');render()}
 function endMonth(){
   if(mode!=='play')return;const R=calc(),G=GOALS[S.goal];let dead=0,short=0;armed=-1;pick=-1;
@@ -323,7 +346,7 @@ function endMonth(){
   if(r()<.045*k){const t=others.concat([...Array(NC).keys()].filter(c=>S.tube[c]));if(t.length){const c=t[ri(t.length)];say(`A METEOR DESTROYS ${S.b[c]?'THE '+DEF[S.b[c].t].n:'A TUBE'}.`,'bad');delete S.b[c];S.tube[c]=0;S.ter[c]=PIT;sfx('boom')}}
   if(S.pop>8&&r()<.05*k){const n=Math.max(1,Math.round(S.pop*(R.cover>=1?.05:.15)));S.pop-=n;S.dead+=n;sfx('hurt');say(`AN OUTBREAK KILLS ${n}.${R.cover>=1?' THE CLINICS HELD IT BACK.':' A CLINIC NEAR EVERY HABITAT WOULD HAVE SAVED MOST.'}`,'bad')}
   if(r()<.06){S.cr+=150;sfx('get');say('A SUPPLY DROP: 150 CREDITS.','gold')}
-  S.undo=[];
+  S.undo=[];if(S.pop>0)report({k:'month'});
   if(S.pop<=0)return lose('NOBODY LEFT','The last colonist is gone. The dust takes Dusthaven back.');
   if(S.goal==='charter'&&S.pop>=POPGOAL)return win('Sixty colonists. The charter is granted.');
   if(S.month>=G.m){if(S.goal==='hold'&&S.pop>=HOLDPOP)return win('Forty-eight months. The relief ship is in orbit.');return lose('TIME IS UP',S.goal==='charter'?`Only ${S.pop} of ${POPGOAL} colonists. The charter lapses.`:S.goal==='debt'?`${S.debt} credits still owed. The company takes the colony.`:`Only ${S.pop} left. The relief ship finds too few to save the charter.`)}
@@ -336,13 +359,13 @@ function save(){try{localStorage.setItem('dusthaven.save',JSON.stringify(S,(k,v)
 function hasSave(){try{return !!localStorage.getItem('dusthaven.save')}catch(e){return false}}
 function wipe(){try{localStorage.removeItem('dusthaven.save')}catch(e){}}
 function load(){try{S=JSON.parse(localStorage.getItem('dusthaven.save'))}catch(e){S=null}if(!S)return;S.ter=Uint8Array.from(S.ter);S.tube=Uint8Array.from(S.tube);begin(true)}
-function begin(old){mode='play';tool='';lines=[];logN=-1;armed=-1;pick=-1;show(null);setZoom();say(old?`MONTH ${S.month} AT DUSTHAVEN.`:`GOAL: ${GOALS[S.goal].d.toUpperCase()}`,'gold');if(!old)say('THE LANDER KEEPS SIX ALIVE. TO GROW YOU NEED BEDS, THEN MORE AIR, WATER, FOOD AND POWER. FOOD RUNS OUT FIRST.');render()}
+function begin(old){lastSup=null;mode='play';tool='';lines=[];logN=-1;armed=-1;pick=-1;show(null);setZoom();say(old?`MONTH ${S.month} AT DUSTHAVEN.`:`GOAL: ${GOALS[S.goal].d.toUpperCase()}`,'gold');if(!old)say('THE LANDER KEEPS SIX ALIVE. TO GROW YOU NEED BEDS, THEN MORE AIR, WATER, FOOD AND POWER. FOOD RUNS OUT FIRST.');snap();render()}
 function tap(c){
   if(mode!=='play')return;const b=S.b[c];
   if(tool==='X')return clearAt(c);
   if(tool){if(place(tool,c))armed=-1;return}
   pick=c;const R=calc();
-  if(b&&b.broke){if(armed===c){if(S.cr<REPAIR){sfx('no');say('NOT ENOUGH CREDITS TO REPAIR.','bad')}else{S.cr-=REPAIR;b.broke=0;armed=-1;sfx('build');say(`${DEF[b.t].n} REPAIRED.`,'good')}}else{armed=c;say(`${DEF[b.t].n}: BROKEN DOWN. TAP IT AGAIN TO REPAIR FOR ${REPAIR}.`,'bad')}return render()}
+  if(b&&b.broke){if(armed===c){if(S.cr<REPAIR){sfx('no');say('NOT ENOUGH CREDITS TO REPAIR.','bad')}else{S.cr-=REPAIR;b.broke=0;armed=-1;sfx('build');say(`${DEF[b.t].n} REPAIRED.`,'good');report({k:'fix'})}}else{armed=c;say(`${DEF[b.t].n}: BROKEN DOWN. TAP IT AGAIN TO REPAIR FOR ${REPAIR}.`,'bad')}return render()}
   armed=-1;sfx('sel');
   if(b)say(`${DEF[b.t].n}: ${R.why[c]||'WORKING'}.`,R.why[c]?'bad':'');else if(S.tube[c])say(R.con[c]?'TUBE: LINKED.':'TUBE: NOT LINKED TO THE LANDER.',R.con[c]?'':'bad');
   else say(['OPEN DUST. GOOD TO BUILD ON.','SOLID ROCK.','ORE. A MINE CAN STAND HERE.','ICE. AN ICE WELL CAN STAND HERE OR BESIDE IT.','A CRATER.'][S.ter[c]]);
