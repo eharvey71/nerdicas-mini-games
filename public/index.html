@@ -167,6 +167,23 @@ const GAMES=[
      g.ink(2);g.line(128,10,152,10);g.line(152,10,147,6);g.line(152,10,147,14);
      g.ink(1);for(const x of [100,128,184,206]){const y=h(x);g.line(x,y,x,y-6);g.line(x-3,y-8,x+3,y-8);g.line(x-2,y-10,x+2,y-10);g.line(x-2,y-6,x+2,y-6)}
    }},
+  {slug:'funrunner',title:'F.U.N. RUNNER',
+   blurb:'A wireframe tunnel racer. Ride the walls, hit the boost pads, thread the gates and beat the clock through four random tunnels. Stars charge a shock ring that clears the way.',
+   tags:'RACER · 1 PLAYER · TOUCH OR KEYS',
+   art:(g,s)=>{
+     const ph=s?(s*4)%1:0,bend=s?Math.sin(s*.7)*1.1:.8,th=s?Math.sin(s*1.6)*1.1:.35,roll=Math.sin(th)*.35;
+     const C=z=>[140+bend*(z*z*.42-6),92],V=(z,a,r)=>{const c=C(z),k=96/z;return [c[0]+Math.sin(a-roll)*r*k,c[1]+Math.cos(a-roll)*r*k]},L=(p,q)=>g.line(p[0],p[1],q[0],q[1]);
+     let prev=null;
+     for(let i=9;i>=0;i--){const z=.75+i-ph;if(z<.7)continue;const rg=[];for(let j=0;j<12;j++)rg.push(V(z,(j+.5)*Math.PI/6,1));
+       for(let j=0;j<12;j++){L(rg[j],rg[(j+1)%12]);if(prev)L(prev[j],rg[j])}prev=rg}
+     {const rg=[];for(let j=0;j<12;j++)rg.push(V(.62,(j+.5)*Math.PI/6,1));for(let j=0;j<12;j++)L(prev[j],rg[j])}
+     /* a boost pad and a star coming up the tube */
+     {const z=4.2-((s*1.9)%3.4);if(z>.9){g.ink(2);const a=-.9,q=[V(z,a-.3,.97),V(z,a+.3,.97),V(z+.5,a+.3,.97),V(z+.5,a-.3,.97)];for(let i=0;i<4;i++)L(q[i],q[(i+1)%4]);L(q[0],V(z+.25,a,.97));L(q[1],V(z+.25,a,.97))}}
+     {const z=5-((s*1.9+1.6)%4);if(z>.9){g.ink(8);const a=.8,q=[V(z,a,.92),V(z,a-.08,.8),V(z,a,.68),V(z,a+.08,.8)];for(let i=0;i<4;i++)L(q[i],q[(i+1)%4])}}
+     /* the sled */
+     g.ink(7);{const z=1.55,n=V(z+.5,th,.94),l=V(z-.1,th-.2,.96),r=V(z-.1,th+.2,.96),t=V(z-.05,th,.8);L(n,l);L(l,r);L(r,n);L(n,t);L(t,l);L(t,r);
+       if(s){g.ink(9);const f=V(z-.25-.1*Math.abs(Math.sin(s*20)),th,.9);L(V(z-.1,th-.08,.92),f);L(f,V(z-.1,th+.08,.92))}}
+   }},
   {slug:'underdeck',title:'UNDERDECK',wip:true,
    blurb:'A first-person maze shooter. Five random floors of doors, rooms and wireframe guards. Find the keycard, reach the lift, and kill the Warden at the bottom.',
    tags:'SHOOTER · 1 PLAYER · TWIN STICK OR KEYS',

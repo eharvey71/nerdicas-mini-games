@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>F.U.N. Runner</title>
+<meta name="description" content="A wireframe tunnel racer. Ride the walls, hit the boost pads, dodge the gates and beat the clock through four random tunnels.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
+<style>
+/* layout: one phone-width column: the tunnel view, then three big touch keys (left, shock ring, right) or the menu */
+:root{
+  --fg:#33ff66;          /* phosphor, set by the TONE key for the whole site */
+  --bg:#000000;
+  --hp:#ff6b6b; --shd:#6fb1ff; --fuel:#8fd9a0; --gold:#ffd24a; --goal:#c58bff; --you:#5ff;
+  --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+body{display:flex;justify-content:center;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+#app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:6px;padding:8px 16px 12px}
+#app>*{flex-shrink:0}
+[hidden]{display:none!important}
+header{display:flex;align-items:center;gap:8px}
+h1{font-family:var(--font-display);font-size:13px;letter-spacing:.12em;margin:0;font-weight:700;flex:1;white-space:nowrap}
+.mini{font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:4px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.mini:active{background:var(--fg);color:var(--bg)}
+#view{position:relative;border:2px solid var(--fg);width:100%;background:var(--bg);line-height:0;touch-action:manipulation}
+canvas{display:block;width:100%;touch-action:none}
+#msg{position:absolute;left:0;right:0;margin:0 auto;top:50%;transform:translateY(-50%);width:max-content;max-width:92%;display:none;text-align:center;background:var(--bg);border:2px solid var(--fg);box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--fg);padding:10px 18px;font-size:13px;line-height:1.5}
+#msg .big{font-family:var(--font-display);font-size:24px;font-weight:700;letter-spacing:.14em;line-height:1.3}
+#stat{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.4;display:grid;gap:3px;font-variant-numeric:tabular-nums}
+#stat .grp{display:flex;flex-wrap:wrap;align-items:center;gap:1px 10px;padding-top:3px;border-top:1px dotted var(--fg)}
+#stat .grp:first-child{border-top:0;padding-top:0}
+#stat .gl{font-size:10px;letter-spacing:.06em;opacity:.55;width:44px;flex:none}
+#stat .it{--c:var(--fg);color:var(--c);padding:0 3px;white-space:nowrap}
+#stat .lab{opacity:.65;font-size:11px;margin-right:5px}
+#stat .val{font-weight:700}
+#stat .dl{font-size:11px;font-weight:700;margin-left:5px}
+#stat .bar{display:inline-block;width:30px;height:7px;border:1px solid var(--c);margin-left:6px;vertical-align:middle}
+#stat .bar i{display:block;height:100%;background:var(--c)}
+#stat .hp{--c:var(--hp)}#stat .shd{--c:var(--shd)}#stat .fuel{--c:var(--fuel)}#stat .gold{--c:var(--gold)}#stat .goal{--c:var(--goal)}
+#stat .low{outline:1px solid var(--c)}
+#stat .flash,#log div.new{animation:blink .6s steps(1) 1}
+@keyframes blink{0%,24%{background:var(--c,var(--fg));color:var(--bg)}25%,49%{background:transparent;color:var(--c,var(--fg))}50%,74%{background:var(--c,var(--fg));color:var(--bg)}75%,100%{background:transparent;color:var(--c,var(--fg))}}
+@media (prefers-reduced-motion:reduce){#stat .flash,#log div.new{animation:none}}
+#log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:6em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+#log .good{color:var(--fuel)}#log .bad{color:var(--hp)}#log .gold{color:var(--gold)}
+#pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#pad button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:46px;cursor:pointer}
+#pad button:active{background:var(--fg);color:var(--bg)}
+#pad button:disabled{border-style:dotted;opacity:.35;cursor:default}
+#pad button.hot{background:var(--fg);color:var(--bg)}
+#pad .s2{grid-column:span 2}#pad .s3{grid-column:span 3}
+#pad .note{grid-column:span 3;font-size:12px;line-height:1.35;border-bottom:1px dotted var(--fg);padding:0 0 4px}
+#pad .row{grid-column:span 3;display:grid;grid-template-columns:1fr 62px 62px;gap:6px;align-items:stretch}
+#pad .row.one{grid-template-columns:1fr 130px}
+#pad .row .rn{font-size:12px;line-height:1.35;align-self:center;font-variant-numeric:tabular-nums}
+#pad .row b{font-size:13px}
+#pad .row .pr{color:var(--gold);font-weight:700}
+#pad .row .up{color:var(--fuel)}#pad .row .dn{color:var(--hp)}
+#pad .row small{font-size:11px;opacity:.75}
+#pad .row button{padding:6px 2px;min-height:44px}
+#fly{display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:center;touch-action:none}
+#stick{width:140px;height:140px;border:2px solid var(--fg);border-radius:50%;position:relative;touch-action:none;cursor:pointer}
+#stick::before{content:"";position:absolute;inset:38%;border:1px dotted var(--fg);border-radius:50%}
+#nub{position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px;border-radius:50%;background:var(--fg);opacity:.85;pointer-events:none}
+#fbtn{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#fbtn button{font:inherit;font-size:14px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;min-height:88px;cursor:pointer;touch-action:none}
+#fbtn button.on{background:var(--fg);color:var(--bg)}
+#fbtn button:disabled{border-style:dotted;opacity:.35}
+#fbtn #inv,#fbtn #pace{min-height:40px;font-size:11px;touch-action:manipulation}
+button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashed var(--fg);outline-offset:2px}
+#quick{margin:0;padding:0 0 0 1.3em;font-size:12px;line-height:1.45}
+#quick li{margin-bottom:2px}
+#help{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#help summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#help summary::-webkit-details-marker{display:none}
+#help summary::after{content:"  +"}
+#help[open] summary::after{content:"  \2212"}
+#help[open] summary{border-bottom:2px solid var(--fg)}
+#help #quick{margin:8px 10px}
+#how{border:2px solid var(--fg);font-size:12px;line-height:1.45}
+#how summary{list-style:none;cursor:pointer;text-align:center;font-size:13px;font-weight:700;letter-spacing:.04em;padding:12px 2px}
+#how summary::-webkit-details-marker{display:none}
+#how summary::after{content:"  +"}
+#how[open] summary::after{content:"  \2212"}
+#how[open] summary{border-bottom:2px solid var(--fg)}
+#how h2{font-size:12px;letter-spacing:.1em;margin:10px 10px 2px;border-bottom:1px dotted var(--fg)}
+#how p,#how ul{margin:4px 10px 6px}
+#how ul{padding-left:1.3em}
+#how li{margin-bottom:2px}
+#pad{min-height:60px;align-content:start}
+#ctl{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;touch-action:none}
+#ctl button{font:inherit;font-size:15px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;min-height:96px;cursor:pointer;touch-action:none}
+#ctl button.on,#ctl #wave:active{background:var(--fg);color:var(--bg)}
+#ctl #wave{border-color:#fff;color:#fff;white-space:pre-line;font-size:13px;line-height:1.5}#ctl #wave.off{border-style:dotted;opacity:.4}
+#opts{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+#opts .mini{padding:10px 4px;font-size:12px;text-align:center}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>F.U.N. RUNNER</h1><button class="mini" id="pause" type="button" hidden>PAUSE</button><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <div id="view"><canvas id="cv" width="320" height="200"></canvas><div id="msg"></div></div>
+  <div id="ctl" hidden><button id="left" type="button">&#9664; LEFT</button><button id="wave" type="button">SHOCK RING</button><button id="right" type="button">RIGHT &#9654;</button></div>
+  <div id="pad"></div>
+  <div id="opts"><button class="mini" id="steer" type="button">STEER: MEDIUM</button><button class="mini" id="quit" type="button" hidden>RESTART</button></div>
+  <details id="help">
+    <summary>HELP</summary>
+    <ul id="quick">
+      <li>Your sled goes by itself. You only steer, left and right, round the inside of the tunnel.</li>
+      <li>Reach the white ring at the end before TIME runs out. Four tunnels win the league.</li>
+      <li>Gold pads boost you hard for two seconds, and while boosting you smash through blocks and purple sleds. Gates still stop you.</li>
+      <li>On bends, ride the blue line high on the outside wall for extra speed.</li>
+      <li>Pink blocks and gates and purple sleds cost you speed. Gates have one gap, marked in gold.</li>
+      <li>Five cyan stars charge a SHOCK RING. It clears everything pink, purple or orange just ahead.</li>
+      <li>Open-air stretches have no roof. Stay below the white rim or you lose speed.</li>
+      <li>The white tick on the bar at the top is the clock. Stay ahead of it.</li>
+    </ul>
+  </details>
+  <details id="how">
+    <summary>ALL THE RULES</summary>
+    <h2>THE GOAL</h2>
+    <ul>
+      <li>A league is four heats. Each heat is a new tunnel, built from sections in a random order.</li>
+      <li>Finish a heat before the clock reaches zero. Run out of time and the league is over.</li>
+      <li>Each later heat is longer and a little faster, with more in the way.</li>
+      <li>ROOKIE, PRO and ELITE leagues are faster in turn and leave less time to spare.</li>
+    </ul>
+    <h2>STEERING</h2>
+    <ul>
+      <li>Hold LEFT or RIGHT, or hold the left or right half of the picture. Keys: arrow keys or A and D.</li>
+      <li>Steering takes you up the wall and, if you keep going, over the roof. Let go and you slide back to the floor.</li>
+      <li>Bends push you toward the outside wall. The faster you go, the harder the push.</li>
+      <li>STEER sets how quickly the sled moves round the wall: SLOW, MEDIUM or FAST. It is on the pause screen and the start screen.</li>
+      <li>PAUSE is at the top. Nothing sits under the three big keys while you race. TONE and SOUND come back when you pause.</li>
+    </ul>
+    <h2>SPEED</h2>
+    <ul>
+      <li>The sled always pulls toward its top speed.</li>
+      <li>A gold pad nearly doubles your speed for about two seconds. While it lasts you smash straight through blocks and purple sleds. Gates still stop you, and you have far less time to see what is coming.</li>
+      <li>The blue line on a bend adds speed for as long as you stay between its two thin rails.</li>
+      <li>A crash cuts your speed to a third. You flash for a moment and cannot crash again while flashing.</li>
+    </ul>
+    <h2>IN THE WAY</h2>
+    <ul>
+      <li>BLOCKS: pink boxes on the wall. Go round.</li>
+      <li>GATES: a pink wall across the whole tunnel with one gap. The gap's edges are gold.</li>
+      <li>PURPLE SLEDS: slower than you, drifting a little. Pass them.</li>
+    </ul>
+    <h2>OPEN AIR</h2>
+    <ul>
+      <li>Some stretches have no roof: a wide half-pipe under the sky, with a white rail along each rim.</li>
+      <li>Above the rim you lose half your speed until you slide back in. The bends out here push you toward it.</li>
+    </ul>
+    <h2>THE HUNTER DRONE</h2>
+    <ul>
+      <li>In the last two heats an orange drone joins you for part of the tunnel. It flies ahead down the middle and swings round to follow you.</li>
+      <li>Its dotted line shows where it is aiming. When the line turns white it drops there: usually a pair of blocks, and every third time a whole gate with the gap off to one side.</li>
+      <li>Keep changing sides and the blocks miss. It gives up after ten or more drops, or a shock ring destroys it.</li>
+    </ul>
+    <h2>THE SHOCK RING</h2>
+    <ul>
+      <li>You start a league with one shock ring and can hold three.</li>
+      <li>Every fifth star adds one.</li>
+      <li>SHOCK RING (the middle button, or Space) destroys blocks, gates and purple sleds for a short way ahead, and the drone if it is there. Pads and stars are untouched.</li>
+    </ul>
+    <h2>SCORE</h2>
+    <ul>
+      <li>Each heat scores the time you had left, ten points a second.</li>
+      <li>Your best league score is kept on this device. A league is not saved part-way: it takes about five minutes.</li>
+      <li>RESTART drops the league. It is on the pause screen and asks you to tap twice.</li>
+    </ul>
+  </details>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const ri=n=>Math.floor(Math.random()*n),rf=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const mkE=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
+const wrap=a=>{while(a>Math.PI)a-=2*Math.PI;while(a<=-Math.PI)a+=2*Math.PI;return a},angd=(a,b)=>Math.abs(wrap(a-b));
+/* ---------- tone and sound ---------- */
+const HUES=[[51,255,102],[255,176,0],[255,255,255]];let hueI=0,FG='rgb(51,255,102)';
+const setTone=()=>{const c=HUES[hueI];FG=`rgb(${c[0]},${c[1]},${c[2]})`;document.documentElement.style.setProperty('--fg',FG)};
+$('tone').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setTone();draw()};
+const SFX={smash:[['n',.07],[700,.06,300]],drone:[[300,.08,600],[300,.08,600]],drop:[[500,.05,200]],pad:[[440,.04],[660,.04],[990,.1]],star:[[1320,.04],[1760,.06]],crash:[['n',.16],[140,.14,50]],wave:[[200,.08,900],['n',.12],[900,.14,200]],charge:[[523,.06],[784,.06],[1047,.12]],tick:[[700,.06]],go:[[1047,.22]],no:[[120,.07]],sel:[[700,.02]],win:[[523,.12],[659,.12],[784,.12],[1047,.12],[1319,.3]],die:[[440,.25,220],[220,.3,110],[110,.5,50]],line:[[880,.03]]};
+let actx=null,vol=1,nbuf=null,unl=null,sq=0;const VM=[0,.15,.45];
+function silentWav(){
+  const n=2000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  let t='';for(const x of b)t+=String.fromCharCode(x);return 'data:audio/wav;base64,'+btoa(t);
+}
+function wake(){
+  if(!vol)return;
+  try{
+    if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A){$('snd').textContent='NO SOUND HERE';return}actx=new A();
+      nbuf=actx.createBuffer(1,actx.sampleRate,actx.sampleRate);const c=nbuf.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()<.5?-1:1;
+      setTimeout(()=>{if(vol&&actx.state!=='running')$('snd').textContent='SOUND BLOCKED'},800)}
+    if(actx.state!=='running'){actx.resume().then(setSnd,()=>{});const u=actx.createBufferSource();u.buffer=actx.createBuffer(1,1,22050);u.connect(actx.destination);u.start(0)}
+  }catch(e){}
+  try{if(!unl){unl=new Audio(silentWav());unl.loop=true;unl.setAttribute('playsinline','')}if(unl.paused){const q=unl.play();if(q&&q.catch)q.catch(()=>{})}}catch(e){}
+}
+function hush(){try{if(unl)unl.pause()}catch(e){}}
+function sfx(n){
+  if(!vol||!actx||!SFX[n])return;
+  try{
+    let t=Math.max(actx.currentTime,sq);if(t-actx.currentTime>.25)return;
+    for(const [f,dur,f2] of SFX[n]){
+      const gn=actx.createGain();gn.gain.setValueAtTime((f==='n'?.05:.07)*VM[vol],t);gn.gain.setValueAtTime(0,t+dur);gn.connect(actx.destination);
+      let src;
+      if(f==='n'){src=actx.createBufferSource();src.buffer=nbuf}
+      else{src=actx.createOscillator();src.type='square';src.frequency.setValueAtTime(f,t);if(f2)src.frequency.linearRampToValueAtTime(f2,t+dur)}
+      src.connect(gn);src.start(t);src.stop(t+dur+.01);t+=dur;
+    }
+    sq=t+.01;
+  }catch(e){}
+}
+/* a soft rush of air for the boost pads: filtered noise that sweeps up and back down */
+function whoosh(){
+  if(!vol||!actx||!nbuf)return;
+  try{const t=actx.currentTime,src=actx.createBufferSource(),f=actx.createBiquadFilter(),g=actx.createGain();src.buffer=nbuf;f.type='bandpass';f.Q.value=1.1;
+    f.frequency.setValueAtTime(260,t);f.frequency.exponentialRampToValueAtTime(2400,t+.28);f.frequency.exponentialRampToValueAtTime(420,t+.8);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.3*VM[vol],t+.14);g.gain.linearRampToValueAtTime(0,t+.8);
+    src.connect(f);f.connect(g);g.connect(actx.destination);src.start(t);src.stop(t+.85)}catch(e){}
+}
+function setSnd(){$('snd').textContent=['SOUND OFF','SOUND LOW','SOUND HIGH'][vol]}
+$('snd').onclick=()=>{vol=(vol+1)%3;try{localStorage.setItem('runnel.vol',vol)}catch(e){}setSnd();if(!vol)hush();else{wake();sfx('star')}};
+
+/* ---------- the track ----------
+   The tunnel is a list of rings STEP apart. Each ring has a sideways bend (cx), an up-down bend (cy)
+   and, on bends, the angle of the fast line. Things in the tunnel sit at a distance s and an angle a
+   round the wall (0 is the floor, positive is the right-hand wall). */
+const R=10,STEP=8,NR=38,LEAD=15;
+const LG=[{n:'ROOKIE',v:96,k:1.3},{n:'PRO',v:110,k:1.41},{n:'ELITE',v:124,k:1.5}],HEATS=4;
+const STR=[2.1,2.8,3.6],STRN=['SLOW','MEDIUM','FAST'],GK=1.3,CF=.028,BOOST=1.8,ONLINE=1.15,PERWAVE=5,MAXW=3,RIM=1.83,DRONE_AT=2;
+const HINT={grid:'',run:'CLEAR RUN: GOLD PADS BOOST YOU',bend:'BEND: RIDE THE BLUE LINE',ess:'DOUBLE BEND: SWAP WALLS',crest:'CREST: BLOCKS ON THE FLOOR',gates:'GATES: AIM FOR THE GAP',traffic:'TRAFFIC: PASS THE PURPLE SLEDS',blocks:'BLOCKS: GO ROUND THEM',spiral:'STARS: FIVE MAKE A SHOCK RING',open:'OPEN AIR: STAY BELOW THE RIM',hunter:'HUNTER DRONE: KEEP MOVING, OR SHOCK IT',alley:'BOOST ALLEY: STAY ON THE GOLD'};
+function mkTrack(heat,lg){
+  const d=heat+lg,T={cx:[],cy:[],line:[],sec:[],names:[],objs:[],riv:[],dr:[],open:[],len:0};
+  const sec=(name,n,fc,fy,fl,place)=>{const base=T.cx.length;T.names.push(name);for(let i=0;i<n;i++){const u=i/n;T.cx.push(fc?fc(u):0);T.cy.push(fy?fy(u):0);T.line.push(fl?fl(u):NaN);T.sec.push(T.names.length-1);T.open.push(name==='open'&&i>1&&i<n-2?1:0)}if(place)place((i,a,t,w,x)=>T.objs.push(Object.assign({s:(base+i)*STEP,a,t,w:w||0},x||{})),base)};
+  const C=.0038+.0003*d,env=u=>Math.sin(Math.PI*u),side=()=>Math.random()<.5?-1:1;
+  const make={
+    run:()=>sec('run',30,0,0,0,put=>{const a=rf(-1.3,1.3),b=wrap(a+side()*rf(.9,1.6));put(10,a,'pad');put(22,a,'pad');for(let i=0;i<3;i++)put(13+i*3,b,'star')}),
+    bend:()=>{const sg=side(),la=-sg*1.1;sec('bend',40,u=>sg*C*env(u),0,u=>env(u)>.45?la:NaN,put=>{put(20,la,'pad');put(12,la,'star');put(28,la,'star');if(d>1)put(16,-la*.4,'block',.42);if(d>3)put(26,la*.2,'block',.42)})},
+    ess:()=>{const sg=side();sec('ess',60,u=>sg*C*Math.sin(2*Math.PI*u),0,u=>Math.abs(Math.sin(2*Math.PI*u))>.5?-sg*Math.sign(Math.sin(2*Math.PI*u))*1.1:NaN,put=>{put(15,-sg*1.1,'pad');put(45,sg*1.1,'pad');put(30,0,'star');if(d>1)put(30,sg*.9,'block',.42);if(d>2)put(30,-sg*.9,'block',.42)})},
+    crest:()=>sec('crest',36,0,u=>-.0042*Math.sin(2*Math.PI*u),0,put=>{const sg=side();put(10,0,'block',.5);put(20,sg*.5,'block',.5);put(28,-sg*.4,'block',.5);put(15,-sg*1.2,'pad');put(24,-sg*1.5,'star')}),
+    gates:()=>sec('gates',46,0,0,0,put=>{let a=rf(-.8,.8);const n=3+(d>2?1:0),w=Math.max(.42,.76-.06*d);for(let i=0;i<n;i++){put(8+i*10,a,'gate',w);if(i<n-1)put(13+i*10,a,'star');a=clamp(a+side()*rf(.5,1.1),-1.9,1.9)}}),
+    traffic:()=>sec('traffic',40,0,0,0,(put,base)=>{const n=3+Math.floor(d/2);for(let i=0;i<n;i++)T.riv.push({s:(base+8+i*6)*STEP,a:rf(-1.1,1.1),ph:rf(0,6),t:'rival',w:.3});put(34,rf(-1,1),'pad')}),
+    blocks:()=>sec('blocks',42,0,0,0,put=>{let a=rf(-1,1);for(let i=0;i<5+(d>2?1:0);i++){put(6+i*6,a,'block',.44);if(i%2)put(9+i*6,wrap(a+1.1),'star');a=clamp(a+side()*rf(.4,1.3),-1.6,1.6)}}),
+    spiral:()=>sec('spiral',44,0,0,0,put=>{const sg=side();let a=rf(-.6,.6);for(let i=0;i<10;i++){put(5+i*3,a,'star');a=wrap(a+sg*.36)}put(38,wrap(a),'pad')}),
+    open:()=>{const sg=side();sec('open',54,u=>sg*C*.8*Math.sin(2*Math.PI*u),u=>.002*Math.sin(Math.PI*u),0,put=>{put(12,-sg*1.45,'pad');put(27,0,'pad');put(40,sg*1.45,'pad');for(let i=0;i<4;i++)put(16+i*3,-sg*(1.2-i*.5),'star');put(20,sg*.3,'block',.46);put(34,-sg*.5,'block',.46);if(d>2)put(46,0,'block',.5)})},
+    hunter:()=>sec('hunter',64,0,0,0,(put,base)=>{T.dr.push({s:(base+4)*STEP,a:0,t:'drone',left:10+2*lg,cool:1.1,n:0,on:false});for(let i=0;i<5;i++)put(10+i*11,rf(-1.6,1.6),'star');put(58,rf(-1,1),'pad')}),
+    alley:()=>sec('alley',38,0,0,0,put=>{const a=side()*rf(.9,1.5);for(let i=0;i<3;i++){put(7+i*10,a,'pad');put(12+i*10,a*.15,'block',.5);if(d>2&&i<2)put(12+i*10,a*1.55,'block',.4)}})
+  };
+  let bag=[];const n=12+heat*2;sec('grid',16);
+  const hunt=heat>=DRONE_AT?[3+ri(3),n-3-ri(3)].slice(0,heat>DRONE_AT?2:1):[];
+  for(let i=0;i<n;i++){if(hunt.includes(i)){make.hunter();continue}if(!bag.length){bag=['run','bend','bend','ess','crest','gates','traffic','blocks','spiral','alley','open','open'];for(let j=bag.length-1;j>0;j--){const k=ri(j+1);[bag[j],bag[k]]=[bag[k],bag[j]]}}make[bag.pop()]()}
+  T.len=T.cx.length*STEP;sec('grid',NR+20);T.objs.sort((a,b)=>a.s-b.s);
+  T.limit=Math.ceil(T.len/(LG[lg].v*(1+.05*heat)*LG[lg].k));
+  return T;
+}
+
+/* ---------- the run ---------- */
+let S=null,mode='title',steerI=1,best=0,paused=false;
+function newLeague(lg){S={lg,heat:0,score:0,hits:0,stars:0,waves:1,seen:{}};startHeat();}
+function startHeat(){
+  const T=mkTrack(S.heat,S.lg);Object.assign(S,{T,s:LEAD+STEP,v:0,th:0,boost:0,inv:0,over:false,time:T.limit,cd:2.4,cdn:3,fx:0,shake:0,on:false,note:'',noteT:0,secI:-1,t:0,flash:0});
+  mode='count';paused=false;show(null);ui();
+}
+const vmax=()=>LG[S.lg].v*(1+.05*S.heat);
+function note(t,n){S.note=t;S.noteT=n||2.2}
+function crash(k,what){if(S.inv>0)return;S.v*=k;S.boost=0;S.inv=1.3;S.shake=.45;S.hits++;sfx('crash');note(what,1.4)}
+function hit(o){
+  if(o.dead)return;const dA=angd(S.th,o.a);
+  if(o.t==='pad'){if(dA<.44){S.boost=2.2;whoosh();note('BOOST',1)}}
+  else if(o.t==='star'){if(dA<.38){o.dead=true;S.stars++;sfx('star');if(S.stars%PERWAVE===0){if(S.waves<MAXW){S.waves++;sfx('charge');note('SHOCK RING READY',1.6)}}}}
+  else if(o.t==='block'){if(dA<o.w+.12){if(S.boost>0){o.dead=true;sfx('smash');note('SMASH',.7)}else crash(.3,'HIT A BLOCK')}}
+  else if(o.t==='gate'){if(dA>o.w-.08)crash(.3,'HIT THE GATE')}
+  else if(o.t==='rival'){if(dA<.36){if(S.boost>0){sfx('smash');note('SMASH',.7)}else crash(.45,'HIT A SLED');o.dead=true}}
+}
+function fireWave(){
+  if(mode!=='run'||paused)return;if(S.waves<=0){sfx('no');note('NO SHOCK RING: COLLECT STARS',1.4);return}
+  S.waves--;S.fx=.6;sfx('wave');let n=0;for(const o of S.T.objs.concat(S.T.riv)){const dz=o.s-S.s;if(dz>0&&dz<190&&!o.dead&&(o.t==='block'||o.t==='gate'||o.t==='rival')){o.dead=true;n++}}for(const q of S.T.dr)if(q.on&&!q.dead&&!q.gone){q.dead=true;n++;note('DRONE DOWN',1.6);return}note(n?`SHOCK RING CLEARED ${n}`:'SHOCK RING HIT NOTHING',1.4);
+}
+function step(dt,steer){
+  const T=S.T;S.t+=dt;
+  if(mode==='count'){S.cd-=dt;const n=Math.ceil(S.cd/.8);if(n<S.cdn&&n>0){S.cdn=n;sfx('tick')}if(S.cd<=0){mode='run';sfx('go');note('GO',.8)}return}
+  if(mode!=='run')return;
+  S.time-=dt;S.boost-=dt;S.inv-=dt;S.noteT-=dt;if(S.fx>0)S.fx-=dt;if(S.shake>0)S.shake-=dt;
+  if(S.time<=0){S.time=0;return endHeat(false)}
+  const i=Math.min(T.cx.length-1,Math.floor(S.s/STEP)),c=T.cx[i],cyv=T.cy[i],la=T.line[i],was=S.on;
+  S.on=!isNaN(la)&&angd(S.th,la)<.4;if(S.on&&!was)sfx('line');
+  const op=T.open[i],over=op&&Math.abs(S.th)>RIM;if(over&&!S.over)note('OVER THE RIM',1.2);S.over=over;
+  const vt=vmax()*(S.on?ONLINE:1)*(S.boost>0?BOOST:1)*(over?.5:1);S.v+=(vt-S.v)*(S.boost>0&&vt>S.v?4:vt>S.v?.9:.8)*dt;
+  const v2=S.v*S.v;S.th=wrap(S.th+(steer*STR[steerI]-GK*Math.sin(S.th)-CF*c*v2*Math.cos(S.th)+CF*cyv*v2*Math.sin(S.th))*dt);
+  if(op){if(over)S.th-=Math.sign(S.th)*2.2*dt;S.th=clamp(S.th,-RIM-.3,RIM+.3)}
+  const s0=S.s;S.s+=S.v*dt;
+  if(T.sec[i]!==S.secI){S.secI=T.sec[i];const nm=T.names[S.secI];if(HINT[nm]){note(HINT[nm],S.seen[nm]?1.6:3);S.seen[nm]=1}}
+  for(const o of T.objs){if(o.s>S.s)break;if(o.s>s0)hit(o)}
+  for(const r of T.riv){const p=r.s-s0;if(p<300&&p>-40){r.s+=vmax()*.5*dt;r.a+=Math.sin(S.t*1.6+r.ph)*.3*dt}if(p>0&&r.s-S.s<=0)hit(r)}
+  for(const q of T.dr){if(q.dead||q.gone)continue;if(!q.on){if(S.s>=q.s){q.on=true;q.a=wrap(S.th+Math.PI);sfx('drone');note(HINT.hunter,S.seen.hunter?1.8:3.2);S.seen.hunter=1}else continue}
+    q.s=S.s+76;q.a=wrap(q.a+clamp(wrap(S.th-q.a)*3,-3.4,3.4)*dt);q.cool-=dt;
+    if(q.cool<=0){q.cool=q.left>0?.72:9;if(q.left-->0){q.n++;const sg=Math.random()<.5?-1:1,add=o=>{let k=T.objs.length;while(k>0&&T.objs[k-1].s>o.s)k--;T.objs.splice(k,0,o)};
+      if(q.n%3===0)add({s:q.s,a:wrap(q.a+sg*1.15),t:'gate',w:.6,drop:1});else{add({s:q.s,a:q.a,t:'block',w:.44,drop:1});add({s:q.s,a:wrap(q.a+sg*1.05),t:'block',w:.4,drop:1})}sfx('drop')}else{q.gone=true;note('THE DRONE GIVES UP',1.4)}}}
+  if(S.s>=T.len)endHeat(true);
+}
+function endHeat(ok){
+  if(!ok){mode='out';sfx('die');const pc=Math.floor(100*S.s/S.T.len);show([['OUT OF TIME','big'],[`Heat ${S.heat+1} of ${HEATS}, ${pc}% of the way. The league is over.`],[`Score ${S.score}.`+(S.score>best?' A new best.':best?` Best ${best}.`:'')]]);saveBest();return ui()}
+  const left=Math.round(S.time*10);S.score+=left;
+  if(S.heat>=HEATS-1){mode='won';sfx('win');show([[`${LG[S.lg].n} LEAGUE WON`,'big'],[`${(left/10).toFixed(1)} seconds to spare on the last heat.`],[`Final score ${S.score}, with ${S.hits} crash${S.hits===1?'':'es'}.`+(S.score>best?' A new best.':best?` Best ${best}.`:'')]]);saveBest()}
+  else{mode='heat';sfx('charge');show([[`HEAT ${S.heat+1} CLEARED`,'big'],[`${(left/10).toFixed(1)} seconds to spare: ${left} points.`],[`Score ${S.score}. The next tunnel is longer and faster.`]])}
+  ui();
+}
+function saveBest(){if(S.score>best){best=S.score;try{localStorage.setItem('runnel.best',best)}catch(e){}}}
+
+/* ---------- drawing ---------- */
+const cv=$('cv'),ctx=cv.getContext('2d');let W=320,H=200,DPR=1,F=200;
+const INK={pad:'#ffd24a',star:'#5ff',block:'#ff5aff',gate:'#ff5aff',rival:'#b79bff',line:'#6fb1ff'};
+function resize(){const w=$('view').clientWidth||320;W=Math.max(240,w-4);H=Math.round(clamp(W*.64,170,420));DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);cv.style.height=H+'px';F=W*.62;draw()}
+let RC=[],camS=0,frac=0,base=0,cox=0,coy=0,rc=1,rs=0,shx=0,shy=0,fz=1,bk=0;
+/* centre of the tunnel at k rings from the base ring, by interpolation */
+const cen=k=>{const i=clamp(Math.floor(k),0,RC.length-2),t=k-i;return [RC[i][0]+(RC[i+1][0]-RC[i][0])*t,RC[i][1]+(RC[i+1][1]-RC[i][1])*t]};
+/* a point at distance s along the track, angle a round the wall, r out from the centre -> screen */
+function P(s,a,r){const z=s-camS;if(z<.8)return null;const c=cen(z/STEP+frac),x=c[0]+r*Math.sin(a)-cox,y=c[1]+r*Math.cos(a)-coy,k=F*fz/z;return [W/2+shx+(x*rc-y*rs)*k,H/2+shy+(x*rs+y*rc)*k,z]}
+const seg=(p,q)=>{if(p&&q){ctx.moveTo(p[0],p[1]);ctx.lineTo(q[0],q[1])}};
+const path=(pts,close)=>{let on=false;for(const p of pts){if(!p){on=false;continue}if(on)ctx.lineTo(p[0],p[1]);else ctx.moveTo(p[0],p[1]);on=true}if(close&&pts[0]&&pts[pts.length-1])ctx.lineTo(pts[0][0],pts[0][1])};
+function sled(s,a,col,flame){
+  const q=(lat,up,f)=>P(s+f,a+lat/R,R-.35-up),n=q(0,.3,3.4),l=q(-1.7,.2,-2),r=q(1.7,.2,-2),t=q(0,1.5,-1.2),b=q(0,.2,-1.4);
+  ctx.strokeStyle=col;ctx.lineWidth=1.6;ctx.beginPath();path([n,l,b,r,n],false);path([n,t,l]);path([t,r]);path([t,b]);
+  path([q(-1.7,.2,-2),q(-2.5,.9,-2.6),q(-1.2,.2,-.2)]);path([q(1.7,.2,-2),q(2.5,.9,-2.6),q(1.2,.2,-.2)]);ctx.stroke();
+  if(flame){ctx.strokeStyle='#ff9a3c';ctx.beginPath();const k=1.2+flame*(1.2+Math.random()*1.6);path([q(-.7,.5,-1.6),q(0,.5,-1.6-k),q(.7,.5,-1.6)]);ctx.stroke()}
+}
+function drawObj(o,now){
+  const z=o.s-camS;if(z<1||z>NR*STEP*.86||o.dead&&o.t!=='pad')return;const al=clamp((NR*STEP*.86-z)/60,0,1);ctx.globalAlpha=al;ctx.strokeStyle=ctx.fillStyle=INK[o.t];ctx.lineWidth=z<140?2.2:1.5;ctx.beginPath();
+  if(o.t==='pad'){const w=.4,a=P(o.s,o.a-w,R-.2),b=P(o.s,o.a+w,R-.2),c=P(o.s+STEP,o.a+w,R-.2),d=P(o.s+STEP,o.a-w,R-.2);path([a,b,c,d],true);ctx.globalAlpha=al*.3;ctx.fill();ctx.globalAlpha=al;for(const f of [.15,.5])path([P(o.s+STEP*f,o.a-w*.7,R-.2),P(o.s+STEP*(f+.3),o.a,R-.2),P(o.s+STEP*f,o.a+w*.7,R-.2)])}
+  else if(o.t==='star'){const sp=Math.abs(Math.cos(now/180+o.s))*.11+.02;path([P(o.s,o.a,R-.7),P(o.s,o.a-sp,R-1.8),P(o.s,o.a,R-2.9),P(o.s,o.a+sp,R-1.8)],true);ctx.globalAlpha=al*.4;ctx.fill();ctx.globalAlpha=al}
+  else if(o.t==='block'){const w=o.w,h=3.2,A=[P(o.s,o.a-w,R),P(o.s,o.a+w,R),P(o.s,o.a+w,R-h),P(o.s,o.a-w,R-h)],B=[P(o.s+5,o.a-w,R),P(o.s+5,o.a+w,R),P(o.s+5,o.a+w,R-h),P(o.s+5,o.a-w,R-h)];path(A,true);ctx.globalAlpha=al*.35;ctx.fill();ctx.globalAlpha=al;path(B,true);for(let i=0;i<4;i++)seg(A[i],B[i]);seg(A[0],A[2]);seg(A[1],A[3])}
+  else if(o.t==='gate'){const a0=o.a+o.w,span=2*Math.PI-2*o.w,n=Math.ceil(span/.3),out=[],inn=[];for(let i=0;i<=n;i++){const a=a0+span*i/n;out.push(P(o.s,a,R));inn.push(P(o.s,a,R*.52))}path(out);for(let i=n;i>=0;i--)if(inn[i])ctx.lineTo(inn[i][0],inn[i][1]);ctx.closePath();ctx.globalAlpha=al*.3;ctx.fill();ctx.globalAlpha=al;for(let i=0;i<=n;i++)seg(out[i],inn[i]);ctx.stroke();
+    ctx.strokeStyle='#ffd24a';ctx.lineWidth=3;ctx.beginPath();for(const sg of [-1,1]){const a=o.a+sg*o.w;seg(P(o.s,a,R),P(o.s,a,R*.52))}}
+  else if(o.t==='rival'){ctx.stroke();ctx.globalAlpha=al;sled(o.s,o.a,INK.rival,0);ctx.beginPath()}
+  ctx.stroke();ctx.globalAlpha=1;
+}
+function draw(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);ctx.lineJoin='round';ctx.lineCap='round';
+  const c3=HUES[hueI],rgba=a=>`rgba(${c3[0]},${c3[1]},${c3[2]},${a})`,now=Date.now();
+  if(!S){ /* title: a still tunnel */
+    ctx.strokeStyle=FG;for(let i=0;i<9;i++){const k=1/(1+i*.55),r=H*.62*k;ctx.globalAlpha=clamp(1.1-i*.11,.15,1);ctx.lineWidth=i?1:2;ctx.beginPath();for(let j=0;j<=12;j++){const a=(j+.5)*Math.PI/6,x=W/2+Math.sin(a)*r+i*i*1.6,y=H/2+Math.cos(a)*r;j?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke()}ctx.globalAlpha=1;return}
+  const T=S.T;camS=S.s-LEAD;base=Math.floor(camS/STEP);frac=camS/STEP-base;
+  /* tunnel centres, relative to the camera and its heading */
+  {let x=0,y=0,dx=0,dy=0;const raw=[];for(let i=0;i<=NR+2;i++){raw.push([x,y]);const j=clamp(base+i,0,T.cx.length-1);dx+=T.cx[j]*STEP;dy+=T.cy[j]*STEP;x+=dx*STEP;y+=dy*STEP}
+   const j0=clamp(base,0,T.cx.length-1),ox=raw[0][0]+(raw[1][0]-raw[0][0])*frac,oy=raw[0][1]+(raw[1][1]-raw[0][1])*frac,hx=frac*T.cx[j0]*STEP,hy=frac*T.cy[j0]*STEP;
+   RC=raw.map((p,i)=>{const z=(i-frac)*STEP;return [p[0]-ox-hx*z,p[1]-oy-hy*z]})}
+  const roll=Math.sin(S.th)*.5; /* periodic, so nothing jumps when the sled crosses the roof */rc=Math.cos(-roll);rs=Math.sin(-roll);cox=Math.sin(S.th)*R*.5;coy=Math.cos(S.th)*R*.5;
+  {const tb=clamp((S.v/vmax()-1.1)/(BOOST-1.1),0,1);bk+=(tb-bk)*.2;fz=1-.24*bk}
+  shx=shy=0;if(bk>.3&&!still){shx=(Math.random()-.5)*3*bk;shy=(Math.random()-.5)*3*bk}if(S.shake>0&&!still){shx=(Math.random()-.5)*14*S.shake;shy=(Math.random()-.5)*14*S.shake}
+  /* rings and long lines, far to near */
+  const NS=12,ringAt=s=>{const a=[];for(let j=0;j<NS;j++)a.push(P(s,(j+.5)*Math.PI*2/NS,R));return a};
+  const ss=[];for(let i=NR;i>=1;i--){const s=(base+i)*STEP;if(s-camS>1.4)ss.push([s,base+i])}ss.push([camS+1.4,-1]);
+  let prev=null;const ARC=[8,9,10,11,0,1,2,3],ALLJ=[0,1,2,3,4,5,6,7,8,9,10,11];
+  if(T.open[clamp(base+2,0,T.open.length-1)]){ctx.fillStyle=FG;for(let i=0;i<26;i++){const a=i*2.4+roll,r2=(.25+((i*37)%60)/100)*W;ctx.globalAlpha=.35+(i%3)*.2;ctx.fillRect(W/2+Math.sin(a+Math.PI)*r2*1.1,H*.27+Math.cos(a+Math.PI)*r2*.6,i%4?1.5:2.5,i%4?1.5:2.5)}ctx.globalAlpha=1}
+  for(const [s,idx] of ss){
+    const rg=ringAt(s),z=s-camS,al=clamp(1.1-z/(NR*STEP*.92),0,1);ctx.strokeStyle=rgba((al*al*.9+.04).toFixed(3));
+    const fin=idx>=0&&idx*STEP===T.len,strong=idx>=0&&idx%4===0;
+    const op=T.open[clamp(idx>=0?idx:base,0,T.open.length-1)];rg.op=op;
+    if(idx>=0){ctx.lineWidth=fin?3:strong?1.7:1;if(fin)ctx.strokeStyle='#fff';ctx.beginPath();if(op)path(ARC.map(j=>rg[j]));else path(rg,true);ctx.stroke();if(fin){ctx.strokeStyle=rgba(al)}}
+    if(prev){const half=op||prev.op;ctx.lineWidth=1;ctx.beginPath();for(const j of half?ARC:ALLJ)seg(prev[j],rg[j]);ctx.stroke();
+      if(op&&prev.op){ctx.lineWidth=2.5;ctx.strokeStyle='#fff';ctx.globalAlpha=clamp(al+.1,0,1);ctx.beginPath();seg(prev[3],rg[3]);seg(prev[8],rg[8]);ctx.stroke();ctx.globalAlpha=1;ctx.strokeStyle=rgba((al*al*.9+.05).toFixed(3))}
+      const li=idx>=0?idx:base,la=T.line[clamp(li,0,T.line.length-1)];
+      if(!isNaN(la)){ctx.strokeStyle=INK.line;ctx.globalAlpha=clamp(al+.15,0,1);ctx.lineWidth=z<140?3:1.6;ctx.beginPath();const s1=s+STEP*.6;seg(P(s,la,R-.15),P(s1,la,R-.15));ctx.stroke();ctx.lineWidth=1;ctx.beginPath();for(const e of [-.4,.4])seg(P(s,la+e,R-.1),P(s+STEP,la+e,R-.1));ctx.stroke();ctx.globalAlpha=1}}
+    prev=rg;
+  }
+  /* things, far to near */
+  const all=[];for(const o of T.objs){const z=o.s-camS;if(z>NR*STEP)break;if(z>1)all.push(o)}for(const r of T.riv)all.push(r);all.sort((a,b)=>b.s-a.s);
+  let drawn=false;for(const o of all){if(!drawn&&o.s<S.s){drawMe(now);drawn=true}drawObj(o,now)}if(!drawn)drawMe(now);
+  for(const q of T.dr){if(!q.on||q.dead||q.gone)continue;const bob=Math.sin(now/160)*.5,c=[P(q.s,q.a,3.8+bob),P(q.s,q.a+1.25,5),P(q.s,q.a+Math.PI,2.2-bob),P(q.s,q.a-1.25,5)],w=q.cool<.3&&q.left>0;
+    ctx.strokeStyle='#ff9a3c';ctx.lineWidth=2;ctx.beginPath();path(c,true);seg(c[0],c[2]);seg(c[1],c[3]);ctx.stroke();
+    ctx.setLineDash([4,5]);ctx.lineWidth=w?2.5:1.2;ctx.strokeStyle=w?'#fff':'#ff9a3c';ctx.beginPath();seg(c[0],P(q.s,q.a,R));ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();path([P(q.s,q.a-.42,R-.1),P(q.s,q.a+.42,R-.1),P(q.s+5,q.a+.42,R-.1),P(q.s+5,q.a-.42,R-.1)],true);ctx.stroke()}
+  if(S.fx>0){const k=1-S.fx/.6;ctx.strokeStyle='#fff';ctx.globalAlpha=1-k;ctx.lineWidth=3;ctx.beginPath();path(ringAt(S.s+6+k*180),true);ctx.stroke();ctx.globalAlpha=1}
+  if(bk>.08&&!still){ctx.strokeStyle='#ffd24a';ctx.lineWidth=1.5;ctx.beginPath();for(let i=0;i<22;i++){const a=i*.29+((now/90|0)*1.7+i*i)%6,r0=(.18+((i*53+now/3)%100)/260)*W,r1=r0+W*(.05+.12*bk);ctx.moveTo(W/2+Math.cos(a)*r0,H/2+Math.sin(a)*r0*.75);ctx.lineTo(W/2+Math.cos(a)*r1,H/2+Math.sin(a)*r1*.75)}ctx.globalAlpha=.25+.5*bk;ctx.stroke();ctx.globalAlpha=1}
+  hud(now);
+}
+function drawMe(now){if(S.inv>0&&Math.floor(now/90)%2)return;sled(S.s,S.th,'#fff',mode==='run'?(S.boost>0?1:.35):0)}
+const text=(t,x,y,col,al,sz,bold)=>{ctx.font=`${bold===false?'':'bold '}${sz||11}px "Courier New",monospace`;ctx.textAlign=al||'left';ctx.fillStyle='#000';ctx.fillText(t,x+1,y+1);ctx.fillStyle=col||FG;ctx.fillText(t,x,y)};
+function hud(now){
+  const T=S.T,low=S.time<8,tc=low?'#ff6b6b':FG;
+  /* clock, top centre */
+  text(S.time.toFixed(1),W/2,22,low&&Math.floor(now/250)%2?'#fff':tc,'center',20);text('TIME',W/2,33,tc,'center',9);
+  /* progress, top */
+  const pw=W-24,pr=clamp(S.s/T.len,0,1);ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.strokeRect(12.5,39.5,pw,4);ctx.fillStyle=FG;ctx.fillRect(12,39,pw*pr,5);
+  /* pace marker: where you need to be to finish on time */
+  const need=clamp(1-S.time/T.limit,0,1);ctx.fillStyle='#fff';ctx.fillRect(12+pw*need-1,36,2,11);
+  text(`HEAT ${S.heat+1}/${HEATS}`,12,16,FG,'left',10);text(`${Math.round(S.v*4.1)} KPH`,W-12,16,S.boost>0?INK.pad:S.on?INK.line:FG,'right',11);
+  text(`SHOCK ${'◆'.repeat(S.waves)}${'◇'.repeat(MAXW-S.waves)}`,12,30,'#fff','left',10);text(`STARS ${S.stars%PERWAVE}/${PERWAVE}`,W-12,30,INK.star,'right',10);
+  if(S.on)text('ON THE LINE',W/2,H-30,INK.line,'center',11);if(S.boost>0)text('BOOST',W/2,H-(S.on?44:30),INK.pad,'center',15);
+  if(S.noteT>0&&S.note)text(S.note,W/2,62,'#fff','center',W<340?11:13);
+  if(mode==='count'){const n=Math.ceil(S.cd/.8);text(n>0?String(n):'GO',W/2,H/2+14,'#fff','center',44)}
+  if(paused)text('PAUSED',W/2,H/2+10,'#fff','center',26);
+}
+
+/* ---------- menus and controls ---------- */
+const msg=$('msg'),pad=$('pad');
+function show(lines){msg.textContent='';if(!lines){msg.style.display='none';return}for(const [t,c] of lines)msg.appendChild(mkE('div',c||'',t));msg.style.display='block'}
+let armed=0;
+function ui(){
+  pad.textContent='';const btn=(t,fn,cls)=>{const b=mkE('button',cls||'',t);b.type='button';if(fn)b.onclick=()=>{wake();fn()};else b.disabled=true;pad.appendChild(b);return b};
+  const racing=mode==='run'||mode==='count';$('ctl').hidden=!racing||paused;pad.hidden=racing;const live=racing&&!paused;$('opts').hidden=live;$('help').hidden=live;$('how').hidden=live;$('pause').hidden=!racing;$('tone').hidden=live;$('snd').hidden=live;$('quit').hidden=!S||mode==='title';
+  $('pause').textContent=paused?'RESUME':'PAUSE';$('steer').textContent='STEER: '+STRN[steerI];$('quit').textContent=armed>Date.now()?'SURE? TAP AGAIN':'RESTART';
+  $('wave').textContent=S?`SHOCK RING\n${'◆'.repeat(S.waves)}${'◇'.repeat(MAXW-S.waves)}`:'SHOCK RING';$('wave').classList.toggle('off',!!S&&S.waves<=0);
+  if(racing)return;
+  if(mode==='title'||mode==='out'||mode==='won'){pad.appendChild(mkE('div','note','PICK A LEAGUE. FOUR TUNNELS, EACH AGAINST THE CLOCK. FASTER LEAGUES HAVE LESS TIME TO SPARE.'));LG.forEach((l,i)=>btn(l.n,()=>newLeague(i),i===(S?S.lg:0)?'hot':''))}
+  else if(mode==='heat')btn(`START HEAT ${S.heat+2}`,()=>{S.heat++;startHeat()},'hot s3');
+}
+const K={l:0,r:0},TP={};let lastT=0;
+const steerNow=()=>clamp((K.r?1:0)-(K.l?1:0)+Object.values(TP).reduce((a,b)=>a+b,0),-1,1);
+function hold(el,dir){
+  const dn=e=>{e.preventDefault();wake();TP[e.pointerId]=dir;el.classList.add('on');try{el.setPointerCapture(e.pointerId)}catch(x){}},up=e=>{delete TP[e.pointerId];if(!Object.values(TP).includes(dir))el.classList.remove('on')};
+  el.addEventListener('pointerdown',dn);el.addEventListener('pointerup',up);el.addEventListener('pointercancel',up);el.addEventListener('lostpointercapture',up);el.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});el.addEventListener('contextmenu',e=>e.preventDefault());
+}
+hold($('left'),-1);hold($('right'),1);
+$('wave').addEventListener('pointerdown',e=>{e.preventDefault();wake();fireWave();ui()});$('wave').addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
+/* the picture steers too: hold its left or right half */
+{const dn=e=>{if(mode!=='run'&&mode!=='count')return;e.preventDefault();wake();const r=cv.getBoundingClientRect();TP[e.pointerId]=e.clientX<r.left+r.width/2?-1:1;try{cv.setPointerCapture(e.pointerId)}catch(x){}},up=e=>{delete TP[e.pointerId]};cv.addEventListener('pointerdown',dn);cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);cv.addEventListener('lostpointercapture',up);cv.addEventListener('touchstart',e=>{if(mode==='run'||mode==='count')e.preventDefault()},{passive:false})}
+function setPause(p){if(mode!=='run'&&mode!=='count')return;paused=p;for(const k in TP)delete TP[k];ui();draw()}
+$('pause').onclick=()=>setPause(!paused);
+$('steer').onclick=()=>{steerI=(steerI+1)%3;try{localStorage.setItem('runnel.steer',steerI)}catch(e){}sfx('sel');ui()};
+$('quit').onclick=()=>{if(armed>Date.now()){armed=0;S=null;mode='title';paused=false;show([['F.U.N. RUNNER','big'],['Four tunnels. One clock.']]);ui();draw()}else{armed=Date.now()+3000;ui();setTimeout(ui,3100)}};
+addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key.toLowerCase();
+  if(mode==='run'||mode==='count'){if(k==='arrowleft'||k==='a'){K.l=1;e.preventDefault()}else if(k==='arrowright'||k==='d'){K.r=1;e.preventDefault()}else if((k===' '||k==='w'||k==='arrowup')&&!e.repeat){e.preventDefault();wake();fireWave();ui()}else if(k==='p'&&!e.repeat)setPause(!paused);return}
+  if(k==='enter'||k===' '){const b=pad.querySelector('button.hot');if(b){e.preventDefault();wake();b.click()}}
+});
+addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k==='arrowleft'||k==='a')K.l=0;if(k==='arrowright'||k==='d')K.r=0});
+addEventListener('blur',()=>{K.l=K.r=0;for(const k in TP)delete TP[k]});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){setPause(true);hush()}});
+addEventListener('resize',resize);
+const still=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+function frame(ts){
+  const dt=Math.min(.05,(ts-lastT)/1000||0);lastT=ts;
+  if(S&&(mode==='run'||mode==='count')&&!paused){const m=mode,w=S.waves;step(dt,steerNow());if(mode!==m||S.waves!==w)ui();draw()}
+  requestAnimationFrame(frame);
+}
+try{const v=localStorage.getItem('runnel.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length;steerI=clamp(+(localStorage.getItem('runnel.steer')??1)||0,0,2);best=+localStorage.getItem('runnel.best')||0}catch(e){}
+setTone();setSnd();show([['F.U.N. RUNNER','big'],['Four tunnels. One clock.']].concat(best?[[`Best score ${best}.`]]:[]));ui();resize();requestAnimationFrame(frame);
+</script>
+</body>
+</html>
