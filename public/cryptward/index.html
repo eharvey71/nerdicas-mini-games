@@ -11,7 +11,7 @@
 :root{
   --fg:#33ff66;          /* phosphor, set by the TONE key for the whole site */
   --bg:#000000;
-  --hp:#ff9a9a; --shd:#9ccbff; --fuel:#a9f0b8; --gold:#ffdc6b; --goal:#dcbcff; --you:#7ff;
+  --hp:#ff9a9a; --shd:#9ccbff; --fuel:#a9f0b8; --gold:#ffdc6b; --goal:#f0dcff; --you:#7ff;
   --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
   --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
   color-scheme:dark;
@@ -40,7 +40,7 @@ canvas{display:block;width:100%}
 #stat .dl{font-size:11px;font-weight:700;margin-left:5px}
 #stat .bar{display:inline-block;width:30px;height:7px;border:1px solid var(--c);margin-left:6px;vertical-align:middle}
 #stat .bar i{display:block;height:100%;background:var(--c)}
-#stat .hp{--c:var(--hp)}#stat .shd{--c:var(--shd)}#stat .fuel{--c:var(--fuel)}#stat .gold{--c:var(--gold)}#stat .goal{--c:var(--goal)}
+#stat .hp{--c:var(--hp)}#stat .shd{--c:var(--shd)}#stat .fuel{--c:var(--fuel)}#stat .gold{--c:var(--gold)}#stat .goal{--c:var(--goal);font-weight:700}
 #stat .low{outline:1px solid var(--c)}
 #stat .flash,#log div.new{animation:blink .6s steps(1) 1}
 @keyframes blink{0%,24%{background:var(--c,var(--fg));color:var(--bg)}25%,49%{background:transparent;color:var(--c,var(--fg))}50%,74%{background:var(--c,var(--fg));color:var(--bg)}75%,100%{background:transparent;color:var(--c,var(--fg))}}
