@@ -43,7 +43,7 @@ canvas{display:block;width:100%}
 #stat .hp{--c:var(--hp)}#stat .shd{--c:var(--shd)}#stat .fuel{--c:var(--fuel)}#stat .gold{--c:var(--gold)}#stat .goal{--c:var(--goal)}
 #stat .low{outline:1px solid var(--c)}
 #stat .flash .val{animation:pulse 1s ease-out 1}#log div.new{animation:pulse .7s ease-out 1}
-#log .mo{opacity:.55}#stat .dl.up{color:var(--fuel)}#stat .dl.dn{color:var(--hp)}
+#log .mo{opacity:.55}#log .hdr{border-top:1px dotted var(--gold);margin-top:3px;padding-top:2px;font-weight:700;letter-spacing:.12em}#stat .dl.up{color:var(--fuel)}#stat .dl.dn{color:var(--hp)}
 @keyframes pulse{0%{opacity:.2}60%{opacity:1}80%{opacity:.6}100%{opacity:1}}
 @media (prefers-reduced-motion:reduce){#stat .flash .val,#log div.new{animation:none}}
 #log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:6em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
@@ -113,7 +113,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 <body>
 <div id="app">
   <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>DUSTHAVEN</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
-  <div id="view"><canvas id="cv"></canvas><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="zoom" type="button">ZOOM IN</button></div><div id="msg"></div></div>
+  <div id="view"><canvas id="cv"></canvas><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="tilt" type="button">TILT MID</button><button class="mini" id="zoom" type="button">ZOOM FAR</button></div><div id="msg"></div></div>
   <div id="stat"></div>
   <div id="log"></div>
   <div id="pad"></div>
@@ -318,7 +318,7 @@ function endMonth(){
   if(S.pop<=0)return lose('NOBODY LEFT','The last colonist is gone. The dust takes Dusthaven back.');
   if(S.goal==='charter'&&S.pop>=POPGOAL)return win('Sixty colonists. The charter is granted.');
   if(S.month>=G.m){if(S.goal==='hold'&&S.pop>=HOLDPOP)return win('Forty-eight months. The relief ship is in orbit.');return lose('TIME IS UP',S.goal==='charter'?`Only ${S.pop} of ${POPGOAL} colonists. The charter lapses.`:S.goal==='debt'?`${S.debt} credits still owed. The company takes the colony.`:`Only ${S.pop} left. The relief ship finds too few to save the charter.`)}
-  S.month++;sfx('sel');save();render();
+  S.month++;say(`MONTH ${S.month}`,'gold hdr');sfx('sel');save();render();
 }
 function best(v){try{const k='dusthaven.best.'+S.goal,b=+localStorage.getItem(k)||0;if(!b||v<b)localStorage.setItem(k,v);return +localStorage.getItem(k)}catch(e){return v}}
 function win(t){mode='won';wipe();sfx('win');const b=best(S.month);show([['COLONY SECURE','big'],[t],[`Month ${S.month}. ${S.pop} colonists. ${S.dead} lost along the way.`],[`Quickest so far: month ${b}.`]]);render()}
@@ -340,19 +340,20 @@ function tap(c){
   render();
 }
 /* ---------- drawing: an angled board ---------- */
-const cv=$('cv'),ctx=cv.getContext('2d');let W=320,VH=260,Hh=300,DPR=1,STRIP=30,tw=24,th=12,zoom=0,rot=0,cam={x:0,y:0},ORDER=[];
+const cv=$('cv'),ctx=cv.getContext('2d');let W=320,VH=260,Hh=300,DPR=1,STRIP=30,tw=24,th=12,hu=12,zoom=0,tilt=1,rot=0,cam={x:0,y:0},ORDER=[];
 const U=(x,y)=>rot===0?x:rot===1?N-y:rot===2?N-x:y,V=(x,y)=>rot===0?y:rot===1?x:rot===2?N-y:N-x;
 const iX=(x,y)=>W/2+(U(x,y)-V(x,y))*tw/2-cam.x,iY=(x,y)=>VH/2+(U(x,y)+V(x,y))*th/2-cam.y;
-function setZoom(){const fit=Math.floor((W-8)/N);tw=zoom?Math.max(fit+14,44):fit;tw-=tw%2;th=tw/2;const d=c=>U(X(c)+.5,Y(c)+.5)+V(X(c)+.5,Y(c)+.5);ORDER=[...Array(NC).keys()].sort((a,b)=>d(a)-d(b)||a-b);
+const TILT=[.36,.5,.68],TILTN=['LOW','MID','HIGH'],ZOOMN=['FAR','MID','NEAR'];
+function setZoom(){const k=TILT[tilt],fit=Math.min(Math.floor((W-8)/N),Math.floor((VH-34)/(N*k)));tw=zoom===2?Math.max(fit+36,66):zoom?Math.max(fit+14,44):fit;tw-=tw%2;th=tw*k;hu=tw*(.75-.5*k); /* tile height follows the tilt; things stand shorter the more you look down */const d=c=>U(X(c)+.5,Y(c)+.5)+V(X(c)+.5,Y(c)+.5);ORDER=[...Array(NC).keys()].sort((a,b)=>d(a)-d(b)||a-b);
   if(!zoom){cam.x=0;cam.y=N*th/2-th*.4}else if(S){const c=pick>=0?pick:S.hub,u=U(X(c)+.5,Y(c)+.5),v=V(X(c)+.5,Y(c)+.5);cam.x=(u-v)*tw/2;cam.y=(u+v)*th/2}
-  cv.style.touchAction=zoom?'none':'manipulation';$('zoom').textContent=zoom?'ZOOM OUT':'ZOOM IN'}
+  cv.style.touchAction=zoom?'none':'manipulation';$('zoom').textContent='ZOOM '+ZOOMN[zoom];$('tilt').textContent='TILT '+TILTN[tilt]}
 function resize(){const w=$('view').clientWidth||320;W=Math.max(240,w-4);VH=Math.round(clamp(W*.62,190,380));Hh=VH+STRIP+4;DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(Hh*DPR);cv.style.height=Hh+'px';setZoom()}
 function text(t,x,y,col,al,sz){ctx.font=`bold ${sz||11}px "Courier New",monospace`;ctx.textAlign=al||'left';ctx.fillStyle=col||FG;ctx.fillText(t,x,y)}
 const poly=(p,fill,stroke,lw)=>{ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke()}};
 const tile=(x,y,k)=>{const cx=iX(x+.5,y+.5),cy=iY(x+.5,y+.5),a=tw/2*k,b=th/2*k;return [[cx,cy-b],[cx+a,cy],[cx,cy+b],[cx-a,cy]]};
 const SHADE={mg:['#ff8cff','#ff5cff','#b23cb2'],wh:['#fff','#cfd8dc','#8f9aa0'],yl:['#ffe27a','#ffd24a','#b8942e'],cy:['#8ff','#5ff','#289a9a'],bl:['#b9dcff','#6fb1ff','#3f6fb0'],gr:['#b5f0c0','#8fd9a0','#4f9a62'],or:['#ffc08a','#ff9a4a','#b3652a'],pk:['#ffc4dc','#ff8fb8','#b35a7c'],zz:['#888','#666','#444'],rk:['#777','#555','#3a3a3a']};
 function block(c,ch,sh,hk,rk){
-  const x=X(c),y=Y(c),cx=iX(x+.5,y+.5),cy=iY(x+.5,y+.5),r=tw*(rk||.36),h=th*hk,q=r*th/tw,[top,right,left]=SHADE[sh],L=[cx-r,cy],R=[cx+r,cy],B=[cx,cy+q],T=[cx,cy-q],u=p=>[p[0],p[1]-h];
+  const x=X(c),y=Y(c),cx=iX(x+.5,y+.5),cy=iY(x+.5,y+.5),r=tw*(rk||.36),h=hu*hk,q=r*th/tw,[top,right,left]=SHADE[sh],L=[cx-r,cy],R=[cx+r,cy],B=[cx,cy+q],T=[cx,cy-q],u=p=>[p[0],p[1]-h];
   poly([L,B,u(B),u(L)],left,'#000',1);poly([B,R,u(R),u(B)],right,'#000',1);poly([u(L),u(B),u(R),u(T)],top,'#000',1);
   if(ch&&tw>=20){const fs=Math.max(7,Math.round(tw*.3));ctx.font=`bold ${fs}px "Courier New",monospace`;ctx.textAlign='center';ctx.fillStyle='#000';ctx.fillText(ch,cx,cy-h/2+fs*.34)}
 }
@@ -410,7 +411,7 @@ function drawStatus(){
 }
 function ui(){
   const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
-  if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];if(lines[logN][2])e.appendChild(mkE('span','mo','M'+lines[logN][2]+' '));e.appendChild(document.createTextNode(lines[logN][0]));lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
+  if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];if(lines[logN][2]&&!/hdr/.test(lines[logN][1]))e.appendChild(mkE('span','mo','M'+lines[logN][2]+' '));e.appendChild(document.createTextNode(lines[logN][0]));lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
   const pad=$('pad');pad.textContent='';
   const btn=(t,f,dis,hot,span,sel)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(sel)e.classList.add('sel');if(span)e.classList.add('s'+span);if(dis||!f)e.disabled=true;else e.onclick=()=>{wake();e.blur();f()};pad.appendChild(e)};
   const toGoal=()=>{mode='goal';show([['PICK A GOAL','big'],...Object.values(GOALS).map(g=>[g.n+': '+g.d])]);render()};
@@ -429,10 +430,10 @@ cv.addEventListener('pointerdown',e=>{if(!S||mode!=='play')return;wake();drag={x
 cv.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||!zoom)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.pan&&Math.hypot(dx,dy)<8)return;drag.pan=true;cam.x=clamp(drag.cx-dx,-N*tw/2,N*tw/2);cam.y=clamp(drag.cy-dy,0,N*th);draw()});
 cv.addEventListener('pointerup',e=>{if(!drag||e.pointerId!==drag.id)return;const d=drag;drag=null;if(d.pan)return;const c=cellAt(e);if(c>=0)tap(c)});
 cv.addEventListener('pointercancel',()=>{drag=null});
-$('zoom').onclick=()=>{zoom=zoom?0:1;setZoom();draw()};$('turn').onclick=()=>{rot=(rot+1)%4;setZoom();draw()};
+$('zoom').onclick=()=>{zoom=(zoom+1)%3;setZoom();draw()};$('tilt').onclick=()=>{tilt=(tilt+1)%3;try{localStorage.setItem('dusthaven.tilt',tilt)}catch(e){}setZoom();draw()};$('turn').onclick=()=>{rot=(rot+1)%4;setZoom();draw()};
 addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey||mode!=='play')return;const k=e.key.toLowerCase();if(k==='enter'){e.preventDefault();endMonth()}else if(k==='u'||k==='z')undo();else if(k==='escape'){tool='';render()}else if(k>='1'&&k<='9'){tool=TOOLS[+k-1];render()}});
 let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
-try{const v=localStorage.getItem('dusthaven.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
+try{const v=localStorage.getItem('dusthaven.vol');if(v!==null)vol=clamp(+v||0,0,2);tilt=clamp(+(localStorage.getItem('dusthaven.tilt')??1)||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
 setTone();setSnd();resize();
 show([['DUSTHAVEN','big'],['A mining outpost on a dead world.'],['Air, water, food, power. Keep them all.']]);
 render();
