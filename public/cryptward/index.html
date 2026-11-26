@@ -128,6 +128,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
     <h2>THE CAMPAIGN</h2>
     <ul>
       <li>The same party plays one quest after another. Each quest is a little harder than the last.</li>
+      <li>The last room's guard is sized to the party: a small or new party meets fewer and weaker guards there, and the rest of the crypt carries more of the danger instead. Gargoyles only guard the last room from the second quest on.</li>
       <li>Winning pays 150 gold on top of what you found. Gold is shared by the party.</li>
       <li>Between quests the shop sells healing potions (100), a better weapon (250, +1 attack die) and better armour (300, +1 defend die). A hero can hold at most two of each upgrade.</li>
       <li>Heroes start every quest at full body with all their spells. A hero who died is replaced by a recruit with plain gear.</li>
@@ -288,7 +289,7 @@ const MON={
   F:{n:'BOG FIEND',l:'BF',mv:6,a:3,d:3,b:2},W:{n:'MUMMY',l:'MU',mv:4,a:3,d:4,b:2},I:{n:'DREAD KNIGHT',l:'DK',mv:7,a:4,d:4,b:3},S:{n:'GARGOYLE',l:'GA',mv:6,a:4,d:5,b:3},L:{n:'WARLOCK',l:'WL',mv:6,a:4,d:4,b:5,boss:true}
 };
 const SPELLS={bolt:{n:'FIREBOLT',t:'mon'},heal:{n:'MEND',t:'hero'},swift:{n:'SWIFT',t:'self'},sleep:{n:'SLUMBER',t:'mon'},stone:{n:'STONE SKIN',t:'hero'}};
-const BUD={4:108,3:88,2:78,1:62},FACES={4:12,3:8,2:4,1:2},ACES={4:2,3:2,2:1,1:1};
+const BUD={4:112,3:88,2:88,1:70},FACES={4:12,3:8,2:4,1:2},ACES={4:2,3:2,2:1,1:1};
 const FURN={chest:{n:'CHEST',l:'CH'},book:{n:'BOOKCASE',l:'BK'},rack:{n:'WEAPON RACK',l:'WR'},tomb:{n:'TOMB',l:'TB'},bench:{n:"ALCHEMIST'S BENCH",l:'AB'},table:{n:'TABLE',l:'TA'},throne:{n:'THRONE',l:'TH'},altar:{n:'DARK ALTAR',l:'AL'}};
 const THEMES={
   armory:{n:'AN ARMORY',f:['rack','chest'],m:{B:2,I:2}},library:{n:'A LIBRARY',f:['book','table','book'],m:{N:1.5,F:1.5}},
@@ -395,7 +396,10 @@ function gen(sel,cq,carry){
   const put=(t,r,ex)=>{const fc=free(r);if(!fc.length)return 0;const T=MON[t];S.mons.push(Object.assign({t,cell:fc[ri(fc.length)],b:T.b,home:r,asleep:false,wander:false,last:-1},ex||{}));return T.a+T.d+T.b};
   let bud=Math.round(BUD[nh]*(1+.1*(S.cq-1)));
   if(type==='slay')put('L',far);else if(type==='rescue'||type==='relic')bud-=put(type==='rescue'?'I':'W',far);
-  for(let gb=BUD[nh]*.4,n=0;gb>3&&n<5;n++){const opts=['S','I','W','F','H','B','N','G'].filter(t=>MON[t].a+MON[t].d+MON[t].b<=gb),t=opts[ri(Math.min(3,opts.length))];if(!t)break;const v=put(t,far);if(!v)break;gb-=v;bud-=v}
+  /* the last room's guard is weighted to the party and to how far into the campaign it is: fewer and weaker guards for a small
+     or new party. What is not spent here stays in the budget and is spread through the rest of the dungeon instead. */
+  {const tier=S.cq<=1?['I','W','F','H','B','N','G']:['S','I','W','F','H','B','N','G'],most=Math.min(5,nh+1+(S.cq>2?1:0));
+   for(let gb=BUD[nh]*Math.min(.4,.27+.03*nh+.035*(S.cq-1)),n=0;gb>3&&n<most;n++){const opts=tier.filter(t=>MON[t].a+MON[t].d+MON[t].b<=gb),t=opts[ri(Math.min(3,opts.length))];if(!t)break;const v=put(t,far);if(!v)break;gb-=v;bud-=v}}
   if(locked&&plain.length){const kr=plain.slice().sort((a,b)=>depth[b]-depth[a])[ri(Math.min(3,plain.length))];S.keyRoom=kr;
     const fu=pieces((u,c)=>reg[c]===kr&&(u.t==='chest'||u.t==='tomb'||u.t==='bench')&&!u.shard);
     if(fu.length&&Math.random()<.5)S.furn[fu[0]].key=true;else if(!put(nh>=3?'I':'F',kr,{key:true})){const c=place(kr,'chest');if(c>=0)S.furn[c].key=true;else for(const d of doorsOf(far))d.locked=false}
