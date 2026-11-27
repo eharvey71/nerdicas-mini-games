@@ -127,11 +127,15 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 #hud .it{font-weight:700;--c:var(--fg);color:var(--c);white-space:nowrap}#hud .lab{font-size:10px;margin-right:4px}#hud .dl{font-size:11px;margin-left:4px}#hud .dl.up{color:var(--fuel)}#hud .dl.dn{color:var(--hp)}
 #hud .hp{--c:var(--hp)}#hud .shd{--c:var(--shd)}#hud .fuel{--c:var(--fuel)}#hud .gold{--c:var(--gold)}#hud .goal{--c:var(--goal)}#hud .you{--c:var(--you)}
 #hud .low{outline:1px solid var(--c)}#hud .flash .val{animation:pulse 1s ease-out 1}#hud .brk{flex-basis:100%;height:0}
-#tick{position:absolute;left:0;right:0;bottom:34px;padding:3px 8px;background:rgba(0,0,0,.86);border-top:1px dotted var(--fg);font-size:12px;line-height:1.4;font-weight:700;cursor:pointer}
+#tick{padding:3px 8px;background:rgba(0,0,0,.86);border-top:1px dotted var(--fg);font-size:12px;line-height:1.4;font-weight:700;cursor:pointer}
 #tick div{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}#tick .old{opacity:.7;-webkit-line-clamp:1}
 #tick .good{color:var(--fuel)}#tick .bad{color:var(--hp)}#tick .gold{color:var(--gold)}
-#app.play:not(.land) #stat,#app.play:not(.land) #log,#app.play #help,#app.play #how{display:none}
-#app.play:not(.land) #vbtn{top:auto;bottom:calc(40px + var(--tick,40px))}
+#app.play:not(.land) #log,#app.play #help,#app.play #how{display:none}
+#app.play:not(.land) #stat{order:1;cursor:pointer}#app.play:not(.land) #view{order:2}#app.play:not(.land) #pad{order:3}#app.play.sheet #stat{cursor:default}
+#low{display:contents}
+#app.play:not(.land) #low{display:flex;flex-direction:column;position:absolute;left:0;right:0;bottom:34px;pointer-events:none}
+#app.play:not(.land) #low>*{pointer-events:auto}
+#app.play:not(.land) #vbtn{position:static;align-self:flex-end;margin:0 6px 5px}
 #app.play.sheet #view,#app.play.sheet #pad .stripw{display:none}
 #app.play.sheet #stat{display:grid}#app.play.sheet #log{display:block;height:16.8em}#app.play.sheet #help,#app.play.sheet #how{display:block}
 /* ---- held sideways: board on the left at full height, everything else in a column on the right */
@@ -147,7 +151,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 <body>
 <div id="app">
   <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>DUSTHAVEN</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
-  <div id="view"><canvas id="cv"></canvas><div id="hud" hidden></div><div id="tick" hidden></div><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="tilt" type="button">TILT MID</button><button class="mini" id="zoom" type="button">ZOOM FAR</button></div><div id="msg"></div></div>
+  <div id="view"><canvas id="cv"></canvas><div id="hud" hidden></div><div id="low"><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="tilt" type="button">TILT MID</button><button class="mini" id="zoom" type="button">ZOOM FAR</button></div><div id="tick" hidden></div></div><div id="msg"></div></div>
   <div id="stat"></div>
   <div id="log"></div>
   <div id="pad"></div>
@@ -162,7 +166,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>END MONTH runs the colony: income, arrivals, and whatever the planet throws at you.</li>
       <li>UNDO takes back anything placed this month. A building marked ! is not working: tap it to see why.</li>
       <li>BUILD opens and closes the build buttons: supplies on the top row, the colony itself below. Both rows slide sideways.</li>
-      <li>The numbers across the top of the board are the short version. Tap them, or REPORT, for the full status, the whole log and these notes.</li>
+      <li>The newest message shows along the bottom of the board. Tap it, the status panel or REPORT for the whole log and these notes.</li>
       <li>TILT has a TOP setting that fills a tall screen. Turn the phone sideways for a wide board with everything beside it.</li>
     </ul>
   </details>
@@ -411,7 +415,7 @@ function setZoom(){const k=TILT[tilt],fit=Math.min(Math.floor((W-8)/N),Math.floo
 let extra=0,land=false,sheet=false,drawer=true,OVT=0,OVB=0;
 const wantLand=()=>mode==='play'&&!sheet&&innerWidth>innerHeight&&innerHeight<620&&innerWidth>=560;
 function fit(){const base=clamp(W*.62,190,380);let want=0;if(mode==='play'&&!land&&!sheet){const pd=$('pad'),spare=(window.innerHeight||0)-(pd.offsetTop+pd.offsetHeight)-10;want=clamp(extra+spare,0,W*1.5-base)}if(Math.abs(want-extra)>3){extra=Math.round(want);resize();draw()}}
-function resize(){land=wantLand();$('app').classList.toggle('land',land);const over=mode==='play'&&!land;$('hud').hidden=$('tick').hidden=!over;OVT=over?($('hud').offsetHeight||36):0;OVB=over?($('tick').offsetHeight||22):0;
+function resize(){land=wantLand();$('app').classList.toggle('land',land);const over=mode==='play'&&!land;$('hud').hidden=true;$('tick').hidden=!over;OVT=0;OVB=over?($('tick').offsetHeight||22):0;
   const w=$('view').clientWidth||320;W=Math.max(240,w-4);VH=land?Math.max(160,(window.innerHeight||400)-12-4-STRIP-6):Math.round(clamp(W*.62,190,380)+extra);Hh=VH+STRIP+4;DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(Hh*DPR);cv.style.height=Hh+'px';setZoom()}
 function text(t,x,y,col,al,sz){ctx.font=`bold ${sz||11}px "Courier New",monospace`;ctx.textAlign=al||'left';ctx.fillStyle=col||FG;ctx.fillText(t,x,y)}
 const poly=(p,fill,stroke,lw)=>{ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke()}};
@@ -472,20 +476,16 @@ function drawStatus(){
   g=grp('MONEY');it(g,'cr','CREDITS',S.cr,S.cr,S.cr<0?'hp low':'gold');it(g,'inc','EACH MONTH',sg(R.income),R.income,R.income<0?'hp':'');if(S.goal==='debt')it(g,'debt','DEBT',S.debt,S.debt,'hp');
   g=grp('GOAL');it(g,'mo','MONTH',`${S.month}/${G.m}`,S.month,G.m-S.month<=4?'hp low':'');g.appendChild(mkE('span','it goal',S.goal==='charter'?`${S.pop} OF ${POPGOAL} COLONISTS`:S.goal==='debt'?'CLEAR THE DEBT':`KEEP ${HOLDPOP} ALIVE`));
   if(S.storm>0)g.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)g.appendChild(mkE('span','it gold','STORM NEXT MONTH'));
-  {const hud=$('hud'),SH={crew:'IDLE',mor:'MOR',pw:'PWR',air:'AIR',wat:'WTR',food:'FOOD',cr:'CR',mo:'M',inc:'',debt:'DEBT'};hud.textContent='';
-   const put=k=>{const o=st.querySelector(`[data-k="${k}"]`);if(!o)return;const e=o.cloneNode(true);const b=e.querySelector('.bar');if(b)b.remove();const l=e.querySelector('.lab');if(l){if(SH[k])l.textContent=SH[k];else if(SH[k]==='')l.remove()}hud.appendChild(e)};
-   ['pop','crew','mor','mo'].forEach(put);hud.appendChild(mkE('span','brk'));['pw','air','wat','food'].forEach(put);hud.appendChild(mkE('span','brk'));['cr','inc','debt'].forEach(put);
-   hud.appendChild(mkE('span','it goal',S.goal==='charter'?`${S.pop} OF ${POPGOAL}`:S.goal==='debt'?'':`KEEP ${HOLDPOP}`));if(S.storm>0)hud.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)hud.appendChild(mkE('span','it gold','STORM SOON'));
-   const tk=$('tick');tk.textContent='';const two=lines.filter(l=>!/hdr/.test(l[1])).slice(-2);two.forEach((l,i)=>tk.appendChild(mkE('div',(i<two.length-1?'old ':'')+l[1],l[0])));
-   const th2=tk.offsetHeight;if(th2){$('view').style.setProperty('--tick',th2+'px');if(Math.abs(th2-OVB)>2){OVB=th2;setZoom()}}}
+  {const tk=$('tick');tk.textContent='';const two=lines.filter(l=>!/hdr/.test(l[1])).slice(-2);two.forEach((l,i)=>tk.appendChild(mkE('div',(i<two.length-1?'old ':'')+l[1],l[0])));
+   const th2=tk.offsetHeight;if(th2&&Math.abs(th2-OVB)>2){OVB=th2;setZoom()}}
   clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
 }
-$('hud').onclick=$('tick').onclick=()=>{if(mode==='play'){sheet=true;render();scrollTo(0,0)}};
+$('stat').onclick=$('tick').onclick=()=>{if(mode==='play'&&!sheet&&!land){sheet=true;render();scrollTo(0,0)}};
 $('log').onclick=()=>{const lg=$('log');lg.classList.toggle('big');lg.scrollTop=lg.scrollHeight};
 function ui(){
   const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
   if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];if(lines[logN][2]&&!/hdr/.test(lines[logN][1]))e.appendChild(mkE('span','mo','M'+lines[logN][2]+' '));e.appendChild(document.createTextNode(lines[logN][0]));lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
-  const pad=$('pad');pad.textContent='';pad.classList.remove('bar4');if(mode!=='play')sheet=false;$('app').classList.toggle('play',mode==='play');$('app').classList.toggle('sheet',sheet);if(wantLand()!==land||$('hud').hidden!==!(mode==='play'&&!land))resize();
+  const pad=$('pad');pad.textContent='';pad.classList.remove('bar4');if(mode!=='play')sheet=false;$('app').classList.toggle('play',mode==='play');$('app').classList.toggle('sheet',sheet);if(wantLand()!==land||$('tick').hidden!==!(mode==='play'&&!land))resize();
   const btn=(t,f,dis,hot,span,sel)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(sel)e.classList.add('sel');if(span)e.classList.add('s'+span);if(dis||!f)e.disabled=true;else e.onclick=()=>{wake();e.blur();f()};pad.appendChild(e)};
   const toGoal=()=>{mode='goal';show([['PICK A GOAL','big'],...Object.values(GOALS).map(g=>[g.n+': '+g.d])]);render()};
   if(mode==='title'){btn('NEW COLONY',toGoal,false,true);btn('CONTINUE',hasSave()?load:null);btn('·',null);return}
