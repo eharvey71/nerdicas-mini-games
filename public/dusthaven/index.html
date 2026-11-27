@@ -438,7 +438,7 @@ function drawStatus(){
     if(bar){const b=mkE('span','bar'),i=mkE('i');i.style.width=clamp(Math.round(bar[0]/Math.max(1,bar[1])*100),0,100)+'%';b.appendChild(i);e.appendChild(b)}
     if(f&&now<f.dUntil&&f.d){const gd=k==='mo'||k==='crew'?0:(f.d>0)!==(k==='debt')?1:-1;e.appendChild(mkE('span','dl'+(gd>0?' up':gd<0?' dn':''),(f.d>0?'+':'−')+Math.abs(f.d)))}if(f&&now<f.dUntil)again=true;g.appendChild(e)};
   const R=calc(),sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v),G=GOALS[S.goal];
-  let g=grp('PEOPLE');it(g,'pop','COLONISTS',`${S.pop}/${R.beds} BEDS`,S.pop,S.pop>R.beds?'hp low':'');it(g,'crew','IDLE CREW',R.crew,R.crew);it(g,'mor','MORALE',S.morale,S.morale,S.morale<40?'hp low':'',[S.morale,100]);
+  let g=grp('PEOPLE');it(g,'pop','',`${S.pop}/${R.beds} BEDS`,S.pop,S.pop>R.beds?'hp low':'');it(g,'crew','IDLE',R.crew,R.crew);it(g,'mor','MORALE',S.morale,S.morale,S.morale<40?'hp low':'',[S.morale,100]);
   g=grp('SUPPLY');it(g,'pw','POWER',sg(R.pw),R.pw,R.pw<0?'hp low':'gold');it(g,'air','AIR',sg(R.air),R.air,R.air<0?'hp low':'you');it(g,'wat','WATER',sg(R.wat),R.wat,R.wat<0?'hp low':'shd');it(g,'food','FOOD',`${S.food} (${sg(R.food)})`,S.food,S.food+R.food<0?'hp low':'fuel');
   g=grp('MONEY');it(g,'cr','CREDITS',S.cr,S.cr,S.cr<0?'hp low':'gold');it(g,'inc','EACH MONTH',sg(R.income),R.income,R.income<0?'hp':'');if(S.goal==='debt')it(g,'debt','DEBT',S.debt,S.debt,'hp');
   g=grp('GOAL');it(g,'mo','MONTH',`${S.month}/${G.m}`,S.month,G.m-S.month<=4?'hp low':'');g.appendChild(mkE('span','it goal',S.goal==='charter'?`${S.pop} OF ${POPGOAL} COLONISTS`:S.goal==='debt'?'CLEAR THE DEBT':`KEEP ${HOLDPOP} ALIVE`));
