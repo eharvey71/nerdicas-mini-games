@@ -213,7 +213,7 @@ const GAMES=[
      if(s){g.ink(8);const v=Math.floor(s*.8)%4,x0=130+v*26;for(let y=163;y<180;y+=3)g.line(x0+3,y,x0+17,y);
        g.ink(2);const spots=[[55,70],[158,84],[205,90],[250,104]],a=spots[v],b=spots[(v+1)%4],f=Math.min(1,((s*.8)%1)*1.6),cx=a[0]+(b[0]-a[0])*f,cy=a[1]+(b[1]-a[1])*f;g.line(cx-6,cy,cx-2,cy);g.line(cx+2,cy,cx+6,cy);g.line(cx,cy-6,cx,cy-2);g.line(cx,cy+2,cx,cy+6)}
    }},
-  {slug:'dusthaven',title:'DUSTHAVEN',wip:true,
+  {slug:'dusthaven',title:'DUSTHAVEN',
    blurb:'Build an outpost on a dusty world, one month at a time. Keep power, air, water and food ahead of the colonists, link it all with tubes, and ride out the storms. New ground every run.',
    tags:'BUILDER · 1 PLAYER · TOUCH OR MOUSE',
    art:(g,s)=>{
