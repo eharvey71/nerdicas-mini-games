@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Regolith</title>
 <meta name="description" content="A 1-bit vector moon lander. Land softly on a pad before the fuel runs out.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
@@ -122,17 +125,17 @@ const $=id=>document.getElementById(id);
 const rnd=(a,b)=>a+Math.random()*(b-a),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 
 /* ---------- 1-bit framebuffer ---------- */
-const W=280,H=192,ctx=$('cv').getContext('2d'),img=ctx.createImageData(W,H),buf=new Uint8Array(W*H);
+const W=280,H=192,ctx=$('cv').getContext('2d');let SKY=0,VH=H,tall=false,img=ctx.createImageData(W,H),buf=new Uint8Array(W*H);
 const HUES=[[51,255,102],[255,176,0],[255,255,255]];let hueI=0;
 function cls(){buf.fill(0)}
-function pset(x,y){x|=0;y|=0;if(x>=0&&x<W&&y>=0&&y<H)buf[y*W+x]=1}
+function pset(x,y){x|=0;y|=0;if(x>=0&&x<W&&y>=0&&y<VH)buf[y*W+x]=1}
 function line(x0,y0,x1,y1){
   x0=Math.round(x0);y0=Math.round(y0);x1=Math.round(x1);y1=Math.round(y1);
-  if((x0<0&&x1<0)||(x0>=W&&x1>=W)||(y0<0&&y1<0)||(y0>=H&&y1>=H))return;
+  if((x0<0&&x1<0)||(x0>=W&&x1>=W)||(y0<0&&y1<0)||(y0>=VH&&y1>=VH))return;
   const dx=Math.abs(x1-x0),dy=Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let e=dx-dy,n=0;
   while(n++<1500){pset(x0,y0);if(x0===x1&&y0===y1)break;const e2=2*e;if(e2>-dy){e-=dy;x0+=sx}if(e2<dx){e+=dx;y0+=sy}}
 }
-function flush(){const c=HUES[hueI],p=img.data;for(let i=0;i<W*H;i++){const o=i*4,v=buf[i];p[o]=v?c[0]:0;p[o+1]=v?c[1]:0;p[o+2]=v?c[2]:0;p[o+3]=255}ctx.putImageData(img,0,0)}
+function flush(){const c=HUES[hueI],p=img.data;for(let i=0;i<W*VH;i++){const o=i*4,v=buf[i];p[o]=v?c[0]:0;p[o+1]=v?c[1]:0;p[o+2]=v?c[2]:0;p[o+3]=255}ctx.putImageData(img,0,0)}
 function setHue(){const c=HUES[hueI];document.documentElement.style.setProperty('--fg',`rgb(${c[0]},${c[1]},${c[2]})`)}
 $('hue').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setHue()};
 
@@ -199,8 +202,9 @@ function genTerrain(){
       pads.push({i0:i,i1:i+w,x0:i*STEP,x1:(i+w)*STEP,y:py,m});break;
     }
   }
-  stars=[];for(let i=0;i<28;i++)stars.push([Math.floor(rnd(0,W)),Math.floor(rnd(2,95))]);
+  mkStars();
 }
+function mkStars(){stars=[];const n=Math.round(28*(93+SKY)/93);for(let i=0;i<n;i++)stars.push([Math.floor(rnd(0,W)),Math.floor(rnd(2-SKY,95))])}
 function heightAt(x){x=((x%W)+W)%W;const i=Math.min(N-1,Math.floor(x/STEP)),t=x/STEP-i;return ys[i]+(ys[i+1]-ys[i])*t}
 function launch(){
   const pd=pads[Math.floor(Math.random()*pads.length)],dr=Math.min(14,S.landings*2.5);S.x=clamp((pd.x0+pd.x1)/2+rnd(-45,45),12,W-12);S.y=14;S.vx=rnd(dr*.5,dr+3)*(Math.random()<.5?-1:1);S.vy=0;S.a=0;S.mode='fly';S.debris=[];cam.s=1;show(null);
@@ -228,7 +232,7 @@ function update(dt){
   if(burn){S.vx+=Math.sin(S.a)*THRUST*dt;S.vy-=Math.cos(S.a)*THRUST*dt;S.fuel=Math.max(0,S.fuel-BURN*dt)}
   S.flame=burn?rnd(4,9):0;rumble(burn);
   S.vy+=(GRAV0+Math.min(4,S.landings*.4))*dt;S.x+=S.vx*dt;S.y+=S.vy*dt;
-  S.x=((S.x%W)+W)%W;if(S.y<-20){S.y=-20;if(S.vy<0)S.vy=0}
+  S.x=((S.x%W)+W)%W;if(S.y<-20-SKY){S.y=-20-SKY;if(S.vy<0)S.vy=0}
   if(S.fuel<20){S.warn-=dt;if(S.warn<=0){S.warn=S.fuel<=0?99:1;sfx('warn')}}else S.warn=0;
   // contact
   const pts=SHIP.hit.map(p=>world(p[0],p[1]));
@@ -260,7 +264,7 @@ function draw(){
   const alt=heightAt(S.x)-(S.y+6);
   if(S.mode==='fly'){if(cam.s===1&&alt<46)cam.s=2;else if(cam.s===2&&alt>62)cam.s=1}
   if(S.mode==='title'||S.mode==='over')cam.s=1;
-  if(cam.s===2){cam.x=S.x-W/4;cam.y=clamp(S.y-H/4,0,H/2)}else{cam.x=0;cam.y=0}
+  if(cam.s===2){cam.x=S.x-W/4;cam.y=clamp(S.y-VH/4,-SKY,H-VH/2)}else{cam.x=0;cam.y=-SKY}
   for(const st of stars)if(st[1]<heightAt(st[0])-3)for(const off of cam.s===2?[-W,0,W]:[0])pset(sx(st[0]+off),sy(st[1]));
   for(const off of cam.s===2?[-W,0,W]:[0]){
     for(let i=0;i<N;i++)wline(i*STEP+off,ys[i],(i+1)*STEP+off,ys[i+1]);
@@ -309,8 +313,15 @@ addEventListener('blur',()=>{K.l=K.r=K.t=false});
 try{const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length;const v=localStorage.getItem('regolith.vol');if(v!==null)vol=clamp(+v||0,0,2);S.best=+localStorage.getItem('regolith.best')||0}catch(e){}
 setHue();setSnd();genTerrain();
 show([['REGOLITH','big'],['Land soft. Land level. Mind the fuel.'],['Hold THRUST to launch']]);
+/* while flying, the view gains sky to fill the spare screen height */
+function resize(){const v=$('view'),w=Math.max(240,(v.clientWidth||284)-4),base=w*H/W;let sky=0;
+  if(tall){let used=22,n=0;for(const e of $('app').children)if(e.id!=='view'&&e.id!=='help'&&e.id!=='how'&&e.offsetHeight){used+=e.offsetHeight;n++}used+=n*6;const vh=Math.min(window.innerHeight||1e9,window.visualViewport?visualViewport.height:1e9);sky=Math.round((clamp(vh-used-10,base,w*1.8)-base)*W/w)}
+  if(sky!==SKY){SKY=sky;VH=H+SKY;$('cv').height=VH;v.style.aspectRatio=W+'/'+VH;img=ctx.createImageData(W,VH);buf=new Uint8Array(W*VH);mkStars()}}
+let wasPlay=false;
+function fit(){const play=S.mode!=='title'&&S.mode!=='over';if(play===wasPlay)return;wasPlay=play;$('help').hidden=play;$('how').hidden=play;if(play&&!tall){tall=true;resize();scrollTo(0,0)}}
+{let rz=0;const again=()=>{clearTimeout(rz);rz=setTimeout(resize,120)};addEventListener('resize',again);if(window.visualViewport)visualViewport.addEventListener('resize',again)}
 let last=0;
-function frame(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;update(dt);draw();hud();requestAnimationFrame(frame)}
+function frame(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;update(dt);fit();draw();hud();requestAnimationFrame(frame)}
 requestAnimationFrame(frame);
 </script>
 </body>
