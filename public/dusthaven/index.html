@@ -421,7 +421,7 @@ let extra=0,land=false,sheet=false,drawer=true,OVT=0,OVB=0,OVL=0;
 const seen=()=>Math.min(window.innerHeight||1e9,window.visualViewport?visualViewport.height:1e9,document.documentElement.clientHeight||1e9);
 const wantLand=()=>mode==='play'&&!sheet&&innerWidth>innerHeight&&innerHeight<620&&innerWidth>=560;
 /* measure the strip and the log line once they are laid out, park the palette between them, and re-fit the board if either changed height */
-function place(){if(mode!=='play'||land)return;const hh=$('hud').offsetHeight,tk=$('tick').offsetHeight,pal=$('pal');pal.style.top=hh+'px';pal.style.bottom=(34+tk)+'px';if(hh&&tk&&(Math.abs(hh-OVT)>2||Math.abs(tk-OVB)>2)){OVT=hh;OVB=tk;setZoom();draw()}}
+function seat(){if(mode!=='play'||land)return;const hh=$('hud').offsetHeight,tk=$('tick').offsetHeight,pal=$('pal');pal.style.top=hh+'px';pal.style.bottom=(34+tk)+'px';if(hh&&tk&&(Math.abs(hh-OVT)>2||Math.abs(tk-OVB)>2)){OVT=hh;OVB=tk;setZoom();draw()}}
 function fit(){const base=clamp(W*.62,190,380);let want=0;if(mode==='play'&&!land&&!sheet){const pd=$('pad'),spare=seen()-(pd.offsetTop+pd.offsetHeight)-18;want=clamp(extra+spare,0,W*2.3-base)}if(Math.abs(want-extra)>3){extra=Math.round(want);resize();draw()}if(mode==='play'&&!sheet&&(window.scrollY||0)>0)scrollTo(0,0)}
 if(window.ResizeObserver)new ResizeObserver(()=>{if(mode==='play')fit()}).observe($('pad'));
 if(window.visualViewport)visualViewport.addEventListener('resize',()=>{if(mode==='play')fit()});
@@ -468,7 +468,7 @@ function draw(){
   text(tl,4,VH+20,tool?'#ffe650':FG,'left',W<340?9:10);
 }
 let animT=0;
-function render(){draw();drawStatus();ui();place();fit();place();{const lg=$('log');lg.scrollTop=lg.scrollHeight}clearInterval(animT);if(mode==='play')animT=setInterval(()=>{if(mode==='play')draw()},S&&S.storm>0?90:400)}
+function render(){draw();drawStatus();ui();seat();fit();seat();{const lg=$('log');lg.scrollTop=lg.scrollHeight}clearInterval(animT);if(mode==='play')animT=setInterval(()=>{if(mode==='play')draw()},S&&S.storm>0?90:400)}
 function show(rows){const m=$('msg');if(!rows){m.style.display='none';return}m.textContent='';for(const [t,c] of rows){if(!t)continue;const e=document.createElement('div');e.textContent=t;if(c)e.className=c;m.appendChild(e)}m.style.display='block'}
 const mkE=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
 let prevS={},flashT={},stT=0,stripX=[0,0];
