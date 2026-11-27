@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
 <title>Dusthaven</title>
 <meta name="description" content="Build a mining outpost on a dead world, month by month. Keep the air, water, food and power flowing, and meet your goal before the deadline.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
@@ -59,7 +63,7 @@ canvas{display:block;width:100%}
 #pad .stripw .arr{position:absolute;top:0;bottom:0;width:26px;min-height:0;padding:0;border:0;font-size:13px;color:var(--fg);background:linear-gradient(90deg,#000 55%,transparent)}
 #pad .stripw .arr.r{right:0;background:linear-gradient(270deg,#000 55%,transparent)}#pad .stripw .arr.l{left:0}
 #pad .stripw .arr[hidden]{display:none}
-#app.play #help:not([open]){display:none}
+
 #pad .s2{grid-column:span 2}#pad .s3{grid-column:span 3}
 #pad .note{grid-column:span 3;font-size:12px;line-height:1.35;border-bottom:1px dotted var(--fg);padding:0 0 4px}
 #pad .row{grid-column:span 3;display:grid;grid-template-columns:1fr 62px 62px;gap:6px;align-items:stretch}
@@ -115,14 +119,34 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 #stat .gl{width:52px}
 #stat .grp{gap:1px 8px}
 #log{height:9.8em}
-#log.short{height:5.6em}
 #log.big{height:16.8em}
+#pad.bar4{grid-template-columns:repeat(4,1fr)}#pad.bar4 .stripw{grid-column:span 4}
+/* ---- play: the board comes first. A two-line strip of numbers lies across its top, the newest log line across its bottom,
+   and the build buttons are a drawer under it. REPORT swaps the board for the full status, the whole log, help and rules. */
+#hud{position:absolute;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:0 9px;padding:3px 6px;background:rgba(0,0,0,.8);border-bottom:1px solid var(--fg);font-size:12px;line-height:1.45;cursor:pointer;font-variant-numeric:tabular-nums}
+#hud .it{font-weight:700;--c:var(--fg);color:var(--c);white-space:nowrap}#hud .lab{font-size:9px;margin-right:3px}#hud .dl{font-size:10px;margin-left:3px}#hud .dl.up{color:var(--fuel)}#hud .dl.dn{color:var(--hp)}
+#hud .hp{--c:var(--hp)}#hud .shd{--c:var(--shd)}#hud .fuel{--c:var(--fuel)}#hud .gold{--c:var(--gold)}#hud .goal{--c:var(--goal)}#hud .you{--c:var(--you)}
+#hud .low{outline:1px solid var(--c)}#hud .flash .val{animation:pulse 1s ease-out 1}#hud .brk{flex-basis:100%;height:0}
+#tick{position:absolute;left:0;right:0;bottom:34px;padding:2px 6px;background:rgba(0,0,0,.8);font-size:11px;line-height:1.5;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+#tick.good{color:var(--fuel)}#tick.bad{color:var(--hp)}#tick.gold{color:var(--gold)}
+#app.play:not(.land) #stat,#app.play:not(.land) #log,#app.play #help,#app.play #how{display:none}
+#app.play:not(.land) #vbtn{top:auto;bottom:60px}
+#app.play.sheet #view,#app.play.sheet #pad .stripw{display:none}
+#app.play.sheet #stat{display:grid}#app.play.sheet #log{display:block;height:16.8em}#app.play.sheet #help,#app.play.sheet #how{display:block}
+/* ---- held sideways: board on the left at full height, everything else in a column on the right */
+#app.play.land{max-width:none;display:grid;grid-template-columns:minmax(0,1fr) 296px;grid-template-rows:auto auto minmax(0,1fr) auto;gap:4px 8px;padding:6px 10px;height:100%}
+#app.play.land header{grid-column:2;grid-row:1}#app.play.land h1{font-size:12px;letter-spacing:.12em}
+#app.play.land #view{grid-column:1;grid-row:1/-1;align-self:start}
+#app.play.land #stat{grid-column:2;grid-row:2;font-size:11px;line-height:1.3;padding:2px 6px;gap:1px}#app.play.land #stat .gl{width:42px;font-size:9px}#app.play.land #stat .lab{font-size:9px;margin-right:3px}#app.play.land #stat .grp{gap:0 6px;padding-top:1px}#app.play.land #stat .bar{display:none}
+#app.play.land #log{grid-column:2;grid-row:3;height:auto;min-height:2.8em;font-size:11px}
+#app.play.land #pad{grid-column:2;grid-row:4;gap:4px}#app.play.land #pad button{min-height:34px;padding:6px 1px}
+#app.play.land.sheet{display:flex;height:auto}#app.play.land.sheet #log{height:12em}
 </style>
 </head>
 <body>
 <div id="app">
   <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>DUSTHAVEN</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
-  <div id="view"><canvas id="cv"></canvas><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="tilt" type="button">TILT MID</button><button class="mini" id="zoom" type="button">ZOOM FAR</button></div><div id="msg"></div></div>
+  <div id="view"><canvas id="cv"></canvas><div id="hud" hidden></div><div id="tick" hidden></div><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="tilt" type="button">TILT MID</button><button class="mini" id="zoom" type="button">ZOOM FAR</button></div><div id="msg"></div></div>
   <div id="stat"></div>
   <div id="log"></div>
   <div id="pad"></div>
@@ -136,7 +160,9 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>Mines sit on ore (yellow) and earn credits. Ice wells sit on or beside ice (blue).</li>
       <li>END MONTH runs the colony: income, arrivals, and whatever the planet throws at you.</li>
       <li>UNDO takes back anything placed this month. A building marked ! is not working: tap it to see why.</li>
-      <li>The build buttons are two rows that slide sideways: supplies on top, the colony itself below. Tap the log to make it taller, and again to shrink it.</li>
+      <li>BUILD opens and closes the build buttons: supplies on the top row, the colony itself below. Both rows slide sideways.</li>
+      <li>The numbers across the top of the board are the short version. Tap them, or REPORT, for the full status, the whole log and these notes.</li>
+      <li>TILT has a TOP setting that fills a tall screen. Turn the phone sideways for a wide board with everything beside it.</li>
     </ul>
   </details>
   <details id="how">
@@ -373,17 +399,19 @@ function tap(c){
   render();
 }
 /* ---------- drawing: an angled board ---------- */
-const cv=$('cv'),ctx=cv.getContext('2d');let W=320,VH=260,Hh=300,DPR=1,STRIP=30,tw=24,th=12,hu=12,zoom=0,tilt=1,rot=0,cam={x:0,y:0},ORDER=[];
+const cv=$('cv'),ctx=cv.getContext('2d');let W=320,VH=260,Hh=300,DPR=1,STRIP=30,tw=24,th=12,hu=12,zoom=0,tilt=2,rot=0,cam={x:0,y:0},ORDER=[];
 const U=(x,y)=>rot===0?x:rot===1?N-y:rot===2?N-x:y,V=(x,y)=>rot===0?y:rot===1?x:rot===2?N-y:N-x;
 const iX=(x,y)=>W/2+(U(x,y)-V(x,y))*tw/2-cam.x,iY=(x,y)=>VH/2+(U(x,y)+V(x,y))*th/2-cam.y;
-const TILT=[.36,.5,.68],TILTN=['LOW','MID','HIGH'],ZOOMN=['FAR','MID','NEAR'];
-function setZoom(){const k=TILT[tilt],fit=Math.min(Math.floor((W-8)/N),Math.floor((VH-34)/(N*k)));tw=zoom===2?Math.max(fit+36,66):zoom?Math.max(fit+14,44):fit;tw-=tw%2;th=tw*k;hu=tw*(.75-.5*k); /* tile height follows the tilt; things stand shorter the more you look down */const d=c=>U(X(c)+.5,Y(c)+.5)+V(X(c)+.5,Y(c)+.5);ORDER=[...Array(NC).keys()].sort((a,b)=>d(a)-d(b)||a-b);
-  if(!zoom){cam.x=0;cam.y=N*th/2-th*.4}else if(S){const c=pick>=0?pick:S.hub,u=U(X(c)+.5,Y(c)+.5),v=V(X(c)+.5,Y(c)+.5);cam.x=(u-v)*tw/2;cam.y=(u+v)*th/2}
+const TILT=[.36,.5,.68,.92],TILTN=['LOW','MID','HIGH','TOP'],ZOOMN=['FAR','MID','NEAR'];
+function setZoom(){const k=TILT[tilt],fit=Math.min(Math.floor((W-8)/N),Math.floor((VH-34-OVT-OVB)/(N*k)));tw=zoom===2?Math.max(fit+36,66):zoom?Math.max(fit+14,44):fit;tw-=tw%2;th=tw*k;hu=tw*(.75-.5*k); /* tile height follows the tilt; things stand shorter the more you look down */const d=c=>U(X(c)+.5,Y(c)+.5)+V(X(c)+.5,Y(c)+.5);ORDER=[...Array(NC).keys()].sort((a,b)=>d(a)-d(b)||a-b);
+  if(!zoom){cam.x=0;cam.y=N*th/2-th*.4-(OVT-OVB)/2}else if(S){const c=pick>=0?pick:S.hub,u=U(X(c)+.5,Y(c)+.5),v=V(X(c)+.5,Y(c)+.5);cam.x=(u-v)*tw/2;cam.y=(u+v)*th/2}
   cv.style.touchAction=zoom?'none':'manipulation';$('zoom').textContent='ZOOM '+ZOOMN[zoom];$('tilt').textContent='TILT '+TILTN[tilt]}
-/* In play the board grows into whatever screen height is left once the buttons are placed (the log gives up three lines for it). */
-let extra=0;
-function fit(){const base=clamp(W*.62,190,380);let want=0;if(mode==='play'){const pd=$('pad'),spare=(window.innerHeight||0)-(pd.offsetTop+pd.offsetHeight)-12;want=clamp(extra+spare,0,W*.95-base);if(want<30){want=0;$('log').classList.remove('short')}}if(Math.abs(want-extra)>3){extra=Math.round(want);resize();draw()}}
-function resize(){const w=$('view').clientWidth||320;W=Math.max(240,w-4);VH=Math.round(clamp(W*.62,190,380)+extra);Hh=VH+STRIP+4;DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(Hh*DPR);cv.style.height=Hh+'px';setZoom()}
+/* In play the board takes whatever screen is left: the height above the buttons when held upright, the full height when held sideways. */
+let extra=0,land=false,sheet=false,drawer=true,OVT=0,OVB=0;
+const wantLand=()=>mode==='play'&&!sheet&&innerWidth>innerHeight&&innerHeight<620&&innerWidth>=560;
+function fit(){const base=clamp(W*.62,190,380);let want=0;if(mode==='play'&&!land&&!sheet){const pd=$('pad'),spare=(window.innerHeight||0)-(pd.offsetTop+pd.offsetHeight)-10;want=clamp(extra+spare,0,W*1.5-base)}if(Math.abs(want-extra)>3){extra=Math.round(want);resize();draw()}}
+function resize(){land=wantLand();$('app').classList.toggle('land',land);const over=mode==='play'&&!land;$('hud').hidden=$('tick').hidden=!over;OVT=over?($('hud').offsetHeight||36):0;OVB=over?22:0;
+  const w=$('view').clientWidth||320;W=Math.max(240,w-4);VH=land?Math.max(160,(window.innerHeight||400)-12-4-STRIP-6):Math.round(clamp(W*.62,190,380)+extra);Hh=VH+STRIP+4;DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(Hh*DPR);cv.style.height=Hh+'px';setZoom()}
 function text(t,x,y,col,al,sz){ctx.font=`bold ${sz||11}px "Courier New",monospace`;ctx.textAlign=al||'left';ctx.fillStyle=col||FG;ctx.fillText(t,x,y)}
 const poly=(p,fill,stroke,lw)=>{ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke()}};
 const tile=(x,y,k)=>{const cx=iX(x+.5,y+.5),cy=iY(x+.5,y+.5),a=tw/2*k,b=th/2*k;return [[cx,cy-b],[cx+a,cy],[cx,cy+b],[cx-a,cy]]};
@@ -425,7 +453,7 @@ function draw(){
   text(tl,4,VH+20,tool?'#ffe650':FG,'left',W<340?9:10);
 }
 let animT=0;
-function render(){draw();drawStatus();ui();fit();clearInterval(animT);if(mode==='play')animT=setInterval(()=>{if(mode==='play')draw()},S&&S.storm>0?90:400)}
+function render(){draw();drawStatus();ui();fit();{const lg=$('log');lg.scrollTop=lg.scrollHeight}clearInterval(animT);if(mode==='play')animT=setInterval(()=>{if(mode==='play')draw()},S&&S.storm>0?90:400)}
 function show(rows){const m=$('msg');if(!rows){m.style.display='none';return}m.textContent='';for(const [t,c] of rows){if(!t)continue;const e=document.createElement('div');e.textContent=t;if(c)e.className=c;m.appendChild(e)}m.style.display='block'}
 const mkE=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
 let prevS={},flashT={},stT=0,stripX=[0,0];
@@ -434,7 +462,7 @@ function drawStatus(){
   if(!S||mode==='title'||mode==='goal'){grp().appendChild(mkE('span','it','A MINING OUTPOST ON A DEAD WORLD'));return}
   const now=Date.now();let again=false;
   const it=(g,k,label,val,num,cls,bar)=>{val=String(val);const p=prevS[k];if(p&&p.val!==val)flashT[k]={until:now+700,dUntil:now+1900,d:typeof num==='number'&&typeof p.num==='number'?Math.round((num-p.num)*10)/10:0};prevS[k]={val,num};
-    const f=flashT[k],e=mkE('span','it'+(cls?' '+cls:'')+(f&&now<f.until?' flash':''));if(label)e.appendChild(mkE('span','lab',label));e.appendChild(mkE('span','val',val));
+    const f=flashT[k],e=mkE('span','it'+(cls?' '+cls:'')+(f&&now<f.until?' flash':''));e.dataset.k=k;if(label)e.appendChild(mkE('span','lab',label));e.appendChild(mkE('span','val',val));
     if(bar){const b=mkE('span','bar'),i=mkE('i');i.style.width=clamp(Math.round(bar[0]/Math.max(1,bar[1])*100),0,100)+'%';b.appendChild(i);e.appendChild(b)}
     if(f&&now<f.dUntil&&f.d){const gd=k==='mo'||k==='crew'?0:(f.d>0)!==(k==='debt')?1:-1;e.appendChild(mkE('span','dl'+(gd>0?' up':gd<0?' dn':''),(f.d>0?'+':'−')+Math.abs(f.d)))}if(f&&now<f.dUntil)again=true;g.appendChild(e)};
   const R=calc(),sg=v=>(v>0?'+':v<0?'−':'')+Math.abs(v),G=GOALS[S.goal];
@@ -443,31 +471,39 @@ function drawStatus(){
   g=grp('MONEY');it(g,'cr','CREDITS',S.cr,S.cr,S.cr<0?'hp low':'gold');it(g,'inc','EACH MONTH',sg(R.income),R.income,R.income<0?'hp':'');if(S.goal==='debt')it(g,'debt','DEBT',S.debt,S.debt,'hp');
   g=grp('GOAL');it(g,'mo','MONTH',`${S.month}/${G.m}`,S.month,G.m-S.month<=4?'hp low':'');g.appendChild(mkE('span','it goal',S.goal==='charter'?`${S.pop} OF ${POPGOAL} COLONISTS`:S.goal==='debt'?'CLEAR THE DEBT':`KEEP ${HOLDPOP} ALIVE`));
   if(S.storm>0)g.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)g.appendChild(mkE('span','it gold','STORM NEXT MONTH'));
+  {const hud=$('hud'),SH={crew:'IDLE',mor:'MOR',pw:'PWR',air:'AIR',wat:'WTR',food:'FOOD',cr:'CR',mo:'M',inc:'',debt:'DEBT'};hud.textContent='';
+   const put=k=>{const o=st.querySelector(`[data-k="${k}"]`);if(!o)return;const e=o.cloneNode(true);const b=e.querySelector('.bar');if(b)b.remove();const l=e.querySelector('.lab');if(l){if(SH[k])l.textContent=SH[k];else if(SH[k]==='')l.remove()}hud.appendChild(e)};
+   ['pop','crew','mor','mo'].forEach(put);if(S.storm>0)hud.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)hud.appendChild(mkE('span','it gold','STORM SOON'));hud.appendChild(mkE('span','brk'));['pw','air','wat','food','cr','inc','debt'].forEach(put);
+   const tk=$('tick'),ln=lines[lines.length-1];tk.className=ln?ln[1].replace('hdr',''):'';tk.textContent=ln?ln[0]:''}
   clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
 }
-$('log').onclick=()=>{const lg=$('log');lg.classList.toggle('big');lg.scrollTop=lg.scrollHeight;fit()};
+$('hud').onclick=$('tick').onclick=()=>{if(mode==='play'){sheet=true;render();scrollTo(0,0)}};
+$('log').onclick=()=>{const lg=$('log');lg.classList.toggle('big');lg.scrollTop=lg.scrollHeight};
 function ui(){
   const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
   if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];if(lines[logN][2]&&!/hdr/.test(lines[logN][1]))e.appendChild(mkE('span','mo','M'+lines[logN][2]+' '));e.appendChild(document.createTextNode(lines[logN][0]));lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
-  const pad=$('pad');pad.textContent='';$('app').classList.toggle('play',mode==='play');$('log').classList.toggle('short',mode==='play');
+  const pad=$('pad');pad.textContent='';pad.classList.remove('bar4');if(mode!=='play')sheet=false;$('app').classList.toggle('play',mode==='play');$('app').classList.toggle('sheet',sheet);if(wantLand()!==land||$('hud').hidden!==!(mode==='play'&&!land))resize();
   const btn=(t,f,dis,hot,span,sel)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(sel)e.classList.add('sel');if(span)e.classList.add('s'+span);if(dis||!f)e.disabled=true;else e.onclick=()=>{wake();e.blur();f()};pad.appendChild(e)};
   const toGoal=()=>{mode='goal';show([['PICK A GOAL','big'],...Object.values(GOALS).map(g=>[g.n+': '+g.d])]);render()};
   if(mode==='title'){btn('NEW COLONY',toGoal,false,true);btn('CONTINUE',hasSave()?load:null);btn('·',null);return}
   if(mode==='goal'){for(const k in GOALS)btn(GOALS[k].n,()=>{gen(k);begin(false)});return}
   if(mode!=='play'){btn('NEW COLONY',toGoal,false,true,3);return}
   /* two side-scrolling rows of like with like: what keeps people alive, then the colony itself. The pad is rebuilt on every change, so each row's scroll position is kept. */
-  const strip=(i,keys)=>{const w=mkE('div','stripw'),d=mkE('div','strip'+(keys.length<5?' fit':'')),L=mkE('button','arr l','\u25C0'),Rr=mkE('button','arr r','\u25B6');L.type=Rr.type='button';L.setAttribute('aria-label','More to the left');Rr.setAttribute('aria-label','More to the right');
+  const strip=(i,keys)=>{const w=mkE('div','stripw'),d=mkE('div','strip'),L=mkE('button','arr l','\u25C0'),Rr=mkE('button','arr r','\u25B6');L.type=Rr.type='button';L.setAttribute('aria-label','More to the left');Rr.setAttribute('aria-label','More to the right');
     const mark=()=>{stripX[i]=d.scrollLeft;L.hidden=d.scrollLeft<4;Rr.hidden=d.scrollLeft>d.scrollWidth-d.clientWidth-4};d.onscroll=mark;
     L.onclick=()=>d.scrollBy({left:-d.clientWidth*.7,behavior:'smooth'});Rr.onclick=()=>d.scrollBy({left:d.clientWidth*.7,behavior:'smooth'});
     w.appendChild(d);w.appendChild(L);w.appendChild(Rr);pad.appendChild(w);
-    for(const t of keys){btn(t==='T'?`TUBE ${TUBE}`:`${DEF[t].n.replace(' ARRAY','').replace(' DOME','').replace(' PLANT','')} ${DEF[t].cost}`,()=>{tool=tool===t?'':t;armed=-1;sfx('sel');render()},false,false,0,tool===t);d.appendChild(pad.lastChild)}
+    for(const t of keys){if(t==='X')btn('REMOVE',()=>{tool=tool==='X'?'':'X';sfx('sel');render()},false,false,0,tool==='X');else btn(t==='T'?`TUBE ${TUBE}`:`${DEF[t].n.replace(' ARRAY','').replace(' DOME','').replace(' PLANT','')} ${DEF[t].cost}`,()=>{tool=tool===t?'':t;armed=-1;sfx('sel');render()},false,false,0,tool===t);d.appendChild(pad.lastChild)}
     d.scrollLeft=stripX[i];mark()};
-  strip(0,['S','R','A','W','F']);strip(1,['T','H','C','M']);
+  const newCol=()=>btn(Date.now()<sure?'SURE?':'NEW COLONY',()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;sheet=false;wipe();toGoal()}});
+  if(sheet){btn('BACK TO THE BOARD',()=>{sheet=false;render()},false,true,2);newCol();$('help').open=true;return}
+  if(drawer||land){strip(0,['S','R','A','W','F']);strip(1,['T','H','C','M','X'])}
+  if(!land)btn(drawer?'BUILD \u25BC':tool?`BUILD \u25B2 (${tool==='X'?'REMOVE':tool==='T'?'TUBE':DEF[tool].n.split(' ')[0]})`:'BUILD \u25B2',()=>{drawer=!drawer;sfx('sel');render()},false,false,0,!drawer&&!!tool);
   btn('UNDO',undo,!S.undo.length);
-  if(S.goal==='debt'){btn('PAY DEBT',pay,S.cr<1);btn('END MONTH',endMonth,false,true)}else btn('END MONTH',endMonth,false,true,2);
-  btn('HELP',()=>{const h=$('help');h.open=!h.open;if(h.open)h.scrollIntoView({block:'nearest',behavior:'smooth'})});
-  btn('REMOVE',()=>{tool=tool==='X'?'':'X';sfx('sel');render()},false,false,0,tool==='X');
-  btn(Date.now()<sure?'SURE?':'NEW COLONY',()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;wipe();toGoal()}});
+  if(S.goal==='debt')btn('PAY DEBT',pay,S.cr<1);
+  btn('END MONTH',endMonth,false,true);
+  btn('REPORT',()=>{sheet=true;render();scrollTo(0,0)},false,false,S.goal==='debt'?(land?0:2):0);
+  pad.classList.toggle('bar4',!land&&S.goal!=='debt');
 }
 let drag=null;
 const cellAt=e=>{const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,py=(e.clientY-r.top)*Hh/r.height;if(py>VH)return -1;const dx=(px-W/2+cam.x)/(tw/2),dy=(py-VH/2+cam.y)/(th/2),u=(dx+dy)/2,v=(dy-dx)/2,x=Math.floor(rot===0?u:rot===1?v:rot===2?N-u:N-v),y=Math.floor(rot===0?v:rot===1?N-u:rot===2?N-v:u);return x<0||y<0||x>=N||y>=N?-1:y*N+x};
@@ -475,10 +511,10 @@ cv.addEventListener('pointerdown',e=>{if(!S||mode!=='play')return;wake();drag={x
 cv.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||!zoom)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.pan&&Math.hypot(dx,dy)<8)return;drag.pan=true;cam.x=clamp(drag.cx-dx,-N*tw/2,N*tw/2);cam.y=clamp(drag.cy-dy,0,N*th);draw()});
 cv.addEventListener('pointerup',e=>{if(!drag||e.pointerId!==drag.id)return;const d=drag;drag=null;if(d.pan)return;const c=cellAt(e);if(c>=0)tap(c)});
 cv.addEventListener('pointercancel',()=>{drag=null});
-$('zoom').onclick=()=>{zoom=(zoom+1)%3;setZoom();draw()};$('tilt').onclick=()=>{tilt=(tilt+1)%3;try{localStorage.setItem('dusthaven.tilt',tilt)}catch(e){}setZoom();draw()};$('turn').onclick=()=>{rot=(rot+1)%4;setZoom();draw()};
+$('zoom').onclick=()=>{zoom=(zoom+1)%3;setZoom();draw()};$('tilt').onclick=()=>{tilt=(tilt+1)%4;try{localStorage.setItem('dusthaven.tilt',tilt)}catch(e){}setZoom();draw()};$('turn').onclick=()=>{rot=(rot+1)%4;setZoom();draw()};
 addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey||mode!=='play')return;const k=e.key.toLowerCase();if(k==='enter'){e.preventDefault();endMonth()}else if(k==='u'||k==='z')undo();else if(k==='escape'){tool='';render()}else if(k>='1'&&k<='9'){tool=TOOLS[+k-1];render()}});
 let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
-try{const v=localStorage.getItem('dusthaven.vol');if(v!==null)vol=clamp(+v||0,0,2);tilt=clamp(+(localStorage.getItem('dusthaven.tilt')??1)||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
+try{const v=localStorage.getItem('dusthaven.vol');if(v!==null)vol=clamp(+v||0,0,2);tilt=clamp(+(localStorage.getItem('dusthaven.tilt')??2)||0,0,3);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
 setTone();setSnd();resize();
 show([['DUSTHAVEN','big'],['A mining outpost on a dead world.'],['Air, water, food, power. Keep them all.']]);
 render();
