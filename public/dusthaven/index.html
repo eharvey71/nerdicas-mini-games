@@ -123,20 +123,19 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 #pad.bar4{grid-template-columns:repeat(4,1fr)}#pad.bar4 .stripw{grid-column:span 4}
 /* ---- play: the board comes first. A two-line strip of numbers lies across its top, the newest log line across its bottom,
    and the build buttons are a drawer under it. REPORT swaps the board for the full status, the whole log, help and rules. */
-#hud{position:absolute;left:0;right:0;top:0;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:2px 8px;padding:6px 8px;background:rgba(0,0,0,.62);border-bottom:1px solid var(--fg);font-size:16px;line-height:1.4;font-variant-numeric:tabular-nums;text-shadow:0 0 3px #000,0 0 3px #000}
-#hud .it{grid-column:span 3;display:flex;align-items:baseline;gap:5px;font-weight:700;--c:var(--fg);color:var(--c);white-space:nowrap;min-width:0}
-#hud .lab{font-size:11px;letter-spacing:.02em;margin:0}#hud .val{font-size:19px}#hud .sub,#hud .dl{font-size:12px;margin:0}#hud .it.w{grid-column:span 4}#hud .it.full{grid-column:1/-1;font-size:13px}#hud .dl.up{color:var(--fuel)}#hud .dl.dn{color:var(--hp)}
-#hud .hp{--c:var(--hp)}#hud .shd{--c:var(--shd)}#hud .fuel{--c:var(--fuel)}#hud .gold{--c:var(--gold)}#hud .goal{--c:var(--goal)}#hud .you{--c:var(--you)}
-#hud .flash .val{animation:pulse 1s ease-out 1}
-#hud,#pal,#vbtn,#tick{transition:opacity .15s}
-#view.moving #hud,#view.moving #pal,#view.moving #vbtn,#view.moving #tick{opacity:.6;pointer-events:none}
+#stat.ov{position:absolute;left:0;right:0;top:0;border:0;border-bottom:1px solid var(--fg);background:rgba(0,0,0,.62);text-shadow:0 0 3px #000,0 0 3px #000}
+#app.play:not(.land) #stat.ov{display:grid}
+#stat.ov,#pal,#vbtn,#tick,#endm{transition:opacity .15s}
+#view.moving #stat.ov,#view.moving #pal,#view.moving #vbtn,#view.moving #tick,#view.moving #endm{opacity:.6;pointer-events:none}
+#endm{position:absolute;right:4px;width:112px;font:inherit;font-size:12px;font-weight:700;letter-spacing:.03em;color:#000;background:var(--fg);border:2px solid var(--fg);border-radius:0;padding:2px;cursor:pointer;opacity:.92;white-space:pre-line;line-height:1.2}
+#endm.sure{background:#ffe650;border-color:#ffe650}
 /* the build palette: one column down the left edge of the board, like the old city builders */
 #pal{position:absolute;left:0;width:62px;display:flex;flex-direction:column;gap:3px;padding:4px 3px;overflow-y:auto;scrollbar-width:none;line-height:1.15;touch-action:pan-y}
 #pal::-webkit-scrollbar{display:none}
-#pal button{flex:1 1 0;min-height:30px;max-height:46px;font:inherit;font-size:10px;font-weight:700;letter-spacing:.02em;color:var(--fg);background:rgba(0,0,0,.6);border:2px solid var(--fg);border-radius:0;padding:1px;cursor:pointer;white-space:pre-line;text-shadow:0 0 3px #000}
+#pal button{flex:1 1 0;min-height:30px;max-height:40px;font:inherit;font-size:10px;font-weight:700;letter-spacing:.02em;color:var(--fg);background:rgba(0,0,0,.6);border:2px solid var(--fg);border-radius:0;padding:1px;cursor:pointer;white-space:pre-line;text-shadow:0 0 3px #000}
 #pal button.sel{background:#ffe650;color:#000;border-color:#ffe650}#pal button b{display:block;font-size:11px}
-#tick{padding:3px 8px;background:rgba(0,0,0,.62);text-shadow:0 0 3px #000,0 0 3px #000;border-top:1px dotted var(--fg);font-size:12px;line-height:1.4;font-weight:700;}
-#tick div{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}#tick .old{opacity:.7;-webkit-line-clamp:1}
+#tick{display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;padding:3px 8px;background:rgba(0,0,0,.62);text-shadow:0 0 3px #000,0 0 3px #000;border-top:1px dotted var(--fg);font-size:12px;line-height:1.4;font-weight:700;}
+#tick div{flex:none}#tick .old{opacity:.72}
 #tick .good{color:var(--fuel)}#tick .bad{color:var(--hp)}#tick .gold{color:var(--gold)}
 #app.play:not(.land) #stat,#app.play:not(.land) #log,#app.play #help,#app.play #how{display:none}
 #low{display:contents}
@@ -158,7 +157,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 <body>
 <div id="app">
   <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>DUSTHAVEN</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
-  <div id="view"><canvas id="cv"></canvas><div id="hud" hidden></div><div id="pal" hidden></div><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="tilt" type="button">TILT MID</button><button class="mini" id="zoom" type="button">ZOOM FAR</button></div><div id="low"><div id="tick" hidden></div></div><div id="msg"></div></div>
+  <div id="view"><canvas id="cv"></canvas><div id="hud" hidden></div><div id="pal" hidden></div><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="tilt" type="button">TILT MID</button><button class="mini" id="zoom" type="button">ZOOM FAR</button></div><button id="endm" type="button" hidden>END MONTH</button><div id="low"><div id="tick" hidden></div></div><div id="msg"></div></div>
   <div id="stat"></div>
   <div id="log"></div>
   <div id="pad"></div>
@@ -170,7 +169,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>Colonists need air, water, food and beds. Buildings need power, and most need crew.</li>
       <li>The SUPPLY row shows what you will have left over each month. Red means short, and people die.</li>
       <li>Mines sit on ore (yellow) and earn credits. Ice wells sit on or beside ice (blue).</li>
-      <li>END MONTH runs the colony: income, arrivals, and whatever the planet throws at you.</li>
+      <li>END MONTH runs the colony: income, arrivals, and whatever the planet throws at you. It sits at the lower right of the board and asks you to tap twice.</li>
       <li>UNDO takes back anything placed this month. A building marked ! is not working: tap it to see why.</li>
       <li>The build buttons run down the left edge of the board. BUILD hides and shows them.</li>
       <li>The numbers across the top of the board are the short version, and the newest message shows along the bottom. REPORT has the full status, the whole log and these notes.</li>
@@ -192,7 +191,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>Build on open dust. Rock and craters cannot be built on.</li>
       <li>A building only works if it is linked to the lander: through tubes, or by standing next to another linked building or tube. Diagonals do not link.</li>
       <li>Costs are paid at once. Every building also costs upkeep each month.</li>
-      <li>UNDO refunds anything placed this month. REMOVE takes away a building or tube for good, with no refund.</li>
+      <li>UNDO refunds anything placed this month. DESTROY takes away a building or tube for good, with no refund.</li>
     </ul>
     <h2>THE BUILDINGS</h2>
     <ul>
@@ -363,7 +362,7 @@ function place(t,c,quiet){
   if(!quiet){sfx('build');report({k:'place',b:t});render()}return true;
 }
 function undo(){const u=S.undo.pop();if(!u){sfx('no');return}if(u.t==='T'){S.tube[u.c]=0;S.cr+=TUBE}else{delete S.b[u.c];S.tube[u.c]=u.tube;S.cr+=DEF[u.t].cost}sfx('sel');say(`TOOK BACK THE ${u.t==='T'?'TUBE':DEF[u.t].n}.`);report({k:'undo'});render()}
-function clearAt(c){if(c===S.hub){sfx('no');say('THE LANDER STAYS.','bad');return render()}if(S.b[c]){say(`${DEF[S.b[c].t].n} REMOVED.`);delete S.b[c]}else if(S.tube[c]){S.tube[c]=0;say('TUBE REMOVED.')}else{sfx('no');return}S.undo=S.undo.filter(u=>u.c!==c);sfx('boom');report({k:'remove'});render()}
+function clearAt(c){if(c===S.hub){sfx('no');say('THE LANDER STAYS.','bad');return render()}if(S.b[c]){say(`${DEF[S.b[c].t].n} DESTROYED.`);delete S.b[c]}else if(S.tube[c]){S.tube[c]=0;say('TUBE DESTROYED.')}else{sfx('no');return}S.undo=S.undo.filter(u=>u.c!==c);sfx('boom');report({k:'remove'});render()}
 function pay(){const n=Math.min(S.cr,S.debt);if(n<=0){sfx('no');return}S.cr-=n;S.debt-=n;sfx('get');say(`PAID ${n}. ${S.debt?S.debt+' STILL OWED.':'THE DEBT IS CLEAR.'}`,'gold');if(S.debt<=0)return win('The debt is paid. Dusthaven belongs to its people.');render()}
 function endMonth(){
   if(mode!=='play')return;const R=calc(),G=GOALS[S.goal];let dead=0,short=0;armed=-1;pick=-1;
@@ -420,15 +419,22 @@ function setZoom(){const k=TILT[tilt],fit=Math.min(Math.floor((W-8-OVL)/N),Math.
   if(!zoom){cam.x=-OVL/2;cam.y=N*th/2-th*.4-(OVT-OVB)/2}else if(S){const c=pick>=0?pick:S.hub,u=U(X(c)+.5,Y(c)+.5),v=V(X(c)+.5,Y(c)+.5);cam.x=(u-v)*tw/2;cam.y=(u+v)*th/2}
   cv.style.touchAction=zoom?'none':'manipulation';$('zoom').textContent='ZOOM '+ZOOMN[zoom];$('tilt').textContent='TILT '+TILTN[tilt]}
 /* In play the board takes whatever screen is left: the height above the buttons when held upright, the full height when held sideways. */
-let extra=0,land=false,sheet=false,drawer=true,OVT=0,OVB=0,OVL=0;
+let extra=0,land=false,sheet=false,drawer=true,OVT=0,OVB=0,OVL=0,endSure=0;
+$('endm').onclick=()=>{wake();if(Date.now()<endSure){endSure=0;endMonth()}else{endSure=Date.now()+3000;sfx('sel');render();setTimeout(()=>{if(mode==='play')render()},3100)}};
 const seen=()=>Math.min(window.innerHeight||1e9,window.visualViewport?visualViewport.height:1e9,document.documentElement.clientHeight||1e9);
 const wantLand=()=>mode==='play'&&!sheet&&innerWidth>innerHeight&&innerHeight<620&&innerWidth>=560;
 /* measure the strip and the log line once they are laid out, park the palette between them, and re-fit the board if either changed height */
-function seat(){if(mode!=='play'||land)return;const hh=$('hud').offsetHeight,tk=$('tick').offsetHeight,pal=$('pal');pal.style.top=hh+'px';pal.style.bottom=(34+tk)+'px';$('vbtn').style.top=(hh+6)+'px';if(hh&&tk&&(Math.abs(hh-OVT)>2||Math.abs(tk-OVB)>2)){OVT=hh;OVB=tk;setZoom();draw()}}
+function seat(){
+  const over=mode==='play'&&!land&&!sheet,em=$('endm');em.hidden=!over;if(!over)return;
+  const hh=$('stat').offsetHeight,area=VH-hh,pal=$('pal'),tk=$('tick'),PALH=10*43+8,palH=Math.max(10*33+8,Math.min(PALH,area-62)),tkH=Math.max(58,area-palH-2);
+  tk.style.height=tkH+'px';pal.style.top=hh+'px';pal.style.bottom=(34+tkH)+'px';$('vbtn').style.top=(hh+6)+'px';
+  const row=Math.min(40,(palH-8-27)/10);em.style.bottom=(34+tkH+4)+'px';em.style.height=Math.round(row)+'px';em.textContent=Date.now()<endSure?'SURE?\nTAP AGAIN':'END MONTH';em.classList.toggle('sure',Date.now()<endSure);
+  if(hh&&(Math.abs(hh-OVT)>2||Math.abs(tkH-OVB)>2)){OVT=hh;OVB=tkH;setZoom();draw()}
+}
 function fit(){const base=clamp(W*.62,190,380);let want=0;if(mode==='play'&&!land&&!sheet){const pd=$('pad'),spare=seen()-(pd.offsetTop+pd.offsetHeight)-18;want=clamp(extra+spare,0,W*2.3-base)}if(Math.abs(want-extra)>3){extra=Math.round(want);resize();draw()}if(mode==='play'&&!sheet&&(window.scrollY||0)>0)scrollTo(0,0)}
 if(window.ResizeObserver)new ResizeObserver(()=>{if(mode==='play')fit()}).observe($('pad'));
 if(window.visualViewport)visualViewport.addEventListener('resize',()=>{if(mode==='play')fit()});
-function resize(){land=wantLand();$('app').classList.toggle('land',land);const over=mode==='play'&&!land;$('hud').hidden=$('tick').hidden=!over;if(!over)$('vbtn').style.top='';$('pal').hidden=!(over&&drawer);OVT=over?($('hud').offsetHeight||80):0;OVL=0;OVB=over?($('tick').offsetHeight||22):0;
+function resize(){land=wantLand();$('app').classList.toggle('land',land);const over=mode==='play'&&!land;$('tick').hidden=!over;if(!over)$('vbtn').style.top='';$('pal').hidden=!(over&&drawer);OVT=over?($('stat').offsetHeight||96):0;OVL=0;OVB=over?($('tick').offsetHeight||58):0;
   const w=$('view').clientWidth||320;W=Math.max(240,w-4);VH=land?Math.max(160,(window.innerHeight||400)-12-4-STRIP-6):Math.round(clamp(W*.62,190,380)+extra);Hh=VH+STRIP+4;DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(Hh*DPR);cv.style.height=Hh+'px';setZoom()}
 function text(t,x,y,col,al,sz){ctx.font=`bold ${sz||11}px "Courier New",monospace`;ctx.textAlign=al||'left';ctx.fillStyle=col||FG;ctx.fillText(t,x,y)}
 const poly=(p,fill,stroke,lw)=>{ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke()}};
@@ -467,7 +473,7 @@ function draw(){
   if(S.storm>0){ctx.fillStyle='#d9a066';for(let i=0;i<90;i++){const px=((i*97+now*.12*(1+i%3))%(W+40))-20,py=(i*53+Math.sin(now/700+i)*8)%VH;ctx.fillRect(px,py,3,1)}text('DUST STORM',W/2,VH-8,'#d9a066','center',12)}
   ctx.restore();
   ctx.strokeStyle=FG;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,VH+.5);ctx.lineTo(W,VH+.5);ctx.stroke();
-  const tl=tool==='X'?'REMOVE: TAP A BUILDING OR TUBE TO TAKE IT AWAY':tool==='T'?`TUBE, ${TUBE}: TAP SQUARES TO LAY IT`:tool?`${DEF[tool].n}, ${DEF[tool].cost}: TAP A SQUARE`:'TAP A SQUARE TO LOOK AT IT, OR PICK SOMETHING TO BUILD';
+  const tl=tool==='X'?'DESTROY: TAP A BUILDING OR TUBE TO DESTROY IT':tool==='T'?`TUBE, ${TUBE}: TAP SQUARES TO LAY IT`:tool?`${DEF[tool].n}, ${DEF[tool].cost}: TAP A SQUARE`:'TAP A SQUARE TO LOOK AT IT, OR PICK SOMETHING TO BUILD';
   text(tl,4,VH+20,tool?'#ffe650':FG,'left',W<340?9:10);
 }
 let animT=0;
@@ -489,13 +495,7 @@ function drawStatus(){
   g=grp('MONEY');it(g,'cr','CREDITS',S.cr,S.cr,S.cr<0?'hp low':'gold');it(g,'inc','EACH MONTH',sg(R.income),R.income,R.income<0?'hp':'');if(S.goal==='debt')it(g,'debt','DEBT',S.debt,S.debt,'hp');
   g=grp('GOAL');it(g,'mo','MONTH',`${S.month}/${G.m}`,S.month,G.m-S.month<=4?'hp low':'');g.appendChild(mkE('span','it goal',S.goal==='charter'?`${S.pop} OF ${POPGOAL} COLONISTS`:S.goal==='debt'?'CLEAR THE DEBT':`KEEP ${HOLDPOP} ALIVE`));
   if(S.storm>0)g.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)g.appendChild(mkE('span','it gold','STORM NEXT MONTH'));
-  {const hud=$('hud'),SH={pop:'BEDS',crew:'IDLE',mor:'MORALE',mo:'MONTH',pw:'POWER',air:'AIR',wat:'WATER',food:'FOOD',cr:'CREDITS',inc:'INCOME',debt:'DEBT'},WIDE={cr:1,inc:1,debt:1};hud.textContent='';
-   const put=k=>{const o=st.querySelector(`[data-k="${k}"]`);if(!o){hud.appendChild(mkE('span','it'));return}const e=o.cloneNode(true);e.classList.remove('low');const b=e.querySelector('.bar');if(b)b.remove();let l=e.querySelector('.lab');if(!l){l=mkE('span','lab');e.insertBefore(l,e.firstChild)}l.textContent=SH[k];
-     const v=e.querySelector('.val'),m=/^(\S+) \((.+)\)$/.exec(v.textContent);if(m){v.textContent=m[1];const sb=mkE('span','sub',m[2]);v.after(sb)}else v.textContent=v.textContent.replace(' BEDS','');if(WIDE[k])e.classList.add('w');hud.appendChild(e)};
-   ['pop','crew','mor','mo','pw','air','wat','food','cr','inc'].forEach(put);
-   if(S.goal==='debt')put('debt');else{const e=mkE('span','it goal w');e.appendChild(mkE('span','lab','GOAL'));e.appendChild(mkE('span','val',S.goal==='charter'?`${S.pop}/${POPGOAL}`:`${S.pop}/${HOLDPOP}`));hud.appendChild(e)}
-   if(S.storm>0)hud.appendChild(mkE('span','it hp full','DUST STORM: SOLAR POWER IS CUT'));else if(S.stormIn)hud.appendChild(mkE('span','it gold full','A DUST STORM ARRIVES NEXT MONTH'));
-   const tk=$('tick');tk.textContent='';let two=lines.filter(l=>!/hdr/.test(l[1])).slice(-2);if(two.length===2&&two[0][0]===two[1][0])two=two.slice(1);two.forEach((l,i)=>tk.appendChild(mkE('div',(i<two.length-1?'old ':'')+l[1],l[0])));
+  {const tk=$('tick');tk.textContent='';let two=lines.filter((l,i,a)=>!/hdr/.test(l[1])&&!(i&&a[i-1][0]===l[0])).slice(-9);two.forEach((l,i)=>tk.appendChild(mkE('div',(i<two.length-1?'old ':'')+l[1],l[0])));
    }
   clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
 }
@@ -504,7 +504,8 @@ $('log').onclick=()=>{const lg=$('log');lg.classList.toggle('big');lg.scrollTop=
 function ui(){
   const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
   if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];if(lines[logN][2]&&!/hdr/.test(lines[logN][1]))e.appendChild(mkE('span','mo','M'+lines[logN][2]+' '));e.appendChild(document.createTextNode(lines[logN][0]));lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
-  const pad=$('pad');pad.textContent='';pad.classList.remove('bar4');if(mode!=='play')sheet=false;$('app').classList.toggle('play',mode==='play');$('app').classList.toggle('sheet',sheet);if(wantLand()!==land||$('tick').hidden!==!(mode==='play'&&!land)||$('pal').hidden!==!(mode==='play'&&!land&&!sheet&&drawer))resize();
+  const pad=$('pad');pad.textContent='';pad.classList.remove('bar4');if(mode!=='play')sheet=false;$('app').classList.toggle('play',mode==='play');$('app').classList.toggle('sheet',sheet);{const st=$('stat'),on=mode==='play'&&!wantLand()&&!sheet;if(on&&st.parentNode!==$('view')){$('view').insertBefore(st,$('pal'));st.classList.add('ov')}else if(!on&&st.parentNode===$('view')){$('app').insertBefore(st,$('log'));st.classList.remove('ov')}}
+  if(wantLand()!==land||$('tick').hidden!==!(mode==='play'&&!land)||$('pal').hidden!==!(mode==='play'&&!land&&!sheet&&drawer))resize();
   const btn=(t,f,dis,hot,span,sel)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(sel)e.classList.add('sel');if(span)e.classList.add('s'+span);if(dis||!f)e.disabled=true;else e.onclick=()=>{wake();e.blur();f()};pad.appendChild(e)};
   const toGoal=()=>{mode='goal';show([['PICK A GOAL','big'],...Object.values(GOALS).map(g=>[g.n+': '+g.d])]);render()};
   if(mode==='title'){btn('NEW COLONY',toGoal,false,true);btn('CONTINUE',hasSave()?load:null);btn('·',null);return}
@@ -515,19 +516,19 @@ function ui(){
     const mark=()=>{stripX[i]=d.scrollLeft;L.hidden=d.scrollLeft<4;Rr.hidden=d.scrollLeft>d.scrollWidth-d.clientWidth-4};d.onscroll=mark;
     L.onclick=()=>d.scrollBy({left:-d.clientWidth*.7,behavior:'smooth'});Rr.onclick=()=>d.scrollBy({left:d.clientWidth*.7,behavior:'smooth'});
     w.appendChild(d);w.appendChild(L);w.appendChild(Rr);pad.appendChild(w);
-    for(const t of keys){if(t==='X')btn('REMOVE',()=>{tool=tool==='X'?'':'X';sfx('sel');render()},false,false,0,tool==='X');else btn(t==='T'?`TUBE ${TUBE}`:`${DEF[t].n.replace(' ARRAY','').replace(' DOME','').replace(' PLANT','')} ${DEF[t].cost}`,()=>{tool=tool===t?'':t;armed=-1;sfx('sel');render()},false,false,0,tool===t);d.appendChild(pad.lastChild)}
+    for(const t of keys){if(t==='X')btn('DESTROY',()=>{tool=tool==='X'?'':'X';sfx('sel');render()},false,false,0,tool==='X');else btn(t==='T'?`TUBE ${TUBE}`:`${DEF[t].n.replace(' ARRAY','').replace(' DOME','').replace(' PLANT','')} ${DEF[t].cost}`,()=>{tool=tool===t?'':t;armed=-1;sfx('sel');render()},false,false,0,tool===t);d.appendChild(pad.lastChild)}
     d.scrollLeft=stripX[i];mark()};
   const newCol=()=>btn(Date.now()<sure?'SURE?':'NEW COLONY',()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;sheet=false;wipe();toGoal()}});
   if(sheet){btn('BACK TO THE BOARD',()=>{sheet=false;render()},false,true,2);newCol();$('help').open=true;return}
   if(land){strip(0,['S','R','A','W','F']);strip(1,['T','H','C','M','X'])}
-  {const pal=$('pal');pal.textContent='';if(!land&&drawer)for(const t of ['T','H','S','R','A','W','F','M','C','X']){const e=mkE('button',tool===t?'sel':''),nm=t==='X'?'REMOVE':t==='T'?'TUBE':DEF[t].n.replace(' ARRAY','').replace(' DOME','').replace(' PLANT','').replace('ICE ','');
+  {const pal=$('pal');pal.textContent='';if(!land&&drawer)for(const t of ['T','H','S','R','A','W','F','M','C','X']){const e=mkE('button',tool===t?'sel':''),nm=t==='X'?'DESTROY':t==='T'?'TUBE':DEF[t].n.replace(' ARRAY','').replace(' DOME','').replace(' PLANT','').replace('ICE ','');
       e.type='button';e.appendChild(document.createTextNode(nm));if(t!=='X')e.appendChild(mkE('b','',String(t==='T'?TUBE:DEF[t].cost)));e.onclick=()=>{wake();tool=tool===t?'':t;armed=-1;sfx('sel');render()};pal.appendChild(e)}}
-  if(!land)btn(drawer?'\u25C0 BUILD':tool?`BUILD \u25B6 (${tool==='X'?'REMOVE':tool==='T'?'TUBE':DEF[tool].n.split(' ')[0]})`:'BUILD \u25B6',()=>{drawer=!drawer;sfx('sel');render()},false,false,0,!drawer&&!!tool);
+  if(!land)btn(drawer?'\u25C0 BUILD':tool?`BUILD \u25B6 (${tool==='X'?'DESTROY':tool==='T'?'TUBE':DEF[tool].n.split(' ')[0]})`:'BUILD \u25B6',()=>{drawer=!drawer;sfx('sel');render()},false,false,0,!drawer&&!!tool);
   btn('UNDO',undo,!S.undo.length);
   if(S.goal==='debt')btn('PAY DEBT',pay,S.cr<1);
-  btn('END MONTH',endMonth,false,true);
-  btn('REPORT',()=>{sheet=true;render();scrollTo(0,0)},false,false,S.goal==='debt'?(land?0:2):0);
-  pad.classList.toggle('bar4',!land&&S.goal!=='debt');
+  if(land)btn('END MONTH',endMonth,false,true);
+  btn('REPORT',()=>{sheet=true;render();scrollTo(0,0)});
+  pad.classList.toggle('bar4',!land&&S.goal==='debt');
 }
 let drag=null;
 const cellAt=e=>{const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,py=(e.clientY-r.top)*Hh/r.height;if(py>VH)return -1;const dx=(px-W/2+cam.x)/(tw/2),dy=(py-VH/2+cam.y)/(th/2),u=(dx+dy)/2,v=(dy-dx)/2,x=Math.floor(rot===0?u:rot===1?v:rot===2?N-u:N-v),y=Math.floor(rot===0?v:rot===1?N-u:rot===2?N-v:u);return x<0||y<0||x>=N||y>=N?-1:y*N+x};
