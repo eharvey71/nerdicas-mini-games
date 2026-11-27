@@ -123,24 +123,26 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 #pad.bar4{grid-template-columns:repeat(4,1fr)}#pad.bar4 .stripw{grid-column:span 4}
 /* ---- play: the board comes first. A two-line strip of numbers lies across its top, the newest log line across its bottom,
    and the build buttons are a drawer under it. REPORT swaps the board for the full status, the whole log, help and rules. */
-#hud{position:absolute;left:0;right:0;top:0;padding:4px 8px;background:rgba(0,0,0,.88);border-bottom:1px solid var(--fg);font-size:17px;line-height:1.45;cursor:pointer;font-variant-numeric:tabular-nums}
-#hud .row{display:flex;justify-content:space-between;gap:6px}
-#hud .it{font-weight:700;--c:var(--fg);color:var(--c);white-space:nowrap}#hud .lab{font-size:11px;margin-right:4px}#hud .dl{font-size:12px;margin-left:4px}#hud .dl.up{color:var(--fuel)}#hud .dl.dn{color:var(--hp)}
+#hud{position:absolute;left:0;right:0;top:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px 8px;padding:5px 8px;background:rgba(0,0,0,.62);border-bottom:1px solid var(--fg);font-size:16px;line-height:1.4;font-variant-numeric:tabular-nums;text-shadow:0 0 3px #000,0 0 3px #000}
+#hud .it{display:flex;align-items:baseline;gap:4px;font-weight:700;--c:var(--fg);color:var(--c);white-space:nowrap;min-width:0}
+#hud .lab{font-size:10px;letter-spacing:.02em;margin:0}#hud .val{font-size:16px}#hud .sub,#hud .dl{font-size:11px;margin:0}#hud .dl.up{color:var(--fuel)}#hud .dl.dn{color:var(--hp)}
 #hud .hp{--c:var(--hp)}#hud .shd{--c:var(--shd)}#hud .fuel{--c:var(--fuel)}#hud .gold{--c:var(--gold)}#hud .goal{--c:var(--goal)}#hud .you{--c:var(--you)}
-#hud .low{outline:1px solid var(--c)}#hud .flash .val{animation:pulse 1s ease-out 1}
+#hud .flash .val{animation:pulse 1s ease-out 1}
+#hud,#pal,#vbtn,#tick{transition:opacity .15s}
+#view.moving #hud,#view.moving #pal,#view.moving #vbtn,#view.moving #tick{opacity:.15;pointer-events:none}
 /* the build palette: one column down the left edge of the board, like the old city builders */
-#pal{position:absolute;left:0;width:62px;display:flex;flex-direction:column;gap:3px;padding:4px 3px;background:rgba(0,0,0,.88);border-right:1px solid var(--fg);overflow-y:auto;scrollbar-width:none;line-height:1.15;touch-action:pan-y}
+#pal{position:absolute;left:0;width:62px;display:flex;flex-direction:column;gap:3px;padding:4px 3px;overflow-y:auto;scrollbar-width:none;line-height:1.15;touch-action:pan-y}
 #pal::-webkit-scrollbar{display:none}
-#pal button{flex:1 1 0;min-height:30px;max-height:46px;font:inherit;font-size:10px;font-weight:700;letter-spacing:.02em;color:var(--fg);background:#000;border:2px solid var(--fg);border-radius:0;padding:1px;cursor:pointer;white-space:pre-line}
+#pal button{flex:1 1 0;min-height:30px;max-height:46px;font:inherit;font-size:10px;font-weight:700;letter-spacing:.02em;color:var(--fg);background:rgba(0,0,0,.6);border:2px solid var(--fg);border-radius:0;padding:1px;cursor:pointer;white-space:pre-line;text-shadow:0 0 3px #000}
 #pal button.sel{background:#ffe650;color:#000;border-color:#ffe650}#pal button b{display:block;font-size:11px}
-#tick{padding:3px 8px;background:rgba(0,0,0,.86);border-top:1px dotted var(--fg);font-size:12px;line-height:1.4;font-weight:700;cursor:pointer}
+#tick{padding:3px 8px;background:rgba(0,0,0,.62);text-shadow:0 0 3px #000,0 0 3px #000;border-top:1px dotted var(--fg);font-size:12px;line-height:1.4;font-weight:700;}
 #tick div{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}#tick .old{opacity:.7;-webkit-line-clamp:1}
 #tick .good{color:var(--fuel)}#tick .bad{color:var(--hp)}#tick .gold{color:var(--gold)}
 #app.play:not(.land) #stat,#app.play:not(.land) #log,#app.play #help,#app.play #how{display:none}
 #low{display:contents}
 #app.play:not(.land) #low{display:flex;flex-direction:column;position:absolute;left:0;right:0;bottom:34px;pointer-events:none}
 #app.play:not(.land) #low>*{pointer-events:auto}
-#app.play:not(.land) #vbtn{position:static;align-self:flex-end;margin:0 6px 5px}
+#app.play:not(.land) #vbtn{right:4px;flex-direction:column;align-items:stretch;gap:4px}#app.play:not(.land) #vbtn .mini{background:rgba(0,0,0,.6);padding:7px 6px;text-align:center}
 #app.play.sheet #view,#app.play.sheet #pad .stripw{display:none}
 #app.play.sheet #stat{display:grid}#app.play.sheet #log{display:block;height:16.8em}#app.play.sheet #help,#app.play.sheet #how{display:block}
 /* ---- held sideways: board on the left at full height, everything else in a column on the right */
@@ -156,7 +158,7 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 <body>
 <div id="app">
   <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>DUSTHAVEN</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
-  <div id="view"><canvas id="cv"></canvas><div id="hud" hidden></div><div id="pal" hidden></div><div id="low"><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="tilt" type="button">TILT MID</button><button class="mini" id="zoom" type="button">ZOOM FAR</button></div><div id="tick" hidden></div></div><div id="msg"></div></div>
+  <div id="view"><canvas id="cv"></canvas><div id="hud" hidden></div><div id="pal" hidden></div><div id="vbtn"><button class="mini" id="turn" type="button">TURN VIEW</button><button class="mini" id="tilt" type="button">TILT MID</button><button class="mini" id="zoom" type="button">ZOOM FAR</button></div><div id="low"><div id="tick" hidden></div></div><div id="msg"></div></div>
   <div id="stat"></div>
   <div id="log"></div>
   <div id="pad"></div>
@@ -171,7 +173,8 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
       <li>END MONTH runs the colony: income, arrivals, and whatever the planet throws at you.</li>
       <li>UNDO takes back anything placed this month. A building marked ! is not working: tap it to see why.</li>
       <li>The build buttons run down the left edge of the board. BUILD hides and shows them.</li>
-      <li>The numbers across the top of the board are the short version, and the newest message shows along the bottom. Tap either, or REPORT, for the full status, the whole log and these notes.</li>
+      <li>The numbers across the top of the board are the short version, and the newest message shows along the bottom. REPORT has the full status, the whole log and these notes.</li>
+      <li>Zoomed in, drag the map to move it. Everything laid over the map fades out of the way while you drag.</li>
       <li>TILT has a TOP setting that fills a tall screen. Turn the phone sideways for a wide board with everything beside it.</li>
     </ul>
   </details>
@@ -421,11 +424,11 @@ let extra=0,land=false,sheet=false,drawer=true,OVT=0,OVB=0,OVL=0;
 const seen=()=>Math.min(window.innerHeight||1e9,window.visualViewport?visualViewport.height:1e9,document.documentElement.clientHeight||1e9);
 const wantLand=()=>mode==='play'&&!sheet&&innerWidth>innerHeight&&innerHeight<620&&innerWidth>=560;
 /* measure the strip and the log line once they are laid out, park the palette between them, and re-fit the board if either changed height */
-function seat(){if(mode!=='play'||land)return;const hh=$('hud').offsetHeight,tk=$('tick').offsetHeight,pal=$('pal');pal.style.top=hh+'px';pal.style.bottom=(34+tk)+'px';if(hh&&tk&&(Math.abs(hh-OVT)>2||Math.abs(tk-OVB)>2)){OVT=hh;OVB=tk;setZoom();draw()}}
+function seat(){if(mode!=='play'||land)return;const hh=$('hud').offsetHeight,tk=$('tick').offsetHeight,pal=$('pal');pal.style.top=hh+'px';pal.style.bottom=(34+tk)+'px';$('vbtn').style.top=(hh+6)+'px';if(hh&&tk&&(Math.abs(hh-OVT)>2||Math.abs(tk-OVB)>2)){OVT=hh;OVB=tk;setZoom();draw()}}
 function fit(){const base=clamp(W*.62,190,380);let want=0;if(mode==='play'&&!land&&!sheet){const pd=$('pad'),spare=seen()-(pd.offsetTop+pd.offsetHeight)-18;want=clamp(extra+spare,0,W*2.3-base)}if(Math.abs(want-extra)>3){extra=Math.round(want);resize();draw()}if(mode==='play'&&!sheet&&(window.scrollY||0)>0)scrollTo(0,0)}
 if(window.ResizeObserver)new ResizeObserver(()=>{if(mode==='play')fit()}).observe($('pad'));
 if(window.visualViewport)visualViewport.addEventListener('resize',()=>{if(mode==='play')fit()});
-function resize(){land=wantLand();$('app').classList.toggle('land',land);const over=mode==='play'&&!land;$('hud').hidden=$('tick').hidden=!over;$('pal').hidden=!(over&&drawer);OVT=over?($('hud').offsetHeight||80):0;OVL=over&&drawer?62:0;OVB=over?($('tick').offsetHeight||22):0;
+function resize(){land=wantLand();$('app').classList.toggle('land',land);const over=mode==='play'&&!land;$('hud').hidden=$('tick').hidden=!over;if(!over)$('vbtn').style.top='';$('pal').hidden=!(over&&drawer);OVT=over?($('hud').offsetHeight||80):0;OVL=0;OVB=over?($('tick').offsetHeight||22):0;
   const w=$('view').clientWidth||320;W=Math.max(240,w-4);VH=land?Math.max(160,(window.innerHeight||400)-12-4-STRIP-6):Math.round(clamp(W*.62,190,380)+extra);Hh=VH+STRIP+4;DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(Hh*DPR);cv.style.height=Hh+'px';setZoom()}
 function text(t,x,y,col,al,sz){ctx.font=`bold ${sz||11}px "Courier New",monospace`;ctx.textAlign=al||'left';ctx.fillStyle=col||FG;ctx.fillText(t,x,y)}
 const poly=(p,fill,stroke,lw)=>{ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke()}};
@@ -486,15 +489,17 @@ function drawStatus(){
   g=grp('MONEY');it(g,'cr','CREDITS',S.cr,S.cr,S.cr<0?'hp low':'gold');it(g,'inc','EACH MONTH',sg(R.income),R.income,R.income<0?'hp':'');if(S.goal==='debt')it(g,'debt','DEBT',S.debt,S.debt,'hp');
   g=grp('GOAL');it(g,'mo','MONTH',`${S.month}/${G.m}`,S.month,G.m-S.month<=4?'hp low':'');g.appendChild(mkE('span','it goal',S.goal==='charter'?`${S.pop} OF ${POPGOAL} COLONISTS`:S.goal==='debt'?'CLEAR THE DEBT':`KEEP ${HOLDPOP} ALIVE`));
   if(S.storm>0)g.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)g.appendChild(mkE('span','it gold','STORM NEXT MONTH'));
-  {const hud=$('hud'),SH={pop:'',crew:'IDLE',mor:'MORALE',pw:'POWER',air:'AIR',wat:'WATER',food:'FOOD',cr:'CREDITS',mo:'MONTH',inc:'',debt:'DEBT'};hud.textContent='';let row=null;const line=()=>{row=mkE('div','row');hud.appendChild(row)};
-   const put=k=>{const o=st.querySelector(`[data-k="${k}"]`);if(!o)return;const e=o.cloneNode(true);const b=e.querySelector('.bar');if(b)b.remove();const l=e.querySelector('.lab');if(l){if(SH[k])l.textContent=SH[k];else l.remove()}row.appendChild(e)};
-   line();['pop','crew','mor','mo'].forEach(put);line();['pw','air','wat','food'].forEach(put);line();['cr','inc','debt'].forEach(put);
-   row.appendChild(mkE('span','it goal',S.goal==='charter'?`${S.pop} OF ${POPGOAL}`:S.goal==='debt'?'':`KEEP ${HOLDPOP}`));if(S.storm>0)row.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)row.appendChild(mkE('span','it gold','STORM SOON'));
-   const tk=$('tick');tk.textContent='';const two=lines.filter(l=>!/hdr/.test(l[1])).slice(-2);two.forEach((l,i)=>tk.appendChild(mkE('div',(i<two.length-1?'old ':'')+l[1],l[0])));
+  {const hud=$('hud'),SH={pop:'BEDS',crew:'IDLE',mor:'MORALE',mo:'MONTH',pw:'POWER',air:'AIR',wat:'WATER',food:'FOOD',cr:'CASH',inc:'GAIN',debt:'DEBT'};hud.textContent='';
+   const put=k=>{const o=st.querySelector(`[data-k="${k}"]`);if(!o){hud.appendChild(mkE('span','it'));return}const e=o.cloneNode(true);e.classList.remove('low');const b=e.querySelector('.bar');if(b)b.remove();let l=e.querySelector('.lab');if(!l){l=mkE('span','lab');e.insertBefore(l,e.firstChild)}l.textContent=SH[k];
+     const v=e.querySelector('.val'),m=/^(\S+) \((.+)\)$/.exec(v.textContent);if(m){v.textContent=m[1];const sb=mkE('span','sub',m[2]);v.after(sb)}else v.textContent=v.textContent.replace(' BEDS','');hud.appendChild(e)};
+   ['pop','crew','mor','mo','pw','air','wat','food','cr','inc'].forEach(put);
+   if(S.goal==='debt')put('debt');else{const e=mkE('span','it goal');e.appendChild(mkE('span','lab','GOAL'));e.appendChild(mkE('span','val',S.goal==='charter'?`${S.pop}/${POPGOAL}`:`${S.pop}/${HOLDPOP}`));hud.appendChild(e)}
+   hud.appendChild(S.storm>0?mkE('span','it hp','STORM'):S.stormIn?mkE('span','it gold','STORM SOON'):mkE('span','it'));
+   const tk=$('tick');tk.textContent='';let two=lines.filter(l=>!/hdr/.test(l[1])).slice(-2);if(two.length===2&&two[0][0]===two[1][0])two=two.slice(1);two.forEach((l,i)=>tk.appendChild(mkE('div',(i<two.length-1?'old ':'')+l[1],l[0])));
    }
   clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
 }
-$('hud').onclick=$('tick').onclick=()=>{if(mode==='play'&&!sheet&&!land){sheet=true;render();scrollTo(0,0)}};
+
 $('log').onclick=()=>{const lg=$('log');lg.classList.toggle('big');lg.scrollTop=lg.scrollHeight};
 function ui(){
   const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
@@ -527,9 +532,9 @@ function ui(){
 let drag=null;
 const cellAt=e=>{const r=cv.getBoundingClientRect(),px=(e.clientX-r.left)*W/r.width,py=(e.clientY-r.top)*Hh/r.height;if(py>VH)return -1;const dx=(px-W/2+cam.x)/(tw/2),dy=(py-VH/2+cam.y)/(th/2),u=(dx+dy)/2,v=(dy-dx)/2,x=Math.floor(rot===0?u:rot===1?v:rot===2?N-u:N-v),y=Math.floor(rot===0?v:rot===1?N-u:rot===2?N-v:u);return x<0||y<0||x>=N||y>=N?-1:y*N+x};
 cv.addEventListener('pointerdown',e=>{if(!S||mode!=='play')return;wake();drag={x:e.clientX,y:e.clientY,cx:cam.x,cy:cam.y,pan:false,id:e.pointerId};try{cv.setPointerCapture(e.pointerId)}catch(x){}});
-cv.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||!zoom)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.pan&&Math.hypot(dx,dy)<8)return;drag.pan=true;cam.x=clamp(drag.cx-dx,-N*tw/2,N*tw/2);cam.y=clamp(drag.cy-dy,0,N*th);draw()});
-cv.addEventListener('pointerup',e=>{if(!drag||e.pointerId!==drag.id)return;const d=drag;drag=null;if(d.pan)return;const c=cellAt(e);if(c>=0)tap(c)});
-cv.addEventListener('pointercancel',()=>{drag=null});
+cv.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||!zoom)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.pan&&Math.hypot(dx,dy)<8)return;drag.pan=true;$('view').classList.add('moving');cam.x=clamp(drag.cx-dx,-N*tw/2,N*tw/2);cam.y=clamp(drag.cy-dy,0,N*th);draw()});
+cv.addEventListener('pointerup',e=>{if(!drag||e.pointerId!==drag.id)return;const d=drag;drag=null;$('view').classList.remove('moving');if(d.pan)return;const c=cellAt(e);if(c>=0)tap(c)});
+cv.addEventListener('pointercancel',()=>{drag=null;$('view').classList.remove('moving')});
 $('zoom').onclick=()=>{zoom=(zoom+1)%3;setZoom();draw()};$('tilt').onclick=()=>{tilt=(tilt+1)%4;try{localStorage.setItem('dusthaven.tilt',tilt)}catch(e){}setZoom();draw()};$('turn').onclick=()=>{rot=(rot+1)%4;setZoom();draw()};
 addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey||mode!=='play')return;const k=e.key.toLowerCase();if(k==='enter'){e.preventDefault();endMonth()}else if(k==='u'||k==='z')undo();else if(k==='escape'){tool='';render()}else if(k>='1'&&k<='9'){tool=TOOLS[+k-1];render()}});
 let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
