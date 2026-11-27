@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beaconfall</title>
+<meta name="description" content="A dark lighthouse on a small island and a ship on its way. Explore, read the clues, and get the lamp lit in time. The codes and hiding places change every game.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
+<style>
+/* layout: one phone-width column: the scene, clock and pockets, notebook, log, then one button for everything you can do here */
+:root{
+  --fg:#33ff66;          /* phosphor, set by the TONE key for the whole site */
+  --bg:#000000;
+  --hp:#ff9a9a; --shd:#9ccbff; --fuel:#a9f0b8; --gold:#ffdc6b; --goal:#f0dcff; --you:#7ff;
+  --font-display:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  --font-body:"Courier New",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--font-body)}
+body{display:flex;justify-content:center;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+#app{width:100%;max-width:560px;display:flex;flex-direction:column;gap:6px;padding:8px 16px 12px}
+#app>*{flex-shrink:0}
+[hidden]{display:none!important}
+header{display:flex;align-items:center;gap:8px}
+h1{font-family:var(--font-display);font-size:15px;letter-spacing:.2em;margin:0;font-weight:700;flex:1}
+.mini{font:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:4px 8px;cursor:pointer;text-decoration:none;white-space:nowrap}
+.mini:active{background:var(--fg);color:var(--bg)}
+#view{position:relative;border:2px solid var(--fg);width:100%;background:var(--bg);line-height:0;touch-action:manipulation}
+canvas{display:block;width:100%}
+#msg{position:absolute;left:0;right:0;margin:0 auto;top:50%;transform:translateY(-50%);width:max-content;max-width:92%;display:none;text-align:center;background:var(--bg);border:2px solid var(--fg);box-shadow:0 0 0 4px var(--bg),0 0 0 6px var(--fg);padding:10px 18px;font-size:13px;line-height:1.5}
+#msg .big{font-family:var(--font-display);font-size:24px;font-weight:700;letter-spacing:.14em;line-height:1.3}
+#stat{border:2px solid var(--fg);padding:4px 8px;font-size:13px;line-height:1.4;display:grid;gap:3px;font-variant-numeric:tabular-nums}
+#stat .grp{display:flex;flex-wrap:wrap;align-items:center;gap:1px 10px;padding-top:3px;border-top:1px dotted var(--fg)}
+#stat .grp:first-child{border-top:0;padding-top:0}
+#stat .gl{font-size:10px;letter-spacing:.06em;opacity:1;font-weight:700;width:44px;flex:none}
+#stat .it{font-weight:700;--c:var(--fg);color:var(--c);padding:0 3px;white-space:nowrap}
+#stat .lab{opacity:1;font-weight:700;font-size:11px;margin-right:5px}
+#stat .val{font-weight:700}
+#stat .dl{font-size:11px;font-weight:700;margin-left:5px}
+#stat .bar{display:inline-block;width:30px;height:7px;border:1px solid var(--c);margin-left:6px;vertical-align:middle}
+#stat .bar i{display:block;height:100%;background:var(--c)}
+#stat .hp{--c:var(--hp)}#stat .shd{--c:var(--shd)}#stat .fuel{--c:var(--fuel)}#stat .gold{--c:var(--gold)}#stat .goal{--c:var(--goal)}
+#stat .low{outline:1px solid var(--c)}
+#stat .flash .val{animation:pulse 1s ease-out 1}#log div.new{animation:pulse .7s ease-out 1}
+#log .mo{opacity:.85}#log .hdr{border-top:1px dotted var(--gold);margin-top:3px;padding-top:2px;font-weight:700;letter-spacing:.12em}#stat .dl.up{color:var(--fuel)}#stat .dl.dn{color:var(--hp)}
+@keyframes pulse{0%{opacity:.2}60%{opacity:1}80%{opacity:.6}100%{opacity:1}}
+@media (prefers-reduced-motion:reduce){#stat .flash .val,#log div.new{animation:none}}
+#log{border:2px solid var(--fg);padding:4px 8px;font-size:12px;line-height:1.4;height:6em;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y}
+#log .good{color:var(--fuel)}#log .bad{color:var(--hp)}#log .gold{color:var(--gold)}
+#pad{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+#pad button{font:inherit;font-size:13px;font-weight:700;letter-spacing:.04em;color:var(--fg);background:var(--bg);border:2px solid var(--fg);border-radius:0;padding:12px 2px;min-height:46px;cursor:pointer}
+#pad button:active{background:var(--fg);color:var(--bg)}
+#pad button:disabled{border-style:dotted;opacity:.35;cursor:default}
+#pad button.hot{background:var(--fg);color:var(--bg)}
+#pad button.go{border-style:double;border-width:4px}
+#pad button.look{color:var(--you);border-color:var(--you)}#pad button.use{color:var(--gold);border-color:var(--gold)}
+#pad button.look:active{background:var(--you);color:var(--bg)}#pad button.use:active{background:var(--gold);color:var(--bg)}
+#pad button.quit{font-size:11px;border-style:dotted}
+#pad .note{grid-column:span 3;font-size:11px;line-height:1.5;padding:2px 0;font-weight:700}
+#notes{border:2px solid var(--gold);color:var(--gold);padding:4px 8px;font-size:12px;line-height:1.45;font-weight:700}
+#notes .nh{font-size:10px;letter-spacing:.12em}#notes .ne{font-weight:400;color:var(--fg)}
+#log{height:6.4em}#log.big{height:15em}
+canvas{cursor:pointer}
+details{border:2px solid var(--fg)}summary{padding:10px;text-align:center;font-weight:700;font-size:13px;letter-spacing:.08em;cursor:pointer;list-style:none}summary::-webkit-details-marker{display:none}
+summary::after{content:" +"}details[open] summary::after{content:" \2212"}
+details ul{margin:0;padding:0 12px 10px 28px;font-size:12px;line-height:1.55}details h2{font-size:12px;letter-spacing:.1em;margin:8px 12px 4px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>BEACONFALL</h1><button class="mini" id="tone" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
+  <div id="view"><canvas id="cv" width="320" height="200"></canvas><div id="msg"></div></div>
+  <div id="stat"></div>
+  <div id="notes" hidden></div>
+  <div id="log"></div>
+  <div id="pad"></div>
+  <details id="help">
+    <summary>HELP</summary>
+    <ul id="quick">
+      <li>The lighthouse is dark and a ship is coming. Get the lamp lit before it arrives.</li>
+      <li>Everything you can do is marked in the picture and has a button under it. Double-lined buttons walk somewhere, blue ones look, gold ones use or open.</li>
+      <li>Everything costs minutes. Walking costs most. Wrong guesses on a lock or lever cost extra.</li>
+      <li>Turning wheels, dials and switches is free. Only pulling the lever or handle takes time.</li>
+      <li>What you read is copied into the NOTEBOOK, so you do not have to remember it.</li>
+      <li>The lamp needs three things: a lens, power from the engine, and the right colour of glass.</li>
+    </ul>
+  </details>
+  <details id="how">
+    <summary>ALL THE RULES</summary>
+    <h2>THE GOAL</h2>
+    <ul>
+      <li>Light the lamp at the top of the lighthouse before the ship is due.</li>
+      <li>CALM has no clock. DUSK gives you time to spare. GALE gives you barely enough.</li>
+      <li>The clock is set from how long this particular island needs, so every game is fair.</li>
+    </ul>
+    <h2>THE ISLAND</h2>
+    <ul>
+      <li>Nine places: the jetty, a sea cave, the crossways, the boathouse, the weather station, the tide house, the lighthouse door, the engine room and the lamp room.</li>
+      <li>The places are always the same. What changes each game: the codes, the symbols, where the key is hidden, and which container holds which part.</li>
+    </ul>
+    <h2>WHAT THINGS COST</h2>
+    <ul>
+      <li>Walking between places: 4 minutes. The cave path and the stairs: 3. Stepping through the lighthouse door: 2.</li>
+      <li>Reading something: 1 minute. Searching a hiding place: 3. Opening a container: 1.</li>
+      <li>Tide lever: 2 minutes if the wheels are right, 5 if not.</li>
+      <li>Door handle: 1 minute if the dials are right, 3 if not.</li>
+      <li>Starting the engine: 2 minutes if the switches are right, 4 if not.</li>
+      <li>Lamp lever: 1 minute, or 5 if the glass is the wrong colour.</li>
+    </ul>
+    <h2>THE PUZZLES</h2>
+    <ul>
+      <li>A brass key is hidden in one of four places. The locked cabinet has a hint scratched on it.</li>
+      <li>The tide house wheels must show the three LOW WATER marks. Somewhere there is a tide chart.</li>
+      <li>The lighthouse door has three dials. The plate on the door names three instruments, in order. The readings are at the weather station.</li>
+      <li>The engine needs a crank, fuel, and four switches set the right way. The switch pattern is chalked inside one of the containers.</li>
+      <li>The lamp needs a lens and the harbour's colour of glass. The harbour flies a pennant.</li>
+    </ul>
+    <h2>OTHER THINGS</h2>
+    <ul>
+      <li>The game saves after every action. Close the page and it will be where you left it.</li>
+      <li>Tap the log to make it taller, and again to shrink it.</li>
+      <li>GIVE UP ends the game. It asks you to tap twice.</li>
+      <li>Your best time to spare is kept for DUSK and for GALE.</li>
+    </ul>
+  </details>
+</div>
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+const ri=n=>Math.floor(Math.random()*n),clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const mkE=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!==undefined)e.textContent=x;return e};
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=ri(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+/* ---------- tone and sound ---------- */
+const HUES=[[51,255,102],[255,176,0],[255,255,255]];let hueI=0,FG='rgb(51,255,102)';
+const setTone=()=>{const c=HUES[hueI];FG=`rgb(${c[0]},${c[1]},${c[2]})`;document.documentElement.style.setProperty('--fg',FG)};
+$('tone').onclick=()=>{hueI=(hueI+1)%HUES.length;try{localStorage.setItem('nmg.tone',hueI)}catch(e){}setTone();draw()};
+const SFX={step:[[180,.03],[150,.04]],look:[[900,.03]],take:[[660,.05],[990,.08]],clue:[[784,.05],[1047,.09]],tick:[[500,.02]],no:[[120,.08]],bad:[['n',.1],[160,.14,70]],open:[[330,.06],[494,.06],[659,.1]],tide:[[300,.3,90],['n',.25]],gen:[[80,.1],[100,.1],[130,.1],[170,.3]],sel:[[700,.02]],win:[[523,.12],[659,.12],[784,.12],[1047,.12],[1319,.3]],die:[[440,.25,220],[220,.3,110],[110,.5,50]]};
+let actx=null,vol=1,nbuf=null,unl=null,sq=0;const VM=[0,.15,.45];
+function silentWav(){
+  const n=2000,b=new Uint8Array(44+n),v=new DataView(b.buffer),w=(o,t)=>{for(let i=0;i<t.length;i++)b[o+i]=t.charCodeAt(i)};
+  w(0,'RIFF');v.setUint32(4,36+n,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,8000,true);v.setUint32(28,8000,true);v.setUint16(32,1,true);v.setUint16(34,8,true);w(36,'data');v.setUint32(40,n,true);b.fill(128,44);
+  let t='';for(const x of b)t+=String.fromCharCode(x);return 'data:audio/wav;base64,'+btoa(t);
+}
+function wake(){
+  if(!vol)return;
+  try{
+    if(!actx){const A=window.AudioContext||window.webkitAudioContext;if(!A){$('snd').textContent='NO SOUND HERE';return}actx=new A();
+      nbuf=actx.createBuffer(1,actx.sampleRate,actx.sampleRate);const c=nbuf.getChannelData(0);for(let i=0;i<c.length;i++)c[i]=Math.random()<.5?-1:1;
+      setTimeout(()=>{if(vol&&actx.state!=='running')$('snd').textContent='SOUND BLOCKED'},800)}
+    if(actx.state!=='running'){actx.resume().then(setSnd,()=>{});const u=actx.createBufferSource();u.buffer=actx.createBuffer(1,1,22050);u.connect(actx.destination);u.start(0)}
+  }catch(e){}
+  try{if(!unl){unl=new Audio(silentWav());unl.loop=true;unl.setAttribute('playsinline','')}if(unl.paused){const q=unl.play();if(q&&q.catch)q.catch(()=>{})}}catch(e){}
+}
+function hush(){try{if(unl)unl.pause()}catch(e){}}
+function sfx(n){
+  if(!vol||!actx||!SFX[n])return;
+  try{
+    let t=Math.max(actx.currentTime,sq);if(t-actx.currentTime>.25)return;
+    for(const [f,dur,f2] of SFX[n]){
+      const gn=actx.createGain();gn.gain.setValueAtTime((f==='n'?.05:.07)*VM[vol],t);gn.gain.setValueAtTime(0,t+dur);gn.connect(actx.destination);
+      let src;
+      if(f==='n'){src=actx.createBufferSource();src.buffer=nbuf}
+      else{src=actx.createOscillator();src.type='square';src.frequency.setValueAtTime(f,t);if(f2)src.frequency.linearRampToValueAtTime(f2,t+dur)}
+      src.connect(gn);src.start(t);src.stop(t+dur+.01);t+=dur;
+    }
+    sq=t+.01;
+  }catch(e){}
+}
+function setSnd(){$('snd').textContent=['SOUND OFF','SOUND LOW','SOUND HIGH'][vol]}
+$('snd').onclick=()=>{vol=(vol+1)%3;try{localStorage.setItem('beaconfall.vol',vol)}catch(e){}setSnd();if(!vol)hush();else{wake();sfx('take')}};
+
+/* ---------- the island ----------
+   Nine places joined by paths. Every run shuffles the codes, the symbols, where the key is hidden and which of the
+   three containers holds which part, so the clues have to be found and read each time. */
+const PLACE={jetty:'THE JETTY',cave:'THE SEA CAVE',cross:'THE CROSSWAYS',boat:'THE BOATHOUSE',station:'THE WEATHER STATION',tide:'THE TIDE HOUSE',door:'THE LIGHTHOUSE DOOR',hall:'THE ENGINE ROOM',lamp:'THE LAMP ROOM'};
+const GLYPH=['RING','MOON','PEAK','BLOCK','GEM','CROSS'],INST=['VANE','GLASS','MERCURY'],HUE3=['RED','GREEN','WHITE'],HUEC=['#ff7a7a','#7af0a0','#ffffff'];
+const SPOT={lantern:['jetty','THE SMALL LIGHT ON THE JETTY','WHERE THE SMALL LIGHT BURNS'],sign:['cross','THE SIGNPOST','WHERE FOUR WAYS MEET'],hull:['boat','THE UPTURNED BOAT','UNDER THE OLD HULL'],book:['station','THE LOGBOOK','BETWEEN THE PAGES']};
+const PART={crank:'THE CRANK',fuel:'THE FUEL CAN',lens:'THE LENS'},BOX={cabinet:'boat',crate:'cave',locker:'station'};
+const LVL=[{n:'CALM',k:0,d:'No clock. Explore freely.'},{n:'DUSK',k:1.9,d:'The ship is coming. Time to spare if you keep moving.'},{n:'GALE',k:1.25,d:'Barely enough time. Know where you are going.'}];
+const COST={move:4,cave:3,stairs:3,inside:2,look:1,search:3,open:1,lever:2,leverBad:5,door:1,doorBad:3,start:2,startBad:4,light:1,lightBad:5};
+let S=null,mode='title',best={};
+function newRun(lvl){
+  const parts=shuffle(['crank','fuel','lens']),boxes=['cabinet','crate','locker'];
+  S={lvl,t:0,limit:0,at:'jetty',key:Object.keys(SPOT)[ri(4)],has:{},searched:{},
+     low:[ri(6),ri(6),ri(6)],wheels:[ri(6),ri(6),ri(6)],tideLow:false,
+     read:[1+ri(8),1+ri(9),1+ri(9)],order:shuffle([0,1,2]),dials:[0,0,0],doorOpen:false,
+     pattern:[ri(2),ri(2),ri(2),ri(2)],sw:[0,0,0,0],gen:{crank:false,fuel:false,on:false},
+     pennant:ri(3),filter:ri(3),lensIn:false,cont:{},clueIn:boxes[ri(3)],opened:{},notes:[],seen:{},lit:false};
+  boxes.forEach((b,i)=>S.cont[b]=parts[i]);
+  if(S.wheels.every((w,i)=>w===S.low[i]))S.wheels[0]=(S.wheels[0]+1)%6;
+  if(S.pattern.every(v=>v===0))S.pattern[ri(4)]=1;
+  if(S.filter===S.pennant)S.filter=(S.filter+1)%3;
+  S.limit=LVL[lvl].k?Math.ceil(par(S)*LVL[lvl].k/5)*5:0;
+  mode='play';lines=[];logN=-1;prevS={};flashT={};show(null);
+  say(`You row in to ${PLACE.jetty}. The lamp on the rock is dark.`,'gold');
+  say(S.limit?`A ship is due in ${S.limit} minutes. Light the lamp before then.`:'No ship tonight. Find out how to light the lamp.');
+  say('Tap a marked thing in the picture, or use the buttons under it.');
+  save();render();
+}
+const code=()=>S.order.map(i=>S.read[i]);
+/* minutes a keeper who knows the island would need this run: used to set the clock fairly */
+function par(s){
+  const M=COST.move*2;let t=COST.look;                                   /* pennant */
+  if(s.key==='lantern')t+=COST.search;
+  t+=COST.move;if(s.key==='sign')t+=COST.search;                         /* crossways */
+  t+=COST.move+COST.look;if(s.key==='hull')t+=COST.search;                /* boathouse, tide chart */
+  let stationDone=false;
+  if(s.key==='book'){t+=M+COST.search+COST.look+COST.open;stationDone=true;t+=M}
+  t+=COST.open;                                                            /* cabinet */
+  t+=M+COST.lever;                                                         /* tide house */
+  t+=M+COST.cave+COST.open+COST.cave;                                      /* jetty, cave, crate, back */
+  if(!stationDone)t+=M+COST.look+COST.open;                                /* station */
+  t+=M+COST.door+COST.inside;                                              /* door, engine room */
+  t+=COST.start+COST.stairs+COST.light;
+  return t;
+}
+function spend(n){S.t+=n;if(S.limit&&S.t>=S.limit){S.t=S.limit;lose();return false}return true}
+function note(k,t){if(S.seen[k])return false;S.seen[k]=1;S.notes.push(t);sfx('clue');return true}
+function go(to,c){if(!spend(c))return;S.at=to;sfx('step');say(`You are at ${PLACE[to]}.`);if(to==='cave'&&!S.seen.cv){S.seen.cv=1;say('The sea has left this cave dry. A crate sits above the old water line.')}}
+function search(k){
+  if(S.searched[k])return say(`You have already searched ${SPOT[k][1].toLowerCase()}.`);
+  if(!spend(COST.search))return;S.searched[k]=1;
+  if(S.key===k){S.has.key=true;sfx('take');say(`You search ${SPOT[k][1].toLowerCase()} and find a small brass key.`,'good')}
+  else{sfx('look');say(`You search ${SPOT[k][1].toLowerCase()}. Nothing but damp.`)}
+}
+function openBox(b){
+  if(S.opened[b])return say('It is empty now.');
+  if(b==='cabinet'&&!S.has.key){if(!spend(COST.look))return;sfx('no');note('hint',`KEY: SCRATCHED ON THE CABINET, "${SPOT[S.key][2]}"`);return say(`The cabinet is locked. Scratched into the door: "${SPOT[S.key][2]}".`,'gold')}
+  if(!spend(COST.open))return;S.opened[b]=1;const p=S.cont[b];S.has[p]=true;sfx('open');
+  say(`${b==='cabinet'?'The key turns. Inside the cabinet':b==='crate'?'You lever the crate open. Inside':'The locker is not locked. Inside'}: ${PART[p].toLowerCase()}.`,'good');
+  if(S.clueIn===b){note('sw',`ENGINE SWITCHES: ${S.pattern.map(v=>v?'UP':'DOWN').join(', ')}`);say(`Chalked inside the lid, four marks: ${S.pattern.map(v=>v?'UP':'DOWN').join(', ')}.`,'gold')}
+}
+const ACT={
+  pennant(){if(!spend(COST.look))return;sfx('look');note('pen',`HARBOUR PENNANT: ${HUE3[S.pennant]}`);say(`The harbour pennant is ${HUE3[S.pennant].toLowerCase()}. Ships here steer by a light of that colour.`,'gold')},
+  chart(){if(!spend(COST.look))return;sfx('look');note('low',`LOW WATER: ${S.low.map(g=>GLYPH[g]).join(', ')}`);say(`A tide chart. Beside LOW WATER, three marks: ${S.low.map(g=>GLYPH[g]).join(', ')}.`,'gold')},
+  instruments(){if(!spend(COST.look))return;sfx('look');note('ins',`READINGS: VANE ${S.read[0]}, GLASS ${S.read[1]}, MERCURY ${S.read[2]}`);say(`You read the instruments: vane ${S.read[0]}, glass ${S.read[1]}, mercury ${S.read[2]}.`,'gold')},
+  plate(){if(!spend(COST.look))return;sfx('look');note('ord',`DOOR PLATE: ${S.order.map(i=>INST[i]).join(', THEN ')}`);say(`A brass plate on the door shows three instruments in a row: ${S.order.map(i=>INST[i].toLowerCase()).join(', then ')}.`,'gold')},
+  wheel(i){S.wheels[i]=(S.wheels[i]+1)%6;sfx('tick')},
+  lever(){
+    if(S.tideLow)return say('The sea is already out.');
+    if(S.wheels.every((w,i)=>w===S.low[i])){if(!spend(COST.lever))return;S.tideLow=true;sfx('tide');say('The pumps catch. Far below, the sea draws back from the rocks.','good');say('Something by the jetty will be uncovered now.')}
+    else{if(!spend(COST.leverBad))return;sfx('bad');say('The pumps groan and stop. The three wheels are not set for low water.','bad')}
+  },
+  dial(i){S.dials[i]=(S.dials[i]+1)%10;sfx('tick')},
+  handle(){
+    if(S.dials.every((d,i)=>d===code()[i])){if(!spend(COST.door))return;S.doorOpen=true;sfx('open');say('The lock gives. The lighthouse door swings in.','good')}
+    else{if(!spend(COST.doorBad))return;sfx('bad');say('The handle will not move. The three dials are wrong.','bad')}
+  },
+  fit(p){S.has[p]=false;if(p==='lens'){S.lensIn=true;say('You seat the lens in the lamp.','good')}else{S.gen[p]=true;say(p==='crank'?'You fit the crank to the engine.':'You fill the engine from the can.','good')}sfx('take')},
+  sw(i){S.sw[i]^=1;sfx('tick')},
+  start(){
+    if(S.gen.on)return say('The engine is already running.');
+    const miss=!S.gen.crank?'There is no crank on the engine.':!S.gen.fuel?'The engine is dry. It needs fuel.':'';
+    if(miss){sfx('no');return say(miss,'bad')}
+    if(S.sw.every((v,i)=>v===S.pattern[i])){if(!spend(COST.start))return;S.gen.on=true;sfx('gen');say('The engine coughs, catches and settles. The lamp room has power.','good')}
+    else{if(!spend(COST.startBad))return;sfx('bad');say('You crank it. It turns over and dies. The four switches are set wrong.','bad')}
+  },
+  filt(){S.filter=(S.filter+1)%3;sfx('tick')},
+  light(){
+    const miss=!S.lensIn?'The lamp has no lens. It would throw no beam.':!S.gen.on?'Nothing. The lamp has no power.':'';
+    if(miss){sfx('no');return say(miss,'bad')}
+    if(S.filter!==S.pennant){if(!spend(COST.lightBad))return;sfx('bad');return say(`The lamp burns ${HUE3[S.filter].toLowerCase()}. Out at sea the ship holds its course: it is not the harbour's colour.`,'bad')}
+    if(!spend(COST.light))return;win();
+  }
+};
+/* what can be done here: each entry is a button and a marked spot in the picture. kind: go | look | use */
+function acts(){
+  const a=[],add=(label,rect,fn,kind,tag,top)=>a.push({label,rect,fn,kind:kind||'look',tag,top});
+  const at=S.at;
+  if(at==='jetty'){
+    add('PATH UP',[196,62,70,44],()=>go('cross',COST.move),'go');
+    if(S.tideLow)add('SEA CAVE',[6,128,78,66],()=>go('cave',COST.cave),'go');
+    add('SMALL LIGHT',[52,52,36,96],()=>search('lantern'));
+    add('PENNANT',[238,104,52,62],ACT.pennant);
+  }else if(at==='cave'){
+    add('BACK UP',[236,150,78,44],()=>go('jetty',COST.cave),'go');
+    add(S.opened.crate?'EMPTY CRATE':'CRATE',[116,112,88,62],()=>openBox('crate'),'use');
+  }else if(at==='cross'){
+    add('JETTY',[4,160,84,36],()=>go('jetty',COST.move),'go');
+    add('BOATHOUSE',[10,92,74,52],()=>go('boat',COST.move),'go');
+    add('TIDE HOUSE',[92,84,44,40],()=>go('tide',COST.move),'go');
+    add('LIGHTHOUSE',[142,16,36,110],()=>go(S.doorOpen?'hall':'door',COST.move),'go','',true);
+    add('STATION',[222,56,84,66],()=>go('station',COST.move),'go');
+    add('SIGNPOST',[136,136,48,58],()=>search('sign'));
+  }else if(at==='boat'){
+    add('OUT',[250,156,64,40],()=>go('cross',COST.move),'go');
+    add('TIDE CHART',[52,38,84,62],ACT.chart);
+    add(S.opened.cabinet?'EMPTY CABINET':'CABINET',[204,44,66,100],()=>openBox('cabinet'),'use');
+    add('OLD BOAT',[14,138,120,56],()=>search('hull'));
+  }else if(at==='station'){
+    add('BACK',[250,160,64,36],()=>go('cross',COST.move),'go');
+    add('INSTRUMENTS',[40,14,236,112],ACT.instruments,'look','READ THE INSTRUMENTS',true);
+    add('LOGBOOK',[96,138,58,34],()=>search('book'));
+    add(S.opened.locker?'EMPTY LOCKER':'LOCKER',[176,132,62,58],()=>openBox('locker'),'use');
+  }else if(at==='tide'){
+    add('OUT',[4,160,60,36],()=>go('cross',COST.move),'go');
+    for(let i=0;i<3;i++)add(`WHEEL ${i+1}`,[58+i*70,92,54,60],()=>ACT.wheel(i),'use');
+    add('LEVER',[268,54,44,92],ACT.lever,'use');
+  }else if(at==='door'){
+    add('BACK',[4,160,60,36],()=>go('cross',COST.move),'go');
+    add('PLATE',[118,34,84,34],ACT.plate);
+    for(let i=0;i<3;i++)add(`DIAL ${i+1}`,[108+i*36,80,32,44],()=>ACT.dial(i),'use',String(i+1));
+    if(S.doorOpen)add('GO IN',[124,128,72,62],()=>go('hall',COST.inside),'go');else add('HANDLE',[206,128,40,40],ACT.handle,'use');
+  }else if(at==='hall'){
+    add('OUT',[4,160,60,36],()=>go('cross',COST.move),'go');
+    add('STAIRS UP',[226,30,88,150],()=>go('lamp',COST.stairs),'go');
+    if(S.has.crank)add('FIT CRANK',[26,104,44,40],()=>ACT.fit('crank'),'use');
+    if(S.has.fuel)add('ADD FUEL',[104,70,44,36],()=>ACT.fit('fuel'),'use');
+    for(let i=0;i<4;i++)add(`SWITCH ${i+1}`,[56+i*22,28,20,40],()=>ACT.sw(i),'use',String(i+1));
+    add('START',[150,112,46,40],ACT.start,'use');
+  }else if(at==='lamp'){
+    add('STAIRS DOWN',[4,160,84,36],()=>go('hall',COST.stairs),'go');
+    if(S.has.lens)add('FIT LENS',[124,52,72,76],()=>ACT.fit('lens'),'use');
+    add('COLOUR GLASS',[214,126,48,48],ACT.filt,'use');
+    add('LAMP LEVER',[60,104,40,70],ACT.light,'use');
+  }
+  return a;
+}
+function doAct(x){if(mode!=='play')return;wake();x.fn();if(mode==='play'){save();render()}}
+function win(){
+  S.lit=true;mode='won';sfx('win');wipe();const left=S.limit?S.limit-S.t:0,k=LVL[S.lvl].n;
+  say('The lamp roars up. The beam swings out over the water.','good');
+  const isBest=S.limit&&(best[k]===undefined||left>best[k]);if(isBest){best[k]=left;try{localStorage.setItem('beaconfall.best',JSON.stringify(best))}catch(e){}}
+  show([['THE LIGHT IS LIT','big'],[S.limit?`The ship turns for the harbour with ${left} minutes to spare.`:`It took you ${S.t} minutes. Try it against the clock.`],[S.limit?(isBest?`A new best for ${k}.`:`Best for ${k}: ${best[k]} minutes to spare.`):'']]);render();
+}
+function lose(){mode='lost';sfx('die');wipe();say('Out in the dark, timber breaks on rock.','bad');show([['TOO LATE','big'],['The ship came in with no light to steer by.'],[`You were at ${PLACE[S.at].toLowerCase()}. The island will be different next time.`]]);render()}
+function save(){if(mode==='play')try{localStorage.setItem('beaconfall.save',JSON.stringify(S))}catch(e){}}
+function wipe(){try{localStorage.removeItem('beaconfall.save')}catch(e){}}
+
+/* ---------- log, status, notebook ---------- */
+let lines=[],logN=-1,prevS={},flashT={};
+function say(t,c){lines.push([t,c||'']);if(lines.length>120){lines.splice(0,40);logN=-1}}
+const msg=$('msg'),pad=$('pad');
+function show(L){msg.textContent='';if(!L){msg.style.display='none';return}for(const [t,c] of L)if(t)msg.appendChild(mkE('div',c||'',t));msg.style.display='block'}
+const clock=m=>{const t=16*60+m;return `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`};
+let sure=0;
+function render(){
+  const lg=$('log');if(logN<0){lg.textContent='';logN=0}
+  for(;logN<lines.length;logN++){const e=mkE('div','new '+lines[logN][1],lines[logN][0]);lg.appendChild(e)}lg.scrollTop=lg.scrollHeight;
+  const st=$('stat');st.textContent='';const now=Date.now();
+  const grp=l=>{const g=mkE('div','grp');g.appendChild(mkE('span','gl',l));st.appendChild(g);return g};
+  const it=(g,k,label,val,num,cls)=>{val=String(val);const p=prevS[k];if(p&&p.val!==val)flashT[k]={until:now+900,dUntil:now+1900,d:typeof num==='number'&&typeof p.num==='number'?num-p.num:0};prevS[k]={val,num};
+    const f=flashT[k],e=mkE('span','it '+(cls||'')+(f&&now<f.until?' flash':''));if(label)e.appendChild(mkE('span','lab',label));e.appendChild(mkE('span','val',val));
+    if(f&&now<f.dUntil&&f.d)e.appendChild(mkE('span','dl dn',(f.d>0?'+':'−')+Math.abs(f.d)));g.appendChild(e)};
+  if(S){
+    let g=grp('CLOCK');it(g,'now','TIME',clock(S.t),S.t);
+    if(S.limit){const left=S.limit-S.t;it(g,'due','SHIP DUE',clock(S.limit),null,'gold');it(g,'left','LEFT',left+' MIN',null,left<=15?'hp':left<=40?'gold':'fuel')}else it(g,'due','','NO SHIP TONIGHT');
+    g=grp('PLACE');it(g,'at','',PLACE[S.at]);it(g,'tide','TIDE',S.tideLow?'OUT':'IN',null,'shd');
+    g=grp('CARRY');const c=[S.has.key&&'KEY',S.has.crank&&'CRANK',S.has.fuel&&'FUEL',S.has.lens&&'LENS'].filter(Boolean);it(g,'inv','',c.length?c.join(' · '):'NOTHING',null,c.length?'gold':'');
+  }
+  const nb=$('notes');nb.textContent='';nb.hidden=!S||mode==='title';
+  if(S){nb.appendChild(mkE('div','nh','NOTEBOOK'));if(!S.notes.length)nb.appendChild(mkE('div','ne','Nothing written down yet. Read things to fill it in.'));for(const n of S.notes)nb.appendChild(mkE('div','',n))}
+  pad.textContent='';const btn=(t,fn,cls)=>{const b=mkE('button',cls||'',t);b.type='button';b.onclick=()=>{wake();fn()};pad.appendChild(b);return b};
+  if(mode==='play'){
+    for(const x of acts())btn(x.label,()=>doAct(x),x.kind);
+    btn(Date.now()<sure?'SURE?':'GIVE UP',()=>{if(Date.now()>sure){sure=Date.now()+3000;render();setTimeout(render,3100)}else{sure=0;wipe();S=null;mode='title';title()}},'quit');
+  }else{
+    pad.appendChild(mkE('div','note','PICK THE WEATHER. EVERY ISLAND IS LAID OUT THE SAME, BUT ITS CODES AND HIDING PLACES CHANGE.'));
+    LVL.forEach((l,i)=>btn(l.n,()=>newRun(i),i===1?'hot':''));
+    pad.appendChild(mkE('div','note',LVL.map(l=>`${l.n}: ${l.d.toUpperCase()}`).join('  ')));
+  }
+  draw();
+}
+function title(){S=null;mode='title';lines=[];logN=-1;const b=Object.keys(best);show([['BEACONFALL','big'],['A dark lighthouse. A ship on its way.']].concat(b.length?[[b.map(k=>`${k}: ${best[k]} MIN TO SPARE`).join('   ')]]:[]));say('The keeper is gone and the lamp is cold.');render()}
+
+/* ---------- drawing: every scene is lines on a 320 by 200 sheet ---------- */
+const cv=$('cv'),ctx=cv.getContext('2d');let W=320,H=200,K=1,DPR=1,T0=Date.now();
+function resize(){const w=($('view').clientWidth||324)-4;W=w;H=Math.round(w*200/320);DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);cv.style.height=H+'px';K=W/320;draw()}
+const INKC={go:null,look:'#7ff',use:'#ffdc6b'};
+const L=(a,b,c,d)=>{ctx.beginPath();ctx.moveTo(a,b);ctx.lineTo(c,d);ctx.stroke()};
+const Pl=(p,close,fill)=>{ctx.beginPath();p.forEach((q,i)=>i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]));if(close)ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}ctx.stroke()};
+const Rc=(x,y,w,h,fill)=>{if(fill){ctx.fillStyle=fill;ctx.fillRect(x,y,w,h)}ctx.strokeRect(x,y,w,h)};
+const Ci=(x,y,r,fill)=>{ctx.beginPath();ctx.arc(x,y,r,0,7);if(fill){ctx.fillStyle=fill;ctx.fill()}ctx.stroke()};
+const Tx=(t,x,y,sz,al,col)=>{ctx.font=`bold ${sz||8}px "Courier New",monospace`;ctx.textAlign=al||'center';ctx.fillStyle=col||FG;ctx.fillText(t,x,y)};
+const ink=(c,w)=>{ctx.strokeStyle=c||FG;ctx.lineWidth=w||1.1};
+function glyph(i,x,y,r){
+  if(i===0)Ci(x,y,r);else if(i===1){ctx.beginPath();ctx.arc(x,y,r,.9,5.4);ctx.arc(x+r*.55,y,r*.75,4.6,1.7,true);ctx.closePath();ctx.stroke()}
+  else if(i===2)Pl([[x,y-r],[x+r,y+r*.8],[x-r,y+r*.8]],true);else if(i===3)Rc(x-r*.8,y-r*.8,r*1.6,r*1.6);
+  else if(i===4)Pl([[x,y-r],[x+r*.75,y],[x,y+r],[x-r*.75,y]],true);else{L(x-r,y,x+r,y);L(x,y-r,x,y+r)}
+}
+function instIcon(i,x,y){if(i===0){L(x-7,y,x+7,y);Pl([[x+7,y],[x+3,y-3],[x+3,y+3]],true);L(x,y,x,y+7)}else if(i===1){Ci(x,y,6);L(x,y,x+4,y-4)}else{Rc(x-2,y-7,4,11);Ci(x,y+6,3)}}
+const tsec=()=>(Date.now()-T0)/1000;
+function sky(hz,x0,x1){ /* horizon, drifting cloud, rain as the ship nears */
+  const f=S&&S.limit?S.t/S.limit:.2,t=tsec();ink(FG,1);ctx.globalAlpha=.5;
+  for(let i=0;i<3+Math.floor(f*5);i++){const x=x0+((i*71+t*3)%(x1-x0)),y=8+(i*13)%Math.max(10,hz-24);L(x,y,x+22,y);L(x+5,y-3,x+17,y-3)}
+  if(f>.55)for(let i=0;i<24;i++){const x=x0+((i*47+t*40)%(x1-x0)),y=(i*29+t*120)%hz;L(x,y,x-2,y+6)}
+  ctx.globalAlpha=1;
+}
+function waves(x0,y0,x1,y1,skip){const t=tsec();ink('#6fb1ff',1);ctx.globalAlpha=.8;for(let i=0;i<26;i++){const y=y0+4+(i*19)%Math.max(1,y1-y0-6),x=x0+((i*53+t*(6+i%3*3))%(x1-x0-8));if(skip&&skip(x,y))continue;L(x,y,x+7,y)}ctx.globalAlpha=1;ink()}
+function ship(hz,x0,x1){if(!S||!S.limit||S.lit)return;const f=S.t/S.limit,x=x1-(x1-x0)*f*.8,s=1+f*2;ink('#fff',1);Pl([[x-5*s,hz-1],[x+5*s,hz-1],[x+3*s,hz+1.5*s],[x-3*s,hz+1.5*s]],true);L(x,hz-1,x,hz-5*s);if(Math.floor(tsec()*2)%2)Rc(x-1,hz-5*s-2,2,2,'#ffdc6b');ink()}
+function tower(x,y,h,w){ink();Pl([[x-w,y],[x-w*.6,y-h],[x+w*.6,y-h],[x+w,y]]);Rc(x-w*.9,y-h-3,w*1.8,3);Rc(x-w*.5,y-h-11,w,8,S&&S.lit?'#ffdc6b':null);Pl([[x-w*.7,y-h-11],[x,y-h-17],[x+w*.7,y-h-11]]);
+  if(S&&S.lit){ink('#ffdc6b',1.5);const a=tsec()*1.2;for(const sg of [0,Math.PI]){L(x,y-h-7,x+Math.cos(a+sg)*90,y-h-7+Math.sin(a+sg)*26)}ink()}}
+const SCENE={
+  title(){sky(120,0,320);L(0,120,320,120);waves(0,122,320,198);Pl([[150,122],[190,96],[250,84],[320,92]]);tower(236,88,52,9);ship(120,10,140)},
+  jetty(){
+    sky(78,0,320);L(0,78,170,78);ship(78,6,150);
+    Pl([[170,78],[214,44],[262,30],[320,34]]);tower(276,31,24,5);ink(FG,1);ctx.setLineDash([3,3]);Pl([[178,104],[214,84],[204,66],[246,46]]);ctx.setLineDash([]);
+    waves(0,84,300,198,(x,y)=>{const u=(y-100)/100;return y>100&&x>150-40*u-4&&x<180+30*u+4||x>170+(y-78)*.9});
+    ink(FG,1.3);Pl([[110,200],[150,100],[180,100],[210,200]]);for(let i=0;i<7;i++){const u=i/7,y=100+u*u*100;L(150-40*u*u,y,180+30*u*u,y)}
+    L(116,186,116,160);L(204,186,204,160);L(141,124,141,108);L(187,124,187,108);
+    L(70,150,70,70);Rc(64,58,12,12);ink('#ffdc6b');Ci(70,64,2,'#ffdc6b');ink();L(60,150,80,150);
+    L(264,160,264,108);Pl([[264,110],[288,117],[264,124]],true,HUEC[S.pennant]);
+    if(S.tideLow){ink(FG,1.2);for(let i=0;i<5;i++)L(84-i*13,150+i*9,70-i*13,150+i*9),L(70-i*13,150+i*9,70-i*13,159+i*9);ctx.beginPath();ctx.arc(34,190,24,Math.PI,0);ctx.stroke();Tx('LOW WATER',28,120,7,'center','#6fb1ff')}
+  },
+  cave(){
+    ink(FG,1.4);Pl([[6,200],[10,96],[58,34],[160,14],[262,34],[310,96],[314,200]]);ink(FG,1);Pl([[40,200],[52,120],[90,70]]);Pl([[280,200],[268,120],[232,70]]);
+    ctx.beginPath();ctx.arc(160,84,34,Math.PI,0);ctx.stroke();L(126,84,194,84);waves(128,70,192,84);
+    for(let i=0;i<5;i++)L(70+i*40,188-(i%2)*6,96+i*40,188-(i%2)*6);
+    ink(FG,1.3);Rc(124,132,72,38);L(124,144,196,144);L(148,132,148,170);L(172,132,172,170);
+    if(S.opened.crate)Pl([[124,132],[136,112],[208,112],[196,132]]);
+    ink('#6fb1ff',1);for(let i=0;i<3;i++)L(20+i*110,176,44+i*110,176);ink();
+  },
+  cross(){
+    sky(120,0,320);L(0,120,320,120);tower(160,120,88,10);Rc(156,106,8,14);
+    ink(FG,1.2);Rc(20,104,56,36);Pl([[14,104],[48,84],[82,104]]);Rc(40,118,14,22);
+    Rc(98,100,30,20);Ci(113,110,6);L(107,110,119,110);L(113,104,113,116);
+    L(232,112,296,112);L(240,112,240,120);L(288,112,288,120);L(262,112,262,64);L(252,70,272,70);Pl([[272,70],[267,67],[267,73]],true);Rc(276,98,14,14);
+    ink(FG,1);ctx.setLineDash([3,4]);for(const p of [[48,140],[113,122],[160,122],[262,122],[40,198]])L(160,196,p[0],p[1]);ctx.setLineDash([]);
+    ink(FG,1.5);L(160,194,160,146);Pl([[160,150],[184,150],[190,155],[184,160],[160,160]]);Pl([[160,166],[136,166],[130,171],[136,176],[160,176]]);
+  },
+  boat(){
+    ink(FG,1.2);Rc(40,26,240,118);L(40,26,0,0);L(280,26,320,0);L(40,144,0,200);L(280,144,320,200);
+    Rc(58,44,72,50);Tx('LOW WATER',94,54,6);for(let i=0;i<3;i++)glyph(S.low[i],74+i*20,74,6);
+    Rc(210,50,54,88);L(237,50,237,138);Ci(232,96,2);if(S.opened.cabinet)Pl([[210,50],[196,58],[196,146],[210,138]]);
+    ctx.beginPath();ctx.moveTo(18,186);ctx.quadraticCurveTo(70,128,128,186);ctx.closePath();ctx.stroke();L(30,178,116,178);
+    Rc(150,60,36,50);L(150,85,186,85);L(168,60,168,110);waves(151,86,185,109);
+    Rc(254,150,56,48);Tx('DOOR',282,178,7);
+  },
+  station(){
+    sky(150,0,320);L(0,150,320,150);waves(0,152,90,198);
+    ink(FG,1.2);L(70,150,70,74);Ci(70,50,24);for(let i=0;i<8;i++){const a=i*Math.PI/4-Math.PI/2;Tx(String(i+1),70+Math.cos(a)*32,53+Math.sin(a)*32,7)}
+    {const a=(S.read[0]-1)*Math.PI/4-Math.PI/2;ink('#ffdc6b',1.8);L(70-Math.cos(a)*10,50-Math.sin(a)*10,70+Math.cos(a)*20,50+Math.sin(a)*20);Pl([[70+Math.cos(a)*23,50+Math.sin(a)*23],[70+Math.cos(a+.25)*15,50+Math.sin(a+.25)*15],[70+Math.cos(a-.25)*15,50+Math.sin(a-.25)*15]],true,'#ffdc6b');ink()}
+    Ci(165,72,30);for(let i=1;i<=9;i++){const a=Math.PI+(i-1)*Math.PI/8;Tx(String(i),165+Math.cos(a)*22,75+Math.sin(a)*22,7)}
+    {const a=Math.PI+(S.read[1]-1)*Math.PI/8;ink('#ffdc6b',1.8);L(165,72,165+Math.cos(a)*14,72+Math.sin(a)*14);ink();Ci(165,72,2)}L(165,102,165,150);
+    Rc(246,24,8,88);Ci(250,118,7);for(let i=1;i<=9;i++){const y=110-i*9;L(254,y,259,y);Tx(String(i),266,y+2.5,7)}
+    {const y=110-S.read[2]*9;ctx.fillStyle='#ff9a9a';ctx.fillRect(248,y,4,112-y);ink('#ff9a9a');Ci(250,118,4,'#ff9a9a');ink()}L(250,125,250,150);
+    Tx('VANE',70,104,7);Tx('GLASS',165,116,7);Tx('MERCURY',284,60,7);
+    Rc(96,150,58,6);L(102,156,102,172);L(148,156,148,172);Rc(108,140,34,10);L(125,140,125,150);
+    Rc(180,138,54,48);L(207,138,207,186);if(S.opened.locker)Pl([[180,138],[168,146],[168,194],[180,186]]);
+    Rc(254,164,56,30);Tx('PATH',282,183,7);
+  },
+  tide(){
+    ink(FG,1.3);Rc(40,26,236,62);L(20,104,300,104);
+    for(let i=0;i<3;i++){const x=85+i*70;Rc(x-17,36,34,42);ink('#ffdc6b',1.6);glyph(S.wheels[i],x,52,9);ink(FG,1.3);Tx(GLYPH[S.wheels[i]],x,74,6);
+      Ci(x,122,20);for(let k=0;k<6;k++){const a=k*Math.PI/3+S.wheels[i]*Math.PI/3;L(x,122,x+Math.cos(a)*20,122+Math.sin(a)*20)}Ci(x,122,4);L(x,88,x,102)}
+    L(290,146,290,70);const up=!S.tideLow;Pl([[290,108],[up?306:274,up?64:150]]);Ci(up?306:274,up?64:150,4,'#ff9a9a');
+    Tx(S.tideLow?'TIDE: OUT':'TIDE: IN',150,18,8,'center','#6fb1ff');
+    L(0,160,320,160);for(let i=0;i<4;i++)L(20+i*84,160,10+i*84,200);
+    Rc(6,162,56,34);Tx('DOOR',34,183,7);
+  },
+  door(){
+    ink(FG,1.4);ctx.beginPath();ctx.moveTo(88,198);ctx.lineTo(88,62);ctx.arc(160,62,72,Math.PI,0);ctx.lineTo(232,198);ctx.stroke();
+    ink(FG,1);for(let i=1;i<5;i++)L(88+i*28.8,198,88+i*28.8,i===1||i===4?34:10);
+    Rc(120,36,80,30,'#000');for(let i=0;i<3;i++){ink('#7ff',1.4);instIcon(S.order[i],137+i*23,50);ink()}
+    for(let i=0;i<3;i++){const x=124+i*36;Ci(x,100,14,'#000');Tx(String(S.dials[i]),x,105,15,'center','#ffdc6b');Pl([[x-4,82],[x,86],[x+4,82]])}
+    Ci(224,146,7);L(224,146,240,152);
+    L(0,198,320,198);Pl([[0,198],[30,150],[60,198]]);Pl([[260,198],[290,150],[320,198]]);
+    Rc(6,162,56,34);Tx('PATH',34,183,7);
+  },
+  hall(){
+    ink(FG,1.2);ctx.beginPath();ctx.ellipse(160,176,150,22,0,0,7);ctx.stroke();L(10,176,10,0);L(310,176,310,0);
+    Rc(30,74,170,84);L(30,96,200,96);
+    Rc(54,30,92,40);for(let i=0;i<4;i++){const x=66+i*22,up=S.sw[i];Rc(x-5,38,10,24);ink('#ffdc6b',2);L(x,50,x,up?40:60);Ci(x,up?40:60,3,'#ffdc6b');ink(FG,1.2)}Tx('UP',50,44,6,'right');Tx('DOWN',50,62,6,'right');
+    Ci(48,124,12);if(S.gen.crank){ink('#ffdc6b',2);L(48,124,34,104);L(34,104,26,104);ink(FG,1.2)}else Tx('CRANK',48,150,6);
+    Pl([[112,74],[118,62],[134,62],[140,74]]);Tx(S.gen.fuel?'FULL':'DRY',126,90,6,'center',S.gen.fuel?'#a9f0b8':'#ff9a9a');
+    Ci(172,130,11,S.gen.on?'#a9f0b8':null);
+    Ci(214,58,6,S.gen.on?'#ffdc6b':null);L(214,64,214,74);if(S.gen.on){const j=Math.sin(tsec()*30);L(30+j,74,200+j,74)}
+    for(let i=0;i<9;i++){const u=i/8;L(236+u*30,170-u*130,300-u*10,170-u*130);L(236+u*30,170-u*130,236+u*30,186-u*130)}L(300,176,290,36);
+    Rc(6,162,56,34);Tx('DOOR',34,183,7);
+  },
+  lamp(){
+    ink(FG,1.1);for(const x of [16,76,244,304])L(x,0,x,146);L(0,146,320,146);L(0,104,76,104);L(244,104,320,104);waves(0,106,76,144);waves(244,106,320,144);ship(104,250,316);
+    ink(FG,1.4);Pl([[124,128],[114,60],[136,26],[184,26],[206,60],[196,128]],true);Rc(130,128,60,44);L(160,26,160,10);
+    if(S.lensIn){ink('#7ff',1.3);for(const r of [34,24,13])Ci(160,82,r);ink()}else{ctx.setLineDash([3,4]);Ci(160,82,30);ctx.setLineDash([]);Tx('NO LENS',160,85,7)}
+    Ci(238,150,16,HUEC[S.filter]);ink('#000',1);L(238,134,238,166);L(222,150,254,150);ink();Tx(HUE3[S.filter],238,122,7);
+    L(80,172,80,150);const on=S.lit;Pl([[80,150],[on?96:66,116]]);Ci(on?96:66,116,4,'#ff9a9a');Rc(70,172,20,6);
+    Tx(S.gen.on?'POWER: ON':'POWER: OFF',160,186,7,'center',S.gen.on?'#a9f0b8':'#ff9a9a');
+    if(S.lit){ink(HUEC[S.filter],2);const a=tsec()*1.4;for(const sg of [0,Math.PI])L(160,82,160+Math.cos(a+sg)*200,82+Math.sin(a+sg)*40);ink()}
+  }
+};
+let spots=[];
+function draw(){
+  ctx.setTransform(DPR*K,0,0,DPR*K,0,0);ctx.fillStyle='#000';ctx.fillRect(0,0,320,200);ctx.lineJoin='round';ctx.lineCap='round';ink();
+  (SCENE[S?S.at:'title'])();
+  spots=mode==='play'?acts():[];const pulse=.6+.4*Math.abs(Math.sin(tsec()*2));
+  for(const s of spots){const [x,y,w,h]=s.rect,c=INKC[s.kind]||FG,q=6;ink(c,1.6);ctx.globalAlpha=pulse;
+    L(x,y+q,x,y);L(x,y,x+q,y);L(x+w-q,y,x+w,y);L(x+w,y,x+w,y+q);L(x,y+h-q,x,y+h);L(x,y+h,x+q,y+h);L(x+w-q,y+h,x+w,y+h);L(x+w,y+h,x+w,y+h-q);ctx.globalAlpha=1;
+    const lb=s.tag||s.label;ctx.font='bold 7px "Courier New",monospace';const tw=ctx.measureText(lb).width+6,tx=clamp(x+w/2,tw/2+1,319-tw/2),ty=s.top?Math.max(8,y-3):Math.min(197,y+h+9);ctx.fillStyle='#000';ctx.fillRect(tx-tw/2,ty-7,tw,9);Tx(lb,tx,ty,7,'center',c)}
+  ink();
+}
+cv.addEventListener('click',e=>{if(mode!=='play')return;const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)/r.width*320,y=(e.clientY-r.top)/r.height*200;let hit=null,area=1e9;
+  for(const s of spots){const [sx,sy,w,h]=s.rect;if(x>=sx-3&&x<=sx+w+3&&y>=sy-3&&y<=sy+h+12&&w*h<area){hit=s;area=w*h}}
+  if(hit)doAct(hit)});
+$('log').onclick=()=>{const lg=$('log');lg.classList.toggle('big');lg.scrollTop=lg.scrollHeight};
+addEventListener('resize',resize);
+const still=!!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches);
+if(!still)setInterval(()=>{if(!document.hidden)draw()},110);
+try{const v=localStorage.getItem('beaconfall.vol');if(v!==null)vol=clamp(+v||0,0,2);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length;best=JSON.parse(localStorage.getItem('beaconfall.best')||'{}')||{}}catch(e){best={}}
+setTone();setSnd();
+{let old=null;try{old=JSON.parse(localStorage.getItem('beaconfall.save')||'null')}catch(e){}
+ if(old&&old.at&&PLACE[old.at]){S=old;mode='play';show(null);say(`You pick up where you left off, at ${PLACE[S.at].toLowerCase()}.`,'gold');resize();render()}else{resize();title()}}
+</script>
+</body>
+</html>

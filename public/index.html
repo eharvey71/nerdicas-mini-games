@@ -227,6 +227,27 @@ const GAMES=[
      g.ink(4);B(1,2,12);g.ink(5);B(2,2,30);g.ink(2);B(4,2,10);g.ink(7);B(2,4,16);
      if(n>=1){g.ink(1);T(4,2,4,3);g.ink(8);B(4,3,14)}if(n>=2){g.ink(1);T(2,4,3,4);g.ink(2);B(3,4,10)}if(n>=3){g.ink(1);T(1,2,1,3);g.ink(7);B(1,3,18)}if(n>=4){g.ink(1);T(4,3,5,3);g.ink(4);B(5,3,8)}
      g.ink(9);if(s)for(let i=0;i<14;i++){const x=(i*47+s*60*(1+i%3))%300-10,y=14+(i*29)%160;g.line(x,y,x+5,y)}
+   }},
+  {slug:'beaconfall',title:'BEACONFALL',wip:true,
+   blurb:'A dark lighthouse on a small island and a ship on its way. Explore nine places, read the clues, and get the lamp lit before it arrives. The codes and hiding places change every game.',
+   tags:'PUZZLE · 1 PLAYER · TAP OR CLICK',
+   art:(g,s)=>{
+     const L=(a,b,c,d)=>g.line(a,b,c,d);
+     /* sea, island and tower */
+     L(0,120,280,120);L(120,120,170,92);L(170,92,230,84);L(230,84,279,96);
+     L(190,88,196,36);L(214,86,208,36);L(192,36,212,36);L(194,36,194,24);L(210,36,210,24);L(194,24,210,24);L(192,24,202,14);L(202,14,212,24);
+     L(198,86,198,74);L(198,74,206,74);L(206,74,206,86);
+     /* jetty */
+     L(96,150,150,128);L(104,158,156,134);for(let i=0;i<4;i++)L(104+i*14,154-i*6,98+i*14,146-i*6);
+     /* waves */
+     g.ink(4);for(let i=0;i<14;i++){const x=(i*37+s*14*(1+i%3))%270,y=128+(i*23)%58;if(x>90&&x<165&&y<162)continue;L(x,y,x+7,y)}
+     /* the ship comes in from the left while the picture moves */
+     g.ink(7);{const x=s?12+((s*9)%96):22;L(x-8,118,x+8,118);L(x-8,118,x-5,122);L(x+8,118,x+5,122);L(x-5,122,x+5,122);L(x,118,x,108)}
+     /* the lamp: dark when still, sweeping when it moves */
+     if(s){g.ink(2);const a=s*1.6;for(const k of [0,Math.PI]){L(202,30,202+Math.cos(a+k)*110,30+Math.sin(a+k)*34)}L(196,27,208,27);L(196,33,208,33)}
+     /* storm cloud and rain */
+     g.ink(1);for(let i=0;i<3;i++){const x=20+i*70+(s*5)%30,y=20+i*9;L(x,y,x+26,y);L(x+6,y-4,x+20,y-4)}
+     if(s)for(let i=0;i<16;i++){const x=(i*41+s*50)%280,y=(i*29+s*130)%110;L(x,y,x-2,y+6)}
    }}
 ];
 const HUES=[[51,255,102],[255,176,0],[255,255,255]];
