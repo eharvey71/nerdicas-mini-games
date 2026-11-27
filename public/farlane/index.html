@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#000000">
 <title>Farlane</title>
 <meta name="description" content="A short space trading run. Haul cargo between ten stars, fight raiders and dock in wireframe 3D.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
@@ -486,8 +490,11 @@ const cam=p=>{const d=sub3(p,F.P);return[dot(d,F.B.r),dot(d,F.B.u),dot(d,F.B.f)]
 
 /* ---------- drawing ---------- */
 const cv=$('cv'),ctx=cv.getContext('2d');let W=320,H=220,DPR=1,FOC=290;
+/* In the cockpit the picture grows to fill whatever screen height is left above the stick and buttons; everywhere else it keeps its usual shape. */
+let tall=false;
 function resize(){
-  const w=$('view').clientWidth||320;W=Math.max(240,w-4);H=Math.round(W*.68);DPR=Math.min(3,window.devicePixelRatio||1);
+  const w=$('view').clientWidth||320;W=Math.max(240,w-4);H=Math.round(W*.68);tall=mode==='fly';
+  if(tall){let used=22,n=0;for(const e of $('app').children)if(e.id!=='view'&&e.offsetHeight){used+=e.offsetHeight;n++}used+=n*6;const vh=Math.min(window.innerHeight||1e9,window.visualViewport?visualViewport.height:1e9);H=Math.round(clamp(vh-used-10,H,W*1.5))}DPR=Math.min(3,window.devicePixelRatio||1);
   cv.width=Math.round(W*DPR);cv.height=Math.round(H*DPR);cv.style.height=H+'px';FOC=W*.9;
 }
 function seg(a,b){
@@ -639,7 +646,7 @@ let pads=[];
 function ui(){
   const lg=$('log');if(logN<0||lines.length<logN){lg.textContent='';logN=0}
   if(lines.length>logN){for(;logN<lines.length;logN++){const e=document.createElement('div');e.className='new '+lines[logN][1];e.textContent=lines[logN][0];lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
-  const pad=$('pad'),fly=mode==='fly';pad.hidden=fly;$('fly').hidden=!fly;lg.hidden=fly;$('bfire').disabled=!!(F&&F.kind==='dock');
+  const pad=$('pad'),fly=mode==='fly';pad.hidden=fly;$('fly').hidden=!fly;lg.hidden=fly;$('help').hidden=fly;$('how').hidden=fly;if(tall!==fly){resize();if(fly)scrollTo(0,0)}$('bfire').disabled=!!(F&&F.kind==='dock');
   pad.textContent='';pads=[];if(fly)return;
   const mkB=(t,f,keys,dis,hot)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot&&!dis)e.className='hot';if(dis||!f)e.disabled=true;else{e.onclick=()=>{wake();e.blur();f()};if(keys)pads.push({keys,f})}return e};
   const btn=(t,f,keys,dis,hot,span)=>{const e=mkB(t,f,keys,dis,hot);if(span)e.classList.add('s'+span);pad.appendChild(e);return e};
