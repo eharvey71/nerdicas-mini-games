@@ -123,13 +123,13 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 #pad.bar4{grid-template-columns:repeat(4,1fr)}#pad.bar4 .stripw{grid-column:span 4}
 /* ---- play: the board comes first. A two-line strip of numbers lies across its top, the newest log line across its bottom,
    and the build buttons are a drawer under it. REPORT swaps the board for the full status, the whole log, help and rules. */
-#hud{position:absolute;left:0;right:0;top:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px 8px;padding:5px 8px;background:rgba(0,0,0,.62);border-bottom:1px solid var(--fg);font-size:16px;line-height:1.4;font-variant-numeric:tabular-nums;text-shadow:0 0 3px #000,0 0 3px #000}
-#hud .it{display:flex;align-items:baseline;gap:4px;font-weight:700;--c:var(--fg);color:var(--c);white-space:nowrap;min-width:0}
-#hud .lab{font-size:10px;letter-spacing:.02em;margin:0}#hud .val{font-size:16px}#hud .sub,#hud .dl{font-size:11px;margin:0}#hud .dl.up{color:var(--fuel)}#hud .dl.dn{color:var(--hp)}
+#hud{position:absolute;left:0;right:0;top:0;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:2px 8px;padding:6px 8px;background:rgba(0,0,0,.62);border-bottom:1px solid var(--fg);font-size:16px;line-height:1.4;font-variant-numeric:tabular-nums;text-shadow:0 0 3px #000,0 0 3px #000}
+#hud .it{grid-column:span 3;display:flex;align-items:baseline;gap:5px;font-weight:700;--c:var(--fg);color:var(--c);white-space:nowrap;min-width:0}
+#hud .lab{font-size:11px;letter-spacing:.02em;margin:0}#hud .val{font-size:19px}#hud .sub,#hud .dl{font-size:12px;margin:0}#hud .it.w{grid-column:span 4}#hud .it.full{grid-column:1/-1;font-size:13px}#hud .dl.up{color:var(--fuel)}#hud .dl.dn{color:var(--hp)}
 #hud .hp{--c:var(--hp)}#hud .shd{--c:var(--shd)}#hud .fuel{--c:var(--fuel)}#hud .gold{--c:var(--gold)}#hud .goal{--c:var(--goal)}#hud .you{--c:var(--you)}
 #hud .flash .val{animation:pulse 1s ease-out 1}
 #hud,#pal,#vbtn,#tick{transition:opacity .15s}
-#view.moving #hud,#view.moving #pal,#view.moving #vbtn,#view.moving #tick{opacity:.15;pointer-events:none}
+#view.moving #hud,#view.moving #pal,#view.moving #vbtn,#view.moving #tick{opacity:.6;pointer-events:none}
 /* the build palette: one column down the left edge of the board, like the old city builders */
 #pal{position:absolute;left:0;width:62px;display:flex;flex-direction:column;gap:3px;padding:4px 3px;overflow-y:auto;scrollbar-width:none;line-height:1.15;touch-action:pan-y}
 #pal::-webkit-scrollbar{display:none}
@@ -399,7 +399,7 @@ function save(){try{localStorage.setItem('dusthaven.save',JSON.stringify(S,(k,v)
 function hasSave(){try{return !!localStorage.getItem('dusthaven.save')}catch(e){return false}}
 function wipe(){try{localStorage.removeItem('dusthaven.save')}catch(e){}}
 function load(){try{S=JSON.parse(localStorage.getItem('dusthaven.save'))}catch(e){S=null}if(!S)return;S.ter=Uint8Array.from(S.ter);S.tube=Uint8Array.from(S.tube);begin(true)}
-function begin(old){lastSup=null;mode='play';tool='';lines=[];logN=-1;armed=-1;pick=-1;show(null);setZoom();say(old?`MONTH ${S.month} AT DUSTHAVEN.`:`GOAL: ${GOALS[S.goal].d.toUpperCase()}`,'gold');if(!old)say('THE LANDER KEEPS SIX ALIVE. TO GROW YOU NEED BEDS, THEN MORE AIR, WATER, FOOD AND POWER. FOOD RUNS OUT FIRST.');snap();render()}
+function begin(old){lastSup=null;zoom=1;mode='play';tool='';lines=[];logN=-1;armed=-1;pick=-1;show(null);setZoom();say(old?`MONTH ${S.month} AT DUSTHAVEN.`:`GOAL: ${GOALS[S.goal].d.toUpperCase()}`,'gold');if(!old)say('THE LANDER KEEPS SIX ALIVE. TO GROW YOU NEED BEDS, THEN MORE AIR, WATER, FOOD AND POWER. FOOD RUNS OUT FIRST.');snap();render()}
 function tap(c){
   if(mode!=='play')return;const b=S.b[c];
   if(tool==='X')return clearAt(c);
@@ -412,7 +412,7 @@ function tap(c){
   render();
 }
 /* ---------- drawing: an angled board ---------- */
-const cv=$('cv'),ctx=cv.getContext('2d');let W=320,VH=260,Hh=300,DPR=1,STRIP=30,tw=24,th=12,hu=12,zoom=0,tilt=2,rot=0,cam={x:0,y:0},ORDER=[];
+const cv=$('cv'),ctx=cv.getContext('2d');let W=320,VH=260,Hh=300,DPR=1,STRIP=30,tw=24,th=12,hu=12,zoom=1,tilt=1,rot=0,cam={x:0,y:0},ORDER=[];
 const U=(x,y)=>rot===0?x:rot===1?N-y:rot===2?N-x:y,V=(x,y)=>rot===0?y:rot===1?x:rot===2?N-y:N-x;
 const iX=(x,y)=>W/2+(U(x,y)-V(x,y))*tw/2-cam.x,iY=(x,y)=>VH/2+(U(x,y)+V(x,y))*th/2-cam.y;
 const TILT=[.36,.5,.68,.92],TILTN=['LOW','MID','HIGH','TOP'],ZOOMN=['FAR','MID','NEAR'];
@@ -489,12 +489,12 @@ function drawStatus(){
   g=grp('MONEY');it(g,'cr','CREDITS',S.cr,S.cr,S.cr<0?'hp low':'gold');it(g,'inc','EACH MONTH',sg(R.income),R.income,R.income<0?'hp':'');if(S.goal==='debt')it(g,'debt','DEBT',S.debt,S.debt,'hp');
   g=grp('GOAL');it(g,'mo','MONTH',`${S.month}/${G.m}`,S.month,G.m-S.month<=4?'hp low':'');g.appendChild(mkE('span','it goal',S.goal==='charter'?`${S.pop} OF ${POPGOAL} COLONISTS`:S.goal==='debt'?'CLEAR THE DEBT':`KEEP ${HOLDPOP} ALIVE`));
   if(S.storm>0)g.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)g.appendChild(mkE('span','it gold','STORM NEXT MONTH'));
-  {const hud=$('hud'),SH={pop:'BEDS',crew:'IDLE',mor:'MORALE',mo:'MONTH',pw:'POWER',air:'AIR',wat:'WATER',food:'FOOD',cr:'CASH',inc:'GAIN',debt:'DEBT'};hud.textContent='';
+  {const hud=$('hud'),SH={pop:'BEDS',crew:'IDLE',mor:'MORALE',mo:'MONTH',pw:'POWER',air:'AIR',wat:'WATER',food:'FOOD',cr:'CREDITS',inc:'INCOME',debt:'DEBT'},WIDE={cr:1,inc:1,debt:1};hud.textContent='';
    const put=k=>{const o=st.querySelector(`[data-k="${k}"]`);if(!o){hud.appendChild(mkE('span','it'));return}const e=o.cloneNode(true);e.classList.remove('low');const b=e.querySelector('.bar');if(b)b.remove();let l=e.querySelector('.lab');if(!l){l=mkE('span','lab');e.insertBefore(l,e.firstChild)}l.textContent=SH[k];
-     const v=e.querySelector('.val'),m=/^(\S+) \((.+)\)$/.exec(v.textContent);if(m){v.textContent=m[1];const sb=mkE('span','sub',m[2]);v.after(sb)}else v.textContent=v.textContent.replace(' BEDS','');hud.appendChild(e)};
+     const v=e.querySelector('.val'),m=/^(\S+) \((.+)\)$/.exec(v.textContent);if(m){v.textContent=m[1];const sb=mkE('span','sub',m[2]);v.after(sb)}else v.textContent=v.textContent.replace(' BEDS','');if(WIDE[k])e.classList.add('w');hud.appendChild(e)};
    ['pop','crew','mor','mo','pw','air','wat','food','cr','inc'].forEach(put);
-   if(S.goal==='debt')put('debt');else{const e=mkE('span','it goal');e.appendChild(mkE('span','lab','GOAL'));e.appendChild(mkE('span','val',S.goal==='charter'?`${S.pop}/${POPGOAL}`:`${S.pop}/${HOLDPOP}`));hud.appendChild(e)}
-   hud.appendChild(S.storm>0?mkE('span','it hp','STORM'):S.stormIn?mkE('span','it gold','STORM SOON'):mkE('span','it'));
+   if(S.goal==='debt')put('debt');else{const e=mkE('span','it goal w');e.appendChild(mkE('span','lab','GOAL'));e.appendChild(mkE('span','val',S.goal==='charter'?`${S.pop}/${POPGOAL}`:`${S.pop}/${HOLDPOP}`));hud.appendChild(e)}
+   if(S.storm>0)hud.appendChild(mkE('span','it hp full','DUST STORM: SOLAR POWER IS CUT'));else if(S.stormIn)hud.appendChild(mkE('span','it gold full','A DUST STORM ARRIVES NEXT MONTH'));
    const tk=$('tick');tk.textContent='';let two=lines.filter(l=>!/hdr/.test(l[1])).slice(-2);if(two.length===2&&two[0][0]===two[1][0])two=two.slice(1);two.forEach((l,i)=>tk.appendChild(mkE('div',(i<two.length-1?'old ':'')+l[1],l[0])));
    }
   clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
@@ -535,10 +535,10 @@ cv.addEventListener('pointerdown',e=>{if(!S||mode!=='play')return;wake();drag={x
 cv.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id||!zoom)return;const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.pan&&Math.hypot(dx,dy)<8)return;drag.pan=true;$('view').classList.add('moving');cam.x=clamp(drag.cx-dx,-N*tw/2,N*tw/2);cam.y=clamp(drag.cy-dy,0,N*th);draw()});
 cv.addEventListener('pointerup',e=>{if(!drag||e.pointerId!==drag.id)return;const d=drag;drag=null;$('view').classList.remove('moving');if(d.pan)return;const c=cellAt(e);if(c>=0)tap(c)});
 cv.addEventListener('pointercancel',()=>{drag=null;$('view').classList.remove('moving')});
-$('zoom').onclick=()=>{zoom=(zoom+1)%3;setZoom();draw()};$('tilt').onclick=()=>{tilt=(tilt+1)%4;try{localStorage.setItem('dusthaven.tilt',tilt)}catch(e){}setZoom();draw()};$('turn').onclick=()=>{rot=(rot+1)%4;setZoom();draw()};
+$('zoom').onclick=()=>{zoom=(zoom+1)%3;setZoom();draw()};$('tilt').onclick=()=>{tilt=(tilt+1)%4;try{localStorage.setItem('dusthaven.tilt2',tilt)}catch(e){}setZoom();draw()};$('turn').onclick=()=>{rot=(rot+1)%4;setZoom();draw()};
 addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey||mode!=='play')return;const k=e.key.toLowerCase();if(k==='enter'){e.preventDefault();endMonth()}else if(k==='u'||k==='z')undo();else if(k==='escape'){tool='';render()}else if(k>='1'&&k<='9'){tool=TOOLS[+k-1];render()}});
 let rz=0;addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();render()},120)});
-try{const v=localStorage.getItem('dusthaven.vol');if(v!==null)vol=clamp(+v||0,0,2);tilt=clamp(+(localStorage.getItem('dusthaven.tilt')??2)||0,0,3);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
+try{const v=localStorage.getItem('dusthaven.vol');if(v!==null)vol=clamp(+v||0,0,2);tilt=clamp(+(localStorage.getItem('dusthaven.tilt2')??1)||0,0,3);const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
 setTone();setSnd();resize();
 show([['DUSTHAVEN','big'],['A mining outpost on a dead world.'],['Air, water, food, power. Keep them all.']]);
 render();
