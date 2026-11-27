@@ -123,14 +123,15 @@ button:focus-visible,.mini:focus-visible,summary:focus-visible{outline:2px dashe
 #pad.bar4{grid-template-columns:repeat(4,1fr)}#pad.bar4 .stripw{grid-column:span 4}
 /* ---- play: the board comes first. A two-line strip of numbers lies across its top, the newest log line across its bottom,
    and the build buttons are a drawer under it. REPORT swaps the board for the full status, the whole log, help and rules. */
-#hud{position:absolute;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:0 9px;padding:3px 6px;background:rgba(0,0,0,.8);border-bottom:1px solid var(--fg);font-size:12px;line-height:1.45;cursor:pointer;font-variant-numeric:tabular-nums}
-#hud .it{font-weight:700;--c:var(--fg);color:var(--c);white-space:nowrap}#hud .lab{font-size:9px;margin-right:3px}#hud .dl{font-size:10px;margin-left:3px}#hud .dl.up{color:var(--fuel)}#hud .dl.dn{color:var(--hp)}
+#hud{position:absolute;left:0;right:0;top:0;display:flex;flex-wrap:wrap;gap:0 9px;padding:4px 8px;background:rgba(0,0,0,.86);border-bottom:1px solid var(--fg);font-size:15px;line-height:1.5;cursor:pointer;font-variant-numeric:tabular-nums}
+#hud .it{font-weight:700;--c:var(--fg);color:var(--c);white-space:nowrap}#hud .lab{font-size:10px;margin-right:4px}#hud .dl{font-size:11px;margin-left:4px}#hud .dl.up{color:var(--fuel)}#hud .dl.dn{color:var(--hp)}
 #hud .hp{--c:var(--hp)}#hud .shd{--c:var(--shd)}#hud .fuel{--c:var(--fuel)}#hud .gold{--c:var(--gold)}#hud .goal{--c:var(--goal)}#hud .you{--c:var(--you)}
 #hud .low{outline:1px solid var(--c)}#hud .flash .val{animation:pulse 1s ease-out 1}#hud .brk{flex-basis:100%;height:0}
-#tick{position:absolute;left:0;right:0;bottom:34px;padding:2px 6px;background:rgba(0,0,0,.8);font-size:11px;line-height:1.5;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
-#tick.good{color:var(--fuel)}#tick.bad{color:var(--hp)}#tick.gold{color:var(--gold)}
+#tick{position:absolute;left:0;right:0;bottom:34px;padding:3px 8px;background:rgba(0,0,0,.86);border-top:1px dotted var(--fg);font-size:12px;line-height:1.4;font-weight:700;cursor:pointer}
+#tick div{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}#tick .old{opacity:.7;-webkit-line-clamp:1}
+#tick .good{color:var(--fuel)}#tick .bad{color:var(--hp)}#tick .gold{color:var(--gold)}
 #app.play:not(.land) #stat,#app.play:not(.land) #log,#app.play #help,#app.play #how{display:none}
-#app.play:not(.land) #vbtn{top:auto;bottom:60px}
+#app.play:not(.land) #vbtn{top:auto;bottom:calc(40px + var(--tick,40px))}
 #app.play.sheet #view,#app.play.sheet #pad .stripw{display:none}
 #app.play.sheet #stat{display:grid}#app.play.sheet #log{display:block;height:16.8em}#app.play.sheet #help,#app.play.sheet #how{display:block}
 /* ---- held sideways: board on the left at full height, everything else in a column on the right */
@@ -410,7 +411,7 @@ function setZoom(){const k=TILT[tilt],fit=Math.min(Math.floor((W-8)/N),Math.floo
 let extra=0,land=false,sheet=false,drawer=true,OVT=0,OVB=0;
 const wantLand=()=>mode==='play'&&!sheet&&innerWidth>innerHeight&&innerHeight<620&&innerWidth>=560;
 function fit(){const base=clamp(W*.62,190,380);let want=0;if(mode==='play'&&!land&&!sheet){const pd=$('pad'),spare=(window.innerHeight||0)-(pd.offsetTop+pd.offsetHeight)-10;want=clamp(extra+spare,0,W*1.5-base)}if(Math.abs(want-extra)>3){extra=Math.round(want);resize();draw()}}
-function resize(){land=wantLand();$('app').classList.toggle('land',land);const over=mode==='play'&&!land;$('hud').hidden=$('tick').hidden=!over;OVT=over?($('hud').offsetHeight||36):0;OVB=over?22:0;
+function resize(){land=wantLand();$('app').classList.toggle('land',land);const over=mode==='play'&&!land;$('hud').hidden=$('tick').hidden=!over;OVT=over?($('hud').offsetHeight||36):0;OVB=over?($('tick').offsetHeight||22):0;
   const w=$('view').clientWidth||320;W=Math.max(240,w-4);VH=land?Math.max(160,(window.innerHeight||400)-12-4-STRIP-6):Math.round(clamp(W*.62,190,380)+extra);Hh=VH+STRIP+4;DPR=Math.min(3,window.devicePixelRatio||1);cv.width=Math.round(W*DPR);cv.height=Math.round(Hh*DPR);cv.style.height=Hh+'px';setZoom()}
 function text(t,x,y,col,al,sz){ctx.font=`bold ${sz||11}px "Courier New",monospace`;ctx.textAlign=al||'left';ctx.fillStyle=col||FG;ctx.fillText(t,x,y)}
 const poly=(p,fill,stroke,lw)=>{ctx.beginPath();ctx.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)ctx.lineTo(p[i][0],p[i][1]);ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw||1;ctx.stroke()}};
@@ -473,8 +474,10 @@ function drawStatus(){
   if(S.storm>0)g.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)g.appendChild(mkE('span','it gold','STORM NEXT MONTH'));
   {const hud=$('hud'),SH={crew:'IDLE',mor:'MOR',pw:'PWR',air:'AIR',wat:'WTR',food:'FOOD',cr:'CR',mo:'M',inc:'',debt:'DEBT'};hud.textContent='';
    const put=k=>{const o=st.querySelector(`[data-k="${k}"]`);if(!o)return;const e=o.cloneNode(true);const b=e.querySelector('.bar');if(b)b.remove();const l=e.querySelector('.lab');if(l){if(SH[k])l.textContent=SH[k];else if(SH[k]==='')l.remove()}hud.appendChild(e)};
-   ['pop','crew','mor','mo'].forEach(put);if(S.storm>0)hud.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)hud.appendChild(mkE('span','it gold','STORM SOON'));hud.appendChild(mkE('span','brk'));['pw','air','wat','food','cr','inc','debt'].forEach(put);
-   const tk=$('tick'),ln=lines[lines.length-1];tk.className=ln?ln[1].replace('hdr',''):'';tk.textContent=ln?ln[0]:''}
+   ['pop','crew','mor','mo'].forEach(put);hud.appendChild(mkE('span','brk'));['pw','air','wat','food'].forEach(put);hud.appendChild(mkE('span','brk'));['cr','inc','debt'].forEach(put);
+   hud.appendChild(mkE('span','it goal',S.goal==='charter'?`${S.pop} OF ${POPGOAL}`:S.goal==='debt'?'':`KEEP ${HOLDPOP}`));if(S.storm>0)hud.appendChild(mkE('span','it hp','STORM'));else if(S.stormIn)hud.appendChild(mkE('span','it gold','STORM SOON'));
+   const tk=$('tick');tk.textContent='';const two=lines.filter(l=>!/hdr/.test(l[1])).slice(-2);two.forEach((l,i)=>tk.appendChild(mkE('div',(i<two.length-1?'old ':'')+l[1],l[0])));
+   const th2=tk.offsetHeight;if(th2){$('view').style.setProperty('--tick',th2+'px');if(Math.abs(th2-OVB)>2){OVB=th2;setZoom()}}}
   clearTimeout(stT);if(again)stT=setTimeout(drawStatus,400);
 }
 $('hud').onclick=$('tick').onclick=()=>{if(mode==='play'){sheet=true;render();scrollTo(0,0)}};
