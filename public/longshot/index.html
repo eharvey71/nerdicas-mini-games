@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <title>Longshot</title>
 <meta name="description" content="An artillery duel for one or two players. Set the barrel and the powder, read the wind, and fire across the ridge.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M1 1h14v14H1zM5 5h6v6H5zM1 1l4 4M15 1l-4 4M1 15l4-4M15 15l-4-4' fill='none' stroke='%2333ff66'/%3E%3C/svg%3E">
@@ -277,32 +280,35 @@ function step(dt){
   for(const b of booms)b.t+=dt;booms=booms.filter(b=>b.t<(b.big?1.1:.5));edge=Math.max(0,edge-dt);
   if(state==='aim'){const was=Math.ceil(timer);timer-=dt;if(Math.ceil(timer)!==was&&timer<5&&timer>0)sfx('tick');if(timer<=0)fire()}
   else if(state==='think'){timer-=dt;const t=T[1],k=clamp(dt*6,0,1);t.ang+=Math.sign(botPlan.ang-t.ang)*Math.min(Math.abs(botPlan.ang-t.ang),Math.max(1,Math.round(60*dt)));t.pow+=Math.sign(botPlan.pow-t.pow)*Math.min(Math.abs(botPlan.pow-t.pow),Math.max(1,Math.round(60*dt)));if(timer<=0&&t.ang===botPlan.ang&&t.pow===botPlan.pow)fire()}
-  else if(state==='fly'){for(let n=0;n<4&&shell;n++){const s=shell,ev=fly(s,dt/4,wind);if(n===0&&s.y>=0)trail[s.by].push([s.x|0,s.y|0]);if(ev)landed(ev)}}
+  else if(state==='fly'){for(let n=0;n<4&&shell;n++){const s=shell,ev=fly(s,dt/4,wind);if(n===0&&s.y>=-400)trail[s.by].push([s.x|0,s.y|0]);if(ev)landed(ev)}}
   else if(state==='boom'){timer-=dt;if(timer<=0)afterBoom()}
 }
 /* ---------- drawing: a 320x200 screen ---------- */
-const cv=$('cv'),ctx=cv.getContext('2d');let img=null,px=null;
+const cv=$('cv'),ctx=cv.getContext('2d');let img=null,px=null,SKY=0,tall=false;
+function resize(){const W=Math.max(240,($('view').clientWidth||324)-4),base=W*FH/FW;let sky=0;tall=state!=='title';
+  if(tall){let used=22,n=0;for(const e of $('app').children)if(e.id!=='view'&&e.offsetHeight){used+=e.offsetHeight;n++}used+=n*6;const vh=Math.min(window.innerHeight||1e9,window.visualViewport?visualViewport.height:1e9);sky=Math.round((clamp(vh-used-10,base,W*1.5)-base)*FW/W)}
+  if(sky!==SKY){SKY=sky;cv.height=FH+SKY;img=null}}
 const TANK=[".....###.....","....#####....","..#########..",".###########.","#############","#.#.#.#.#.#.#",".###########."];
 function draw(){
-  if(!img){img=ctx.createImageData(FW,FH);px=new Uint32Array(img.data.buffer)}
+  const CH=FH+SKY;if(!img){img=ctx.createImageData(FW,CH);px=new Uint32Array(img.data.buffer)}
   const c=HUES[hueI],P=(r,g,b)=>(255<<24)|(b<<16)|(g<<8)|r,BK=P(0,0,0),FGc=P(c[0],c[1],c[2]),DIM=P(c[0]*.45|0,c[1]*.45|0,c[2]*.45|0),TREE=P(143,217,160),CY=P(85,255,255),RD=P(255,90,90),WH=P(255,255,255),YL=P(255,230,80),OR=P(255,150,60);
-  const set=(x,y,v)=>{x|=0;y|=0;if(x>=0&&x<FW&&y>=0&&y<FH)px[y*FW+x]=v};
-  for(let y=0;y<FH;y++)for(let x=0;x<FW;x++){const s=sol[y*FW+x];px[y*FW+x]=s===2?TREE:s===1?((y===0||!sol[(y-1)*FW+x]||(y>1&&!sol[(y-2)*FW+x]))?FGc:((x+y)&1?DIM:BK)):BK}
+  const set=(x,y,v)=>{x|=0;y=(y|0)+SKY;if(x>=0&&x<FW&&y>=0&&y<CH)px[y*FW+x]=v},top=(x,y,v)=>{x|=0;y|=0;if(x>=0&&x<FW&&y>=0&&y<CH)px[y*FW+x]=v};if(SKY)px.fill(BK,0,SKY*FW);
+  for(let y=0;y<FH;y++)for(let x=0;x<FW;x++){const s=sol[y*FW+x];px[(y+SKY)*FW+x]=s===2?TREE:s===1?((y===0||!sol[(y-1)*FW+x]||(y>1&&!sol[(y-2)*FW+x]))?FGc:((x+y)&1?DIM:BK)):BK}
   if(state==='title'){for(let i=0;i<40;i++)set((i*73)%FW,(i*37)%90,WH)}
-  for(const cl of clouds)for(let dy=-3;dy<=3;dy++){const w=cl.w*Math.sqrt(1-dy*dy/12);for(let dx=-w;dx<=w;dx++)if(!sol[clamp(cl.y+dy|0,0,FH-1)*FW+clamp(cl.x+dx|0,0,FW-1)])set(cl.x+dx,cl.y+dy,(dy+Math.round(dx))&1||dy<0?WH:DIM)}
+  for(const cl of clouds)for(let dy=-3;dy<=3;dy++){const w=cl.w*Math.sqrt(1-dy*dy/12),cy=cl.y-(SKY*.6|0);for(let dx=-w;dx<=w;dx++)if(cy+dy<0||!sol[clamp(cy+dy|0,0,FH-1)*FW+clamp(cl.x+dx|0,0,FW-1)])set(cl.x+dx,cy+dy,(dy+Math.round(dx))&1||dy<0?WH:DIM)}
   /* last shot of whoever is aiming */
   if(state==='aim'||state==='think'){const tr=trail[cur];for(let i=0;i<tr.length;i+=5)set(tr[i][0],tr[i][1],cur?RD:CY);const m=mark[cur];if(m)for(let k=-2;k<=2;k++){set(m[0]+k,m[1]+k,YL);set(m[0]+k,m[1]-k,YL)}}
   T.forEach((t,i)=>{if(!t)return;const col=i?RD:CY;if(t.hp<=0)return;
     TANK.forEach((r,j)=>{for(let k=0;k<13;k++)if(r[k]==='#')set(t.x-6+k,t.y-6+j,col)});
     const a=t.ang*Math.PI/180;for(let k=0;k<=9;k++)set(t.x+t.dir*Math.cos(a)*k,t.y-6-Math.sin(a)*k,col);
     if((state==='aim'||state==='think')&&i===cur&&Math.floor(performance.now()/300)%2){for(let k=-2;k<=2;k++)set(t.x+k,t.y-22+Math.abs(k),YL);set(t.x,t.y-19,YL)}});
-  if(shell){const s=shell;if(s.y>=0){set(s.x,s.y,WH);set(s.x+1,s.y,WH);set(s.x,s.y+1,WH);set(s.x+1,s.y+1,WH)}else{for(let k=-2;k<=2;k++)set(s.x+k,1+Math.abs(k),YL)}
+  if(shell){const s=shell;if(s.y>=-SKY){set(s.x,s.y,WH);set(s.x+1,s.y,WH);set(s.x,s.y+1,WH);set(s.x+1,s.y+1,WH)}else{for(let k=-2;k<=2;k++)top(s.x+k,1+Math.abs(k),YL)}
     const tr=trail[s.by];for(let i=Math.max(0,tr.length-24);i<tr.length;i+=3)set(tr[i][0],tr[i][1],DIM)}
   for(const b of booms){const R=(b.big?26:13)*Math.min(1,b.t/(b.big?.5:.25)),n=b.big?40:22;for(let i=0;i<n;i++){const a=i*6.283/n+b.t*3,r=R*(i%3?1:.6);set(b.x+Math.cos(a)*r,b.y+Math.sin(a)*r,i%2?YL:OR);if(b.big)set(b.x+Math.cos(a)*r*.5,b.y+Math.sin(a)*r*.5,WH)}}
   /* top line: time bar, wind arrow */
-  if(state==='aim'){const w=Math.round(100*timer/RANKS[rank][1]),v=timer<5?RD:WH;for(let x=0;x<w;x++){set(4+x,3,v);set(4+x,4,v)}for(let x=0;x<=100;x+=25)set(4+x,6,DIM)}
-  if(state!=='title'){const L=Math.abs(wind)*2,d=Math.sign(wind),x0=FW/2-d*L/2;for(let k=0;k<=L;k++){set(x0+d*k,4,WH)}if(wind){for(let k=1;k<=3;k++){set(x0+d*L-d*k,4-k,WH);set(x0+d*L-d*k,4+k,WH)}}else{set(FW/2,3,WH);set(FW/2,5,WH)}}
-  if(edge>0&&Math.floor(edge*16)%2)for(let y=0;y<FH;y++){set(0,y,YL);set(1,y,YL);set(FW-1,y,YL);set(FW-2,y,YL)}
+  if(state==='aim'){const w=Math.round(100*timer/RANKS[rank][1]),v=timer<5?RD:WH;for(let x=0;x<w;x++){top(4+x,3,v);top(4+x,4,v)}for(let x=0;x<=100;x+=25)top(4+x,6,DIM)}
+  if(state!=='title'){const L=Math.abs(wind)*2,d=Math.sign(wind),x0=FW/2-d*L/2;for(let k=0;k<=L;k++){top(x0+d*k,4,WH)}if(wind){for(let k=1;k<=3;k++){top(x0+d*L-d*k,4-k,WH);top(x0+d*L-d*k,4+k,WH)}}else{top(FW/2,3,WH);top(FW/2,5,WH)}}
+  if(edge>0&&Math.floor(edge*16)%2)for(let y=0;y<CH;y++){top(0,y,YL);top(1,y,YL);top(FW-1,y,YL);top(FW-2,y,YL)}
   ctx.putImageData(img,0,0);
 }
 let raf=0,lastT=0,stN=0;
@@ -325,6 +331,7 @@ let padKey='',quitT=0;
 $('quit').onclick=()=>{wake();if(Date.now()<quitT){quitT=0;state='title';shell=null;booms=[];padKey='';genField();show([['LONGSHOT','big'],['Two guns, one ridge, and the wind.']]);sfx('sel');render()}else{quitT=Date.now()+3000;$('quit').textContent='SURE? TAP AGAIN';setTimeout(()=>{if(Date.now()>=quitT)$('quit').textContent='RESTART MATCH'},3100)}};
 function ui(){
   $('quit').hidden=state==='title'||state==='matchEnd';if(Date.now()>=quitT)$('quit').textContent='RESTART MATCH';
+  {const play=state!=='title';$('help').hidden=play;$('how').hidden=play;if(tall!==play){resize();draw();if(play)scrollTo(0,0)}}
   const key=state==='aim'?'aim':state==='title'?'title'+players+rank:state;if(key===padKey)return;padKey=key;
   const pad=$('pad');pad.textContent='';pad.className='';
   const btn=(t,f,hot,span,rep)=>{const e=document.createElement('button');e.type='button';e.textContent=t;if(hot)e.className='hot';if(span)e.classList.add('s'+span);if(!f)e.disabled=true;else if(rep){let iv=0,to=0;const stop=()=>{clearTimeout(to);clearInterval(iv)};
@@ -339,6 +346,7 @@ function ui(){
   if(state==='matchEnd'){btn('NEW MATCH',()=>{state='title';show([['LONGSHOT','big'],['Two guns, one ridge, and the wind.']]);render()},true,3);return}
   btn(state==='think'?'COMPUTER IS AIMING':'SHELL AWAY',null,false,3);
 }
+{let rz=0;const again=()=>{clearTimeout(rz);rz=setTimeout(()=>{resize();draw()},120)};addEventListener('resize',again);if(window.visualViewport)visualViewport.addEventListener('resize',again)}
 addEventListener('keydown',e=>{
   if(e.metaKey||e.ctrlKey||e.altKey)return;const k=e.key;
   if(state==='aim'){const t=T[cur],d=e.shiftKey?5:1;let used=true;if(k==='ArrowLeft')t.ang=clamp(t.ang+(t.dir>0?d:-d),0,90);else if(k==='ArrowRight')t.ang=clamp(t.ang-(t.dir>0?d:-d),0,90);else if(k==='ArrowUp')t.pow=clamp(t.pow+d,1,99);else if(k==='ArrowDown')t.pow=clamp(t.pow-d,1,99);else if(k===' '||k==='Enter')fire();else used=false;if(used){e.preventDefault();wake();drawStatus()}return}
