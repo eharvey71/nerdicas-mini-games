@@ -41,6 +41,12 @@ button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-of
 #stat span.bad{color:#ff9a9a;animation:pulse 1.1s ease-in-out infinite}
 #stat span.gold{color:#ffdc6b;animation:pulse 1.1s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.5}}
+#fuel{position:absolute;left:8px;right:8px;top:8px;display:flex;align-items:center;gap:8px;pointer-events:none;font-size:12px;font-weight:700;letter-spacing:.08em;line-height:1}
+#fuel .tk{flex:1;height:12px;border:2px solid var(--fg);background:#000;position:relative}
+#fuel .tk i{position:absolute;left:0;top:0;bottom:0;background:var(--fg);display:block}
+#fuel .tk:after{content:"";position:absolute;left:20%;top:0;bottom:0;border-left:2px solid #000;mix-blend-mode:difference}
+#fuel.low{color:#ffdc6b}#fuel.low .tk{border-color:#ffdc6b}#fuel.low .tk i{background:#ffdc6b;animation:pulse 1.1s ease-in-out infinite}
+#fuel.out{color:#ff9a9a}#fuel.out .tk{border-color:#ff9a9a}
 #alert{position:absolute;left:0;right:0;bottom:55%;text-align:center;pointer-events:none;font-weight:700;font-size:21px;letter-spacing:.12em;line-height:1.4;text-shadow:0 0 5px #000,0 0 2px #000}
 #alert .bad{color:#ff9a9a;animation:pulse 1.1s ease-in-out infinite}
 #alert .gold{color:#ffdc6b;animation:pulse 1.1s ease-in-out infinite}
@@ -70,7 +76,7 @@ button:focus-visible,.mini:focus-visible{outline:2px dashed var(--fg);outline-of
 <body>
 <div id="app">
   <header><a class="mini" href="/" aria-label="Back to the games list">&#9664; GAMES</a><h1>REGOLITH</h1><button class="mini" id="hue" type="button">TONE</button><button class="mini" id="snd" type="button">SOUND LOW</button></header>
-  <div id="view"><canvas id="cv" width="280" height="192"></canvas><div id="alert"></div><div id="msg"></div></div>
+  <div id="view"><canvas id="cv" width="280" height="192"></canvas><div id="fuel" hidden><span>FUEL</span><span class="tk"><i id="fbar"></i></span><span id="fnum">100</span></div><div id="alert"></div><div id="msg"></div></div>
   <div id="stat"></div>
   <div id="pad">
     <button type="button" id="bl">&#9664; ROTATE</button>
@@ -302,6 +308,7 @@ function hud(){
     if(alt<60){if(S.vy>SAFE_VY)a.push(['FALL TOO FAST','bad']);if(Math.abs(S.vx)>SAFE_VX)a.push(['DRIFT TOO FAST','bad']);if(Math.abs(S.a)>SAFE_A)a.push(['TILT TOO FAR','bad']);
       if(!pads.some(p=>S.x-3.5>=p.x0-2.5&&S.x+3.5<=p.x1+2.5))a.push(['NO PAD BELOW','bad']);
       if(!a.some(x=>x[1]==='bad'))a.push(['OK TO LAND','good'])}}
+  const fu=$('fuel'),fv=Math.ceil(S.fuel);fu.hidden=S.mode==='title';if(fu.dataset.v!==String(fv)){fu.dataset.v=fv;$('fbar').style.width=clamp(S.fuel,0,100)+'%';$('fnum').textContent=fv;fu.className=fv<=0?'out':fv<20?'low':''}
   const al=$('alert'),k=a.map(x=>x[0]).join('|');if(al.dataset.k!==k){al.dataset.k=k;al.textContent='';for(const [t,c] of a){const e=document.createElement('div');e.textContent=t;e.className=c;al.appendChild(e)}}
 }
 function show(lines){
