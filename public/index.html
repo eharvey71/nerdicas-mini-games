@@ -248,7 +248,31 @@ const GAMES=[
      /* storm cloud and rain */
      g.ink(1);for(let i=0;i<3;i++){const x=20+i*70+(s*5)%30,y=20+i*9;L(x,y,x+26,y);L(x+6,y-4,x+20,y-4)}
      if(s)for(let i=0;i<16;i++){const x=(i*41+s*50)%280,y=(i*29+s*130)%110;L(x,y,x-2,y+6)}
-   }}
+   }},
+  {slug:'lastwatch',title:'LASTWATCH',wip:true,
+   blurb:'Four soldiers, a random map and hostiles you cannot see yet. Move from cover to cover, set overwatch, and get the job done: fetch a core, sweep the map, disarm a device or hold the landing zone.',
+   tags:'SQUAD TACTICS · 1 PLAYER · TAP OR CLICK',
+   art:(g,s)=>{
+     const L=(a,b,c,d)=>g.line(a,b,c,d),P=(u,v)=>[140+(u-v)*20,38+(u+v)*10];
+     const seg=(a,b)=>L(a[0],a[1],b[0],b[1]);
+     /* the board */
+     for(let i=0;i<=7;i++){seg(P(i,0),P(i,7));seg(P(0,i),P(7,i))}
+     /* walls and a crate */
+     const cube=(u,v,h)=>{const a=P(u,v),b=P(u+1,v),c=P(u+1,v+1),d=P(u,v+1),up=p=>[p[0],p[1]-h];
+       seg(d,c);seg(c,b);seg(d,up(d));seg(c,up(c));seg(b,up(b));seg(up(a),up(b));seg(up(b),up(c));seg(up(c),up(d));seg(up(d),up(a))};
+     cube(2,1,16);cube(3,1,16);cube(4,4,16);cube(1,4,6);cube(5,2,6);
+     /* a token: a ring on a stem */
+     const tok=(u,v,sq)=>{const p=P(u+.5,v+.5),x=p[0],y=p[1]-12,r=6;L(x,p[1],x,y+r);
+       if(sq){L(x,y-r,x+r,y+r);L(x+r,y+r,x-r,y+r);L(x-r,y+r,x,y-r)}
+       else for(let k=0;k<8;k++){const a=k*Math.PI/4,b=(k+1)*Math.PI/4;L(x+Math.cos(a)*r,y+Math.sin(a)*r,x+Math.cos(b)*r,y+Math.sin(b)*r)}
+       return [x,y]};
+     const step=s?Math.floor(s*1.2)%4:0;
+     g.ink(8);const a=tok(1+(step>0?1:0),5,0);tok(3,6,0);tok(5,5,0);
+     g.ink(3);const h=tok(4,2,1);tok(6,1,1);
+     /* the selected soldier's box, and a shot when the picture moves */
+     g.ink(7);{const u=1+(step>0?1:0),q=[P(u,5),P(u+1,5),P(u+1,6),P(u,6)];for(let k=0;k<4;k++){seg(q[k],q[(k+1)%4]);L(q[k][0],q[k][1],q[k][0],q[k][1]-20);seg([q[k][0],q[k][1]-20],[q[(k+1)%4][0],q[(k+1)%4][1]-20])}}
+     if(s&&step>=2){g.ink(2);L(a[0],a[1],h[0],h[1])}
+   }},
 ];
 const HUES=[[51,255,102],[255,176,0],[255,255,255]];
 let hue=0;try{const tv=localStorage.getItem('nmg.tone');hue=(+(tv!==null?tv:localStorage.getItem('hollowdeep.hue'))||0)%HUES.length}catch(e){}
