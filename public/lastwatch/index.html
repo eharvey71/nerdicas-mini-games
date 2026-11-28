@@ -90,7 +90,7 @@ canvas{touch-action:none}
   <details id="help">
     <summary>HELP</summary>
   <ul id="quick">
-    <li>MISSION on the title screen picks the job: FETCH, SWEEP, BOMB, HOLD, or RANDOM. The line under the map says what to do.</li>
+    <li>MISSION on the title screen picks the job: FETCH, SWEEP, BOMB, HOLD, RANDOM, or CAMPAIGN (five in a row with the same squad). The line under the map says what to do.</li>
     <li>FETCH: carry the gold core from the wreck back to the landing zone at the bottom, then press EVAC.</li>
     <li>Each soldier has two actions a turn. Blue squares cost one, yellow squares cost both.</li>
     <li>Tap a hostile to aim. The number is the chance to hit. Firing ends that soldier's turn.</li>
@@ -110,6 +110,15 @@ canvas{touch-action:none}
       <li>HOLD: stay in the landing zone until the turns run out. The groups on the map come at you one after another, and drops land near the zone. If no soldier is in the zone at the end of a hostile turn, the mission fails.</li>
       <li>RANDOM picks one of the four when you start.</li>
       <li>Every mission has a turn limit, shown as TURN in the status line. In HOLD the limit is how long you must last.</li>
+    </ul>
+    <h2>CAMPAIGN</h2>
+    <ul>
+      <li>Five missions in a row: one of each kind in a random order, then one more.</li>
+      <li>Soldiers who come home keep their wounds, get 2 health back before the next mission, and gain a stripe after each win. A stripe is 3 aim, up to three stripes.</li>
+      <li>Soldiers who are killed or left behind are replaced by new ones at full health with no stripes.</li>
+      <li>A failed mission does not end the campaign. Whoever is still alive carries on, but nobody counts as home for that mission and nobody gains a stripe.</li>
+      <li>It gets harder as it goes: hostiles shoot a little better each mission. On ROOKIE, missions four and five also have one extra group.</li>
+      <li>The score is the total who came home, out of 20. The game is saved between missions.</li>
     </ul>
     <h2>TURNS AND ACTIONS</h2>
     <ul>
@@ -224,7 +233,11 @@ const OBJ={fetch:{n:'FETCH',lim:[18,16,14],go:t=>`Fetch the core from the wreck 
   sweep:{n:'SWEEP',lim:[18,17,16],go:t=>`Kill every hostile on the map by turn ${t}. Some are in the wreck.`,tip:'Find and kill every hostile on the map before the dropship leaves. Nothing to carry.',win:'AREA CLEARED'},
   bomb:{n:'BOMB',lim:[12,11,10],go:t=>`Reach the device in the wreck and DISARM it twice by turn ${t}. A soldier must stand next to it.`,tip:'A device is ticking in the wreck at the top. Stand a soldier next to it and DISARM it twice before it goes off.',win:'DEVICE DISARMED'},
   hold:{n:'HOLD',lim:[8,8,8],go:t=>`Hold the landing zone through turn ${t}. Keep at least one soldier inside it. They are coming to you.`,tip:'Hold the landing zone until the dropship returns. Hostiles come to you. Keep at least one soldier in the zone.',win:'ZONE HELD'}};
-const OBK=['fetch','sweep','bomb','hold'],OBN=['FETCH','SWEEP','BOMB','HOLD','RANDOM'];let objSel=0;
+const OBK=['fetch','sweep','bomb','hold'],OBN=['FETCH','SWEEP','BOMB','HOLD','RANDOM','CAMPAIGN'];let objSel=0;
+/* a campaign: five missions, the squad carries over. camp is null for a single mission */
+let camp=null;const CAMPN=5;
+function newCamp(){const nm=shuf(NAMES.slice());camp={rank,n:0,seq:shuf(OBK.slice()).concat(OBK[ri(4)]),squad:['rifle','scout','sniper','medic'].map((k,i)=>({k,name:nm[i],hp:0,xp:0})),pool:nm.slice(4),total:0,won:0,lostNames:[]};saveCamp()}
+function saveCamp(){if(FAST)return;try{if(camp)localStorage.setItem('lastwatch.camp',JSON.stringify(camp));else localStorage.removeItem('lastwatch.camp')}catch(e){}}
 const OB=()=>S.obj||'fetch',LIM=()=>S.limit||RANKS[S.rank].turns;
 const NAMES=['VEGA','OKORO','LIND','MORROW','HALE','IBARRA','TANAKA','BRANDT','SOLEN','KEANE','ADEYEMI','RUIZ','QUILL','DRAKE'];
 const ix=(x,y)=>y*CW+x,inb=(x,y)=>x>=0&&y>=0&&x<CW&&y<CH;
@@ -249,7 +262,7 @@ function coverOf(tx,ty,sx,sy){let best=0;for(const [dx,dy] of D4){const x=tx+dx,
     if((dx&&Math.sign(sx-tx)===dx)||(dy&&Math.sign(sy-ty)===dy))best=Math.max(best,m===WALL?2:1)}return best}
 function odds(sh,tg,o){o=o||{};const c=K(sh),x=o.x===undefined?sh.x:o.x,y=o.y===undefined?sh.y:o.y,d=hyp(tg.x-x,tg.y-y);
   if(c.melee)return {p:85,parts:[['CLAWS',85]],open:false};
-  const parts=[['AIM',c.aim+(sh.side?RANKS[S.rank].aim:0)]];
+  const parts=[['AIM',c.aim+(sh.side?RANKS[S.rank].aim+(S.esc||0):0)]];if(!sh.side&&sh.xp)parts.push(['VETERAN',sh.xp*3]);
   if(c.fall&&d>c.far)parts.push(['RANGE',-Math.round((d-c.far)*c.fall)]);
   if(c.near&&d<c.near)parts.push(['TOO CLOSE',-20]);
   if(c.pb&&d<=2.3)parts.push(['POINT BLANK',c.pb]);
@@ -273,7 +286,7 @@ function route(pv,i){const w=[];while(pv[i]>=0){w.unshift(i);i=pv[i]}return w}
 /* ---------- a new mission ---------- */
 function gen(){
   for(let tries=0;tries<400;tries++){
-    const m=new Array(N).fill(FLOOR),x0=rnd(1,CW-6),R=RANKS[rank],obj=OBK[objSel<4?objSel:ri(4)];
+    const m=new Array(N).fill(FLOOR),x0=rnd(1,CW-6),R=RANKS[rank],obj=camp?camp.seq[camp.n]:OBK[objSel<4?objSel:ri(4)],late=camp&&camp.n>=3&&!rank;
     for(let x=x0;x<x0+5;x++)for(let y=0;y<4;y++)if(x===x0||x===x0+4||y===0||y===3)m[ix(x,y)]=WALL;
     for(const g of shuf([[x0+1,3],[x0+2,3],[x0+3,3],[x0,1],[x0,2],[x0+4,1],[x0+4,2]]).slice(0,rnd(2,3)))m[ix(g[0],g[1])]=FLOOR;
     for(let k=rnd(4,6);k>0;k--){const x=ri(CW),y=rnd(5,LZY-3),h=ri(2),len=rnd(2,3);for(let i=0;i<len;i++){const a=x+(h?i:0),b=y+(h?0:i);if(inb(a,b)&&b>=5&&b<=LZY-2)m[ix(a,b)]=WALL}}
@@ -282,13 +295,13 @@ function gen(){
     /* the wreck must be reachable on foot from the landing zone */
     const seen=new Uint8Array(N),q=[ix(5,LZY)];seen[q[0]]=1;while(q.length){const c=q.pop();for(const [dx,dy] of D4){const x=c%CW+dx,y=((c/CW)|0)+dy;if(inb(x,y)&&!seen[ix(x,y)]&&m[ix(x,y)]===FLOOR){seen[ix(x,y)]=1;q.push(ix(x,y))}}}
     if(!seen[ix(core.x,core.y)])continue;
-    S={rank,obj,limit:OBJ[obj].lim[rank],arm:0,turn:1,map:m,seen:new Array(N).fill(0),units:[],core,drops:[],hot:obj==='hold',dropC:obj==='hold'?2:0,over:null,home:0,kills:0};
+    S={rank,obj,ci:camp?camp.n+1:0,esc:camp?camp.n*(rank?1:2):0,limit:OBJ[obj].lim[rank],arm:0,turn:1,map:m,seen:new Array(N).fill(0),units:[],core,drops:[],hot:obj==='hold',dropC:obj==='hold'?2:0,over:null,home:0,kills:0};
     const add=(side,k,x,y,pod)=>{const c=side?AL[k]:CLS[k],h=c.hp+(side?0:R.hp||0);S.units.push({id:S.units.length,side,k,name:'',x,y,hp:h,mhp:h,ap:2,ow:false,hunk:false,moved:false,gren:1,kits:c.kits||0,pod,awake:false,spot:false,dead:false})};
-    const names=shuf(NAMES.slice());['rifle','scout','sniper','medic'].forEach((k,i)=>{add(0,k,2+i*2,LZY,-1);S.units[i].name=names[i]});
+    const names=shuf(NAMES.slice());['rifle','scout','sniper','medic'].forEach((k,i)=>{add(0,k,2+i*2,LZY,-1);const u=S.units[i],q=camp&&camp.squad[i];u.name=q?q.name:names[i];u.xp=q?q.xp:0;if(q&&q.hp>0)u.hp=Math.min(u.mhp,q.hp)});
     const free=(x,y)=>inb(x,y)&&m[ix(x,y)]===FLOOR&&!at(x,y)&&seen[ix(x,y)];
     const startSees=(x,y)=>S.units.some(s=>!s.side&&los(s.x,s.y,x,y));
     let ok=true;const cs=[];
-    R.pods.forEach((n,pi)=>{let c=null;for(let t=0;t<80&&!c;t++){const x=ri(CW),y=rnd(4,LZY-4);if(free(x,y)&&!startSees(x,y)&&cs.every(o=>hyp(o[0]-x,o[1]-y)>=3.5))c=[x,y]}
+    (late?R.pods.concat([2]):R.pods).forEach((n,pi)=>{let c=null;for(let t=0;t<80&&!c;t++){const x=ri(CW),y=rnd(4,LZY-4);if(free(x,y)&&!startSees(x,y)&&cs.every(o=>hyp(o[0]-x,o[1]-y)>=3.5))c=[x,y]}
       if(!c){ok=false;return}cs.push(c);const kinds=['trooper'];for(let i=1;i<n;i++)kinds.push(!R.soft&&(i===2||Math.random()<.2)?'brute':Math.random()<.5?'drone':'trooper');
       kinds.forEach((k,i)=>{if(!i){add(1,k,c[0],c[1],pi);return}const sp=shuf(D8.slice()).map(d=>[c[0]+d[0],c[1]+d[1]]).find(p=>free(p[0],p[1])&&!startSees(p[0],p[1]));if(sp)add(1,k,sp[0],sp[1],pi)})});
     if(!ok)continue;
@@ -298,7 +311,7 @@ function gen(){
     return}
   throw new Error('no map')}
 function newMission(){gen();mode='play';sel=0;pick=null;tgt=-1;gren=false;undoS=null;fx=[];lines=[];logN=-1;look();rot=0;lookAt(5,LZY-3);
-  say('Mission: '+OBJ[S.obj].n+'. '+OBJ[S.obj].go(S.limit),'gold');show(null);sfx('turn');refresh();save()}
+  say((S.ci?`Campaign mission ${S.ci} of ${CAMPN}: `:'Mission: ')+OBJ[S.obj].n+'. '+OBJ[S.obj].go(S.limit),'gold');show(null);sfx('turn');refresh();save()}
 
 /* ---------- things that happen ---------- */
 function wakePod(a,why){if(a.awake)return false;for(const o of S.units)if(o.side&&o.pod===a.pod)o.awake=true;if(why)say(why,'bad');return true}
@@ -375,10 +388,22 @@ async function alienTurn(){undoS=null;pick=null;tgt=-1;gren=false;say('Hostiles 
   const fresh=look();say(`Turn ${S.turn} of ${LIM()}.`,'gold');sfx('turn');if(fresh.length)await contact(fresh);
   const f=live(0)[0];if(f){sel=f.id;focus(f.x,f.y)}}
 function end(kind){const o=OB(),key='lastwatch.best'+(o==='fetch'?'':o)+S.rank;S.over=kind;undoS=null;pick=null;tgt=-1;gren=false;let b=0;try{b=+localStorage.getItem(key)||0}catch(e){}
-  if(kind==='won'){S.home=o==='fetch'?live(0).filter(u=>u.y>=LZY).length:live(0).length;if(S.home>b){b=S.home;try{localStorage.setItem(key,b)}catch(e){}}sfx('win');
-    say(`${OBJ[o].win}. ${S.home} of 4 came home.`,'gold');show([[OBJ[o].win,'big'],[`${S.home} of 4 came home, turn ${Math.min(S.turn,LIM())}. ${S.kills} hostiles down.`],[`Best ${OBJ[o].n} on ${RANKS[S.rank].n}: ${b} home.`]])}
-  else{sfx('lose');const why=kind==='zone'?'Nobody was left in the landing zone. The dropship turned back.':kind==='late'?(o==='bomb'?'The device went off.':'The dropship could not wait any longer.'):'The whole squad is down.';say('Mission failed. '+why,'bad');show([['MISSION FAILED','big'],[why],[b?`Best ${OBJ[o].n} on ${RANKS[S.rank].n}: ${b} home.`:'']])}
-  try{localStorage.removeItem('lastwatch.save')}catch(e){}}
+  const won=kind==='won',back=live(0).filter(u=>!won||o!=='fetch'||u.y>=LZY);S.home=won?back.length:0;
+  const why=won?'':kind==='zone'?'Nobody was left in the landing zone. The dropship turned back.':kind==='late'?(o==='bomb'?'The device went off.':'The dropship could not wait any longer.'):'The whole squad is down.';
+  if(won&&!S.ci&&S.home>b){b=S.home;try{localStorage.setItem(key,b)}catch(e){}}
+  sfx(won?'win':'lose');say(won?`${OBJ[o].win}. ${S.home} of 4 came home.`:'Mission failed. '+why,won?'gold':'bad');
+  const rows=[[won?OBJ[o].win:'MISSION FAILED','big'],[won?`${S.home} of 4 came home, turn ${Math.min(S.turn,LIM())}. ${S.kills} hostiles down.`:why]];
+  if(S.ci&&camp){
+    /* survivors rest and gain a stripe; the lost are replaced */
+    const lost=[];camp.squad.forEach((q,i)=>{const u=S.units[i];if(back.includes(u)){q.hp=Math.min(u.mhp,u.hp+2);q.xp=Math.min(3,q.xp+(won?1:0))}else{lost.push(q.name);q.name=camp.pool.shift()||('R'+(10+ri(89)));q.hp=0;q.xp=0}});
+    camp.total+=S.home;if(won)camp.won++;camp.n++;S.campDone=camp.n>=CAMPN;
+    rows.push([lost.length?`Lost: ${lost.join(', ')}. Replacements join.`:'Nobody lost.']);
+    if(S.campDone){let cb=0;try{cb=+localStorage.getItem('lastwatch.campbest'+S.rank)||0}catch(e){}if(camp.total>cb){cb=camp.total;try{localStorage.setItem('lastwatch.campbest'+S.rank,cb)}catch(e){}}
+      rows.push([`CAMPAIGN OVER: won ${camp.won} of ${CAMPN}, ${camp.total} of ${CAMPN*4} came home.`,'gold']);rows.push([`Best campaign on ${RANKS[S.rank].n}: ${cb} home.`]);S.campSum=[camp.won,camp.total];camp=null}
+    else rows.push([`Campaign: ${camp.n} of ${CAMPN} done, ${camp.total} home so far. Survivors rest: +2 health`+(won?', +3 aim.':'.')]);
+    saveCamp()}
+  else rows.push([b?`Best ${OBJ[o].n} on ${RANKS[S.rank].n}: ${b} home.`:'']);
+  show(rows);try{localStorage.removeItem('lastwatch.save')}catch(e){}}
 const nearDevice=u=>OB()==='bomb'&&Math.max(Math.abs(u.x-S.core.x),Math.abs(u.y-S.core.y))<=1;
 async function doDisarm(u){undoS=null;u.ap=0;S.arm++;sfx('get');float(u,S.arm+'/2',GOLDC);
   if(S.arm>=2){say(`${u.name} disarms the device.`,'gold');end('won');return}
@@ -529,20 +554,20 @@ function drawIso(now,tone){
 function show(rows){const m=$('msg');if(!rows){m.style.display='none';return}m.textContent='';for(const [t,c] of rows){if(!t)continue;const e=document.createElement('div');e.textContent=t;if(c)e.className=c;m.appendChild(e)}m.style.display='block'}
 const mk=(tag,cls,txt)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(txt!==undefined)e.textContent=txt;return e};
 function drawStatus(){const st=$('stat');st.textContent='';
-  if(mode!=='play'){const o=OBK[objSel];let b=0;try{b=o?+localStorage.getItem('lastwatch.best'+(o==='fetch'?'':o)+rank)||0:0}catch(e){}const g=mk('div','goal');g.appendChild(mk('span','',RANKS[rank].n+(o?`: ${OBJ[o].lim[rank]} TURNS`:'')));g.appendChild(mk('span','gold',!o?'A MISSION PICKED FOR YOU':b?`BEST ${b} OF 4 HOME`:'NO WIN YET'));st.appendChild(g);return}
-  const g=mk('div','goal'),left=LIM()-S.turn,ob=OB();g.appendChild(mk('span',left<3&&ob!=='hold'?'bad':'',`TURN ${S.turn}/${LIM()}`));
+  if(mode!=='play'){const o=OBK[objSel],cp=objSel===5;let b=0;try{b=cp?+localStorage.getItem('lastwatch.campbest'+rank)||0:o?+localStorage.getItem('lastwatch.best'+(o==='fetch'?'':o)+rank)||0:0}catch(e){}const g=mk('div','goal');g.appendChild(mk('span','',RANKS[rank].n+(cp?': 5 MISSIONS':o?`: ${OBJ[o].lim[rank]} TURNS`:'')));g.appendChild(mk('span','gold',cp?(b?`BEST ${b} OF 20 HOME`:'NOT FINISHED YET'):!o?'A MISSION PICKED FOR YOU':b?`BEST ${b} OF 4 HOME`:'NO WIN YET'));st.appendChild(g);return}
+  const g=mk('div','goal'),left=LIM()-S.turn,ob=OB();if(S.ci)g.appendChild(mk('span','',`M${S.ci}/${CAMPN}`));g.appendChild(mk('span',left<3&&ob!=='hold'?'bad':'',`TURN ${S.turn}/${LIM()}`));
   const cr=S.core.by>=0?S.units[S.core.by]:null;
   g.appendChild(mk('span','gold',ob==='sweep'?`HOSTILES LEFT ${live(1).length}`:ob==='bomb'?`DEVICE ${S.arm}/2 DISARMED`:ob==='hold'?'HOLD THE ZONE':cr?`CORE: ${cr.name}`+(cr.y>=LZY?' IS HOME':''):S.hot?'CORE: DROPPED':'CORE: IN THE WRECK'));
   const inv=live(1).filter(a=>vis[ix(a.x,a.y)]).length;g.appendChild(mk('span',inv?'bad':'',`IN VIEW ${inv}`));if(S.drops.length)g.appendChild(mk('span','bad','DROP COMING'));st.appendChild(g);
   const sq=mk('div','squad');
   for(const u of S.units)if(!u.side){const e=mk('div','sol'+(u.id===sel?' on':'')+(u.dead?' dead':'')+(!u.ap&&!u.dead?' spent':''));
-    e.appendChild(mk('b','',`${u.id+1} ${u.name}`));if(u.dead)e.appendChild(mk('span','bad',' KILLED'));else{e.appendChild(mk('span',u.hp<=2?'bad':'hp',` ${u.hp}/${u.mhp}`));e.appendChild(mk('span','',' '+'\u25cf'.repeat(u.ap)+'\u25cb'.repeat(2-u.ap)));
+    e.appendChild(mk('b','',`${u.id+1} ${u.name}`));if(u.xp)e.appendChild(mk('span','gold','\u203a'.repeat(u.xp)));if(u.dead)e.appendChild(mk('span','bad',' KILLED'));else{e.appendChild(mk('span',u.hp<=2?'bad':'hp',` ${u.hp}/${u.mhp}`));e.appendChild(mk('span','',' '+'\u25cf'.repeat(u.ap)+'\u25cb'.repeat(2-u.ap)));
       const f=(S.core.by===u.id?' CORE':'')+(u.ow?' WATCH':u.hunk?' DOWN':'');if(f)e.appendChild(mk('span','gold',f))}
     if(!u.dead)e.onclick=()=>{if(busy||S.over)return;wake();sel=u.id;pick=null;tgt=-1;gren=false;sfx('sel');focus(u.x,u.y);refresh()};sq.appendChild(e)}
   st.appendChild(sq)}
 function drawLog(){const lg=$('log');if(logN<0||logN>lines.length){lg.textContent='';logN=0}for(;logN<lines.length;logN++){const e=mk('div',lines[logN][1],lines[logN][0]);lg.appendChild(e)}lg.scrollTop=lg.scrollHeight}
 function drawHint(){const h=$('hint');let t='';
-  if(mode!=='play')t=OBK[objSel]?OBJ[OBK[objSel]].n+': '+OBJ[OBK[objSel]].tip:'RANDOM: one of the four missions is picked when you start. The log tells you which.';
+  if(mode!=='play')t=objSel===5?'CAMPAIGN: five missions in a row with one squad. Survivors keep their wounds and shoot better after each win. Score: how many come home, out of 20.':OBK[objSel]?OBJ[OBK[objSel]].n+': '+OBJ[OBK[objSel]].tip:'RANDOM: one of the four missions is picked when you start. The log tells you which.';
   else if(S.over)t='Mission over.';
   else if(busy)t='...';
   else{const u=me();
@@ -558,9 +583,10 @@ function drawHint(){const h=$('hint');let t='';
 function drawPad(){const pad=$('pad');pad.textContent='';
   const btn=(t,f,hot,span)=>{const e=mk('button',hot?'hot':'',t);e.type='button';if(span)e.classList.add('s'+span);if(!f)e.disabled=true;else e.onclick=()=>{wake();e.blur();f()};pad.appendChild(e);return e};
   if(mode!=='play'){let sv=false;try{sv=!!localStorage.getItem('lastwatch.save')}catch(e){}
-    btn('RANK: '+RANKS[rank].n,()=>{rank=(rank+1)%3;try{localStorage.setItem('lastwatch.rank',rank)}catch(e){}sfx('sel');refresh()},false,2);btn('MISSION: '+OBN[objSel],()=>{objSel=(objSel+1)%5;try{localStorage.setItem('lastwatch.obj',objSel)}catch(e){}sfx('sel');refresh()},false,2);btn('START',()=>newMission(),true,2);
-    btn('CONTINUE',sv?()=>{try{S=JSON.parse(localStorage.getItem('lastwatch.save'));rank=S.rank;mode='play';lines=[];logN=-1;sel=(live(0)[0]||{id:0}).id;look();lookAt(S.units[sel].x,S.units[sel].y-2);say('Mission resumed.','gold');show(null);refresh()}catch(e){localStorage.removeItem('lastwatch.save');refresh()}}:null,false,2);return}
-  if(S.over){btn('NEW MISSION',()=>{mode='title';show([['LASTWATCH','big'],['Four soldiers, one wreck, and a way home.']]);refresh()},true,4);return}
+    btn('RANK: '+RANKS[rank].n,()=>{rank=(rank+1)%3;try{localStorage.setItem('lastwatch.rank',rank)}catch(e){}sfx('sel');refresh()},false,2);btn('MISSION: '+OBN[objSel],()=>{objSel=(objSel+1)%6;try{localStorage.setItem('lastwatch.obj',objSel)}catch(e){}sfx('sel');refresh()},false,2);btn('START',()=>{if(objSel===5)newCamp();else{camp=null;saveCamp()}newMission()},true,2);
+    let cs=null;try{cs=JSON.parse(localStorage.getItem('lastwatch.camp')||'null')}catch(e){}
+    btn(cs&&!sv?`CONTINUE M${cs.n+1}/${CAMPN}`:'CONTINUE',sv?()=>{try{S=JSON.parse(localStorage.getItem('lastwatch.save'));rank=S.rank;camp=S.ci?cs:null;mode='play';lines=[];logN=-1;sel=(live(0)[0]||{id:0}).id;look();lookAt(S.units[sel].x,S.units[sel].y-2);say('Mission resumed.','gold');show(null);refresh()}catch(e){localStorage.removeItem('lastwatch.save');refresh()}}:cs?()=>{camp=cs;rank=camp.rank;newMission()}:null,false,2);return}
+  if(S.over){if(S.ci&&camp&&!S.campDone)btn(`NEXT MISSION (${camp.n+1} OF ${CAMPN})`,()=>newMission(),true,4);else btn(S.ci?'BACK TO THE TITLE':'NEW MISSION',()=>{mode='title';show([['LASTWATCH','big'],['Four soldiers, one wreck, and a way home.']]);refresh()},true,4);return}
   const u=me(),can=u&&u.ap>0&&!busy,od=tgt>=0?cache.aims[tgt]:null,left=live(0).filter(s=>s.ap>0).length;
   btn(od?`FIRE ${od.p}%`:'FIRE',can&&od?()=>run(()=>doFire(u,S.units[tgt])):null,!!od);
   btn('OVERWATCH',can?()=>run(async()=>{undoS=null;u.ow=true;u.ap=0;sfx('watch');say(`${u.name} goes on overwatch.`,'')}):null);
@@ -595,7 +621,7 @@ $('bzoom').onclick=()=>{zoom=(zoom+1)%3;keep();refresh()};
 $('bturn').onclick=()=>{const w=RI(cam.u,cam.v);rot=(rot+1)%4;const q=R(w[0],w[1]);cam.u=q[0];cam.v=q[1];camT=null;refresh()};
 {let rz=0;const again=()=>{clearTimeout(rz);rz=setTimeout(fit,120)};addEventListener('resize',again);if(window.visualViewport)visualViewport.addEventListener('resize',again)}
 if(document.addEventListener)document.addEventListener('visibilitychange',()=>{if(document.hidden)hush()});
-try{const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:0)||0)%HUES.length;const v=localStorage.getItem('lastwatch.vol');if(v!==null)vol=clamp(+v||0,0,2);rank=clamp(+localStorage.getItem('lastwatch.rank')||0,0,2);objSel=clamp(+localStorage.getItem('lastwatch.obj')||0,0,4);const vz=(localStorage.getItem('lastwatch.view')||'1,1').split(',');view=+vz[0]?1:0;zoom=clamp(+vz[1]||0,0,2);tilt=vz[2]===undefined?1:clamp(+vz[2]||0,0,3)}catch(e){}
+try{const tv=localStorage.getItem('nmg.tone');hueI=(+(tv!==null?tv:0)||0)%HUES.length;const v=localStorage.getItem('lastwatch.vol');if(v!==null)vol=clamp(+v||0,0,2);rank=clamp(+localStorage.getItem('lastwatch.rank')||0,0,2);objSel=clamp(+localStorage.getItem('lastwatch.obj')||0,0,5);const vz=(localStorage.getItem('lastwatch.view')||'1,1').split(',');view=+vz[0]?1:0;zoom=clamp(+vz[1]||0,0,2);tilt=vz[2]===undefined?1:clamp(+vz[2]||0,0,3)}catch(e){}
 setTone();setSnd();show([['LASTWATCH','big'],['Four soldiers, one wreck, and a way home.']]);refresh();
 function loop(){draw();if(typeof requestAnimationFrame==='function')requestAnimationFrame(loop)}
 loop();
